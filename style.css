@@ -1,0 +1,422 @@
+@import url(https://fonts.googleapis.com/css?family=Coming+Soon|Courgette|Handlee|Indie+Flower|Kalam|Libre+Franklin|Amatic+SC|Bad+Script|Patrick+Hand+SC|Open+Sans|Caveat|Nothing+You+Could+Do|Reenie+Beanie|Yantramanav|Merriweather|Patua+One|Racing+Sans+One|Tinos);
+
+/* border: 1px solid red; */
+
+@-webkit-keyframes fade-in {
+	from {
+		opacity: 1;
+		left: 0px;
+	}
+	to {
+		opacity: -0.4;
+		left: 80px;
+	}
+}
+
+#animation {
+	text-align: center;
+	position: absolute;
+	width: 90%;
+	margin-left: 5%;
+	margin-right: 5%;
+    opacity: 1;
+	top: 200px;
+	font-size: 36px;
+	font-style: italic;
+	color: white;
+	text-shadow: 0px 2px 10px black;
+	height: 480px;
+	overflow: hidden;
+}
+
+.text-animated-one {
+	display: inline;
+	position: relative;
+	margin-left: 20px;
+	top: 60px;
+	-webkit-animation: fade-in 12s infinite;
+}
+
+.text-animated-two {
+	opacity: 0;
+	display: inline;
+	position: relative;
+	margin-left: -400px;
+	top: 200px;
+	-webkit-animation: fade-in 12s infinite;
+	-webkit-animation-delay: 4s;
+}
+
+.text-animated-three {
+	opacity: 0;
+	display: inline;
+	position: relative;
+	top: 340px;
+	margin-left: -1200px;
+	-webkit-animation: fade-in 12s infinite;
+	-webkit-animation-delay: 8s;
+}
+
+/* - - - head - - - */
+
+body {
+	margin: 0px;
+	background-attachment: fixed;
+	background-position: center;
+	background-repeat: no 0 repeat;
+	background-size: cover;
+	background-color: #EEEEEE;
+	height: 100% min-height: 100%;
+}
+
+
+/* - - - head - - - */
+
+.menu {
+	top: 0px;
+	font-family: Amatic SC;
+	width: 100%;
+	text-align: center;
+	height: 160px;
+	position: fixed;
+	z-index: 100;
+	box-shadow: 0px 2px 10px black;
+	background-color: #40A7FF;
+}
+
+.menu a {
+	float: left;
+	font-size: 36px;
+	color: black;
+	text-align: center;
+	padding: 14px 16px;
+	text-decoration: none;
+	font-weight: bold
+}
+
+#logo {
+	cursor: pointer;
+	position: absolute;
+	width: 266px;
+	height: 185px;
+	left: 16px;
+}
+
+#contactSubText {
+	font-family: Open Sans;
+	color: white;
+	font-size: 22px;
+	margin-top: 35px;
+	position: absolute;
+	left: 80%;
+	top: 0px;
+	text-align: right;
+}
+
+#buttons {
+	display: inline-block;
+	padding-top: 86px;
+}
+
+.dropdown {
+	float: left;
+	overflow: hidden;
+}
+
+.dropdown .dropbtn {
+	font-size: 36px;
+	border: none;
+	outline: none;
+	color: black;
+	padding: 14px 16px;
+	background-color: inherit;
+	font-family: Amatic SC;
+	font-weight: bold;
+}
+
+.menu a:hover, .dropdown:hover .dropbtn {
+	background-color: lightgray;
+	z-index: 100;
+	border: orange;
+	border-bottom-style: solid;
+}
+
+.dropdown-content {
+	display: none;
+	position: absolute;
+	background-color: #f9f9f9;
+	min-width: 160px;
+	box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+	z-index: 100;
+}
+
+.dropdown-content a {
+	float: none;
+	color: #232B2B;
+	padding: 12px 16px;
+	text-decoration: none;
+	display: block;
+	text-align: left;
+	font-size: 36px;
+}
+
+.dropdown-content a:hover {
+	background-color: lightgray;
+	border: none;
+}
+
+.dropdown:hover .dropdown-content {
+	display: block;
+}
+
+
+/* - - - body - - - */
+
+.main {
+	margin-top: 100px;
+	padding-top: 90px;
+	text-align: center;
+	background-image: url("https://www.toptal.com/designers/subtlepatterns/patterns/ep_naturalwhite.png");
+	overflow: hidden;
+}
+
+#banner {
+	height: 800px;
+  margin-top: -300px;
+	margin-bottom: 0px;
+  background: url("http://www.idadelivre.com.br/imagens/bg1.jpg");
+}
+
+.text {
+	font-family: Yantramanav;
+	font-size: 24px;
+	text-align: justify;
+	box-sizing: border-box;
+	background-color: none;
+	line-height: 34px;
+	margin-left: 36px;
+	color: #1B1B1B;
+	padding-bottom: 60px;
+}
+
+h2 {
+	font-family: Nothing You Could Do;
+	font-weight: bold;
+	background: url("http://2.bp.blogspot.com/-CD65ePIC_hc/UUT8ZcBOnvI/AAAAAAAABK8/g8zK8cMOABk/s1600/SB+brush+stroke+blue.png");
+	background-size: 180px 100%;
+	background-repeat: no-repeat;
+}
+
+
+h3 {
+	font-family: Nothing You Could Do;
+	font-weight: bold;
+	font-size: 40px;
+	padding-left: 32px;
+  margin-top: 60px;
+  margin-bottom:24px;
+}
+
+.text li {
+	list-style-type: none;
+	line-height: 52px;
+}
+
+
+/* - - - images - - - */
+
+.gallery {
+	width: 100%;
+	margin-bottom: 40px;
+}
+
+.display {
+	width: 380px;
+	height: 380px;
+	
+}
+
+#post1, #post2, #post3 {
+	background-size: cover;
+	
+
+}
+
+.gallery li {
+	font-family: Tinos;
+	position: relative;
+	overflow: hidden;
+	display: inline-block;
+	*display: inline;
+	/*IE7*/
+	*zoom: 1;
+	/*IE7*/
+	background: gray;
+	color: white;
+	margin:-2px;
+	
+	
+}
+
+.gallery li:hover .caption {
+	opacity: 1;
+	
+}
+
+.gallery img {
+	margin: 0px;
+	padding: 0px;
+	float: left;
+	z-index: 4;
+
+}
+
+.gallery .caption {
+	cursor: pointer;
+	position: absolute;
+	opacity: 0;
+	-webkit-transition: all 0.45s ease-in-out;
+	-moz-transition: all 0.45s ease-in-out;
+	-o-transition: all 0.45s ease-in-out;
+	-ms-transition: all 0.45s ease-in-out;
+	transition: all 0.45s ease-in-out;
+
+}
+
+.gallery .blur {
+	background-color: rgba(0, 0, 0, 0.7);
+	width: 380px;
+	height: 380px;
+	z-index: 5;
+	position: absolute;
+}
+
+.gallery .caption-text p {
+	font-family:Arial;
+	font-weight: normal;
+	z-index: 10;
+	color: #fff;
+	position: relative;
+	width: 380px;
+	height: 380px;
+	font-size: 16px;
+	padding-left: 22px;
+    width:330px;
+	text-align:justify;
+    top:10px;
+	}
+
+
+/* - - - footer - - - */
+
+.footer {
+	background-color: #212121;
+	text-align: center;
+	display: flex;
+	justify-content: center;
+
+
+	
+}
+
+.foot {
+	background-color: font-size: 16px;
+	display: block;
+	padding-left: 60px;
+	padding-right: 60px;
+	padding-top: 40px;
+	color: white;
+	font-family: Arial;
+	line-height: 20px;
+	text-align: left;
+		padding-bottom: 0px;
+}
+
+#weather {
+	color:black;
+	margin-top:-40px;
+}
+
+#currency {
+	color:black;
+	margin-top:-40px;
+}
+
+.social {
+	height: 40px;
+	width: 40px;
+	line-height: 60px;
+	margin: 2px;
+	cursor: pointer;
+}
+
+
+/* - - - responsive - - - */
+
+@media only screen and (max-width: 800px) {
+	.menu a, .dropdown .dropbtn {
+		font-size: 1.9em;
+	}
+}
+
+@media only screen and (max-width: 700px) {
+	.menu a, .dropdown .dropbtn {
+		font-size: 1.4em;
+	}
+}
+
+@media screen and (max-width: 1000px) {
+	#contactSubText {
+		display: none;
+	}
+}
+
+@media screen and (max-width: 800px) {
+	#headerSubText {
+		display: none;
+	}
+}
+
+@media screen and (max-width: 1200px) {
+	#logo {
+		width: 200px;
+		height: 140px;
+	}
+}
+
+@media screen and (max-width: 1100px) {
+	#logo {
+		width: 160px;
+		height: 110px;
+	}
+}
+
+@media screen and (max-width: 900px) {
+	.text>img {
+		display: none;
+	}
+}
+
+@media screen and (max-width: 1200px) {
+	.foot {
+		padding-left: 20px;
+		padding-right: 20px;
+		padding-top: 20px;
+		padding-bottom: 20px;
+	}
+}
+
+@media screen and (max-width: 1300px) {
+	#weather, #currency {
+		display: none;
+	}
+	.foot {
+			padding-left: 120px;
+	padding-right: 120px;
+	}
+}
+
+
+/*
+text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
+*/	

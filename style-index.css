@@ -133,12 +133,28 @@ body {
 	font-weight: bold;
 }
 
-.menu a:hover, .dropdown:hover .dropbtn{
+.menubtn:hover {
 	background-color: lightgray;
 	z-index: 100;
 	border: orange;
 	border-bottom-style: solid;
 }
+
+.dropdown:hover .dropbtn {
+background-color: lightgray;
+	z-index: 100;
+	border: orange;
+	border-bottom-style: solid;}
+	
+	.dropdown-content a:hover {
+	background-color: lightgray;
+	border: none;
+}
+
+.dropdown:hover .dropdown-content {
+	display: block;
+}
+	
 
 .dropdown-content {
 	display: none;
@@ -157,15 +173,6 @@ body {
 	display: block;
 	text-align: left;
 	font-size: 36px;
-}
-
-.dropdown-content a:hover {
-	background-color: lightgray;
-	border: none;
-}
-
-.dropdown:hover .dropdown-content{
-	display: block;
 }
 
 

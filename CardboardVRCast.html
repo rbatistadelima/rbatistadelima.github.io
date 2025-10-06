@@ -27,8 +27,12 @@
       border: none;
       width: 50%;
       height: 100%;
-      object-fit: cover; /* stretch/unstretch control */
-      transition: filter 0.3s, object-fit 0.3s;
+      object-fit: cover; /* stretch por padrão */
+      transition: object-fit 0.3s, filter 0.3s;
+    }
+
+    iframe.unstretched {
+      object-fit: contain; /* unstretch mantém proporção */
     }
 
     /* Overlay buttons */
@@ -97,24 +101,36 @@
   <div id="landscapeWarning">Por favor, gire o celular para landscape</div>
 
   <script>
-    let stretched = false;
+    let stretched = true;
     let cinematic = true;
     let roomId = null;
     let controlsTimeout;
 
-    // Função para carregar vídeos
     function loadIframes() {
-      const fit = stretched ? 'contain' : 'cover';
       const left = document.getElementById('left');
       const right = document.getElementById('right');
       const url = `https://vdo.ninja/?view=${roomId}&autostart&muted`;
+
       left.src = url;
       right.src = url;
-      left.style.objectFit = fit;
-      right.style.objectFit = fit;
+
+      if (stretched) {
+        left.classList.remove('unstretched');
+        right.classList.remove('unstretched');
+      } else {
+        left.classList.add('unstretched');
+        right.classList.add('unstretched');
+      }
+
+      if (cinematic) {
+        left.classList.add('cinematic');
+        right.classList.add('cinematic');
+      } else {
+        left.classList.remove('cinematic');
+        right.classList.remove('cinematic');
+      }
     }
 
-    // Fullscreen confiável
     function toggleFullscreen() {
       const el = document.documentElement;
       if (el.requestFullscreen) el.requestFullscreen();
@@ -123,41 +139,20 @@
       showControls();
     }
 
-    // Toggle stretch/unstretch
     function toggleStretch() {
       stretched = !stretched;
-      document.getElementById('stretchBtn').textContent = stretched ? 'Unstretch' : 'Stretch';
+      document.getElementById('stretchBtn').textContent = stretched ? 'Stretch' : 'Unstretch';
       loadIframes();
       showControls();
     }
 
-    // Toggle cinematic filter
     function toggleCinematic() {
       cinematic = !cinematic;
       document.getElementById('cinematicBtn').textContent = cinematic ? 'Lights Off' : 'Lights On';
-      const left = document.getElementById('left');
-      const right = document.getElementById('right');
-      if (cinematic) {
-        left.classList.add('cinematic');
-        right.classList.add('cinematic');
-      } else {
-        left.classList.remove('cinematic');
-        right.classList.remove('cinematic');
-      }
+      loadIframes();
       showControls();
     }
 
-    // Mostrar e esconder overlay
-    function showControls() {
-      const controls = document.getElementById('controls');
-      controls.style.opacity = 1;
-      clearTimeout(controlsTimeout);
-      controlsTimeout = setTimeout(() => {
-        controls.style.opacity = 0;
-      }, 3000);
-    }
-
-    // Landscape warning
     function checkOrientation() {
       const warning = document.getElementById('landscapeWarning');
       if (window.innerHeight > window.innerWidth) {
@@ -167,8 +162,12 @@
       }
     }
 
-    window.addEventListener('resize', checkOrientation);
-    window.addEventListener('orientationchange', checkOrientation);
+    function showControls() {
+      const controls = document.getElementById('controls');
+      controls.style.opacity = 1;
+      clearTimeout(controlsTimeout);
+      controlsTimeout = setTimeout(() => { controls.style.opacity = 0; }, 3000);
+    }
 
     // Botões
     document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
@@ -176,7 +175,10 @@
     document.getElementById('cinematicBtn').addEventListener('click', toggleCinematic);
     document.body.addEventListener('click', showControls);
 
-    // Room ID da URL
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+
+    // Room ID da URL ou prompt
     const params = new URLSearchParams(window.location.search);
     const roomFromURL = params.get('view');
     if (roomFromURL) {

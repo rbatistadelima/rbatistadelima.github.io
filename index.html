@@ -91,14 +91,6 @@
             font-size: 14px;
         }
 
-        .manual-mode {
-            background: #f6f8fa;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 20px 0;
-            font-size: 14px;
-        }
-
         @media (max-width: 600px) {
             body {
                 padding: 10px;
@@ -117,37 +109,9 @@
     </header>
 
     <main>
-        <div class="manual-mode">
-            <strong>Note:</strong> GitHub Pages doesn't allow automatic directory scanning. 
-            Please add your HTML files to the list below.
-        </div>
-        
         <ul class="file-list" id="fileList">
-            <!-- MANUAL LIST - Add your HTML files here -->
-            <li class="file-item">
-                <a href="index.html" class="file-link">
-                    <span class="file-icon">📄</span>
-                    Index Page
-                </a>
-            </li>
-            <!-- Add more files as needed -->
-            <!--
-            <li class="file-item">
-                <a href="project1.html" class="file-link">
-                    <span class="file-icon">📄</span>
-                    Project 1
-                </a>
-            </li>
-            <li class="file-item">
-                <a href="project2.html" class="file-link">
-                    <span class="file-icon">📄</span>
-                    Project 2
-                </a>
-            </li>
-            -->
+            <li class="no-files">Loading files...</li>
         </ul>
-
-        <div id="autoList"></div>
     </main>
 
     <footer>
@@ -155,65 +119,47 @@
     </footer>
 
     <script>
-        // Method 1: Try to auto-discover common HTML files
-        const commonFiles = [
-            'about.html', 'contact.html', 'projects.html', 
-            'portfolio.html', 'resume.html', 'blog.html',
-            'demo.html', 'example.html', 'test.html'
-        ];
-
-        // Method 2: Known files in your repository (update this list)
-        const knownFiles = [
-            // Add your actual HTML file names here
-            // 'your-project.html',
-            // 'another-file.html'
-        ];
-
-        async function checkFileExists(filename) {
+        // Function to get all HTML files in the current directory
+        async function getHtmlFiles() {
             try {
-                const response = await fetch(filename, { method: 'HEAD' });
-                return response.ok;
-            } catch (error) {
-                return false;
-            }
-        }
-
-        async function autoDiscoverFiles() {
-            const autoList = document.getElementById('autoList');
-            const allFiles = [...new Set([...knownFiles, ...commonFiles])];
-            const existingFiles = [];
-
-            // Check which files actually exist
-            for (const file of allFiles) {
-                if (await checkFileExists(file)) {
-                    existingFiles.push(file);
-                }
-            }
-
-            if (existingFiles.length > 0) {
-                const list = document.createElement('ul');
-                list.className = 'file-list';
+                // Get current directory path
+                const currentPath = window.location.pathname;
+                const directoryPath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
                 
-                existingFiles.forEach(file => {
-                    const listItem = document.createElement('li');
-                    listItem.className = 'file-item';
-                    
-                    const link = document.createElement('a');
-                    link.className = 'file-link';
-                    link.href = file;
-                    link.innerHTML = `
-                        <span class="file-icon">📄</span>
-                        ${formatFileName(file)}
-                    `;
-                    
-                    listItem.appendChild(link);
-                    list.appendChild(listItem);
+                // Try to fetch directory listing (this works on GitHub Pages)
+                const response = await fetch(directoryPath);
+                
+                if (!response.ok) {
+                    throw new Error('Could not fetch directory listing');
+                }
+                
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Find all links in the directory listing
+                const links = doc.querySelectorAll('a');
+                const htmlFiles = [];
+                
+                links.forEach(link => {
+                    const href = link.getAttribute('href');
+                    // Check if it's an HTML file and not the current index
+                    if (href && href.endsWith('.html') && href !== 'index.html') {
+                        htmlFiles.push({
+                            name: href,
+                            displayName: formatFileName(href)
+                        });
+                    }
                 });
                 
-                autoList.appendChild(list);
+                return htmlFiles;
+            } catch (error) {
+                console.error('Error fetching files:', error);
+                return [];
             }
         }
 
+        // Format file name for display (remove extension and replace hyphens with spaces)
         function formatFileName(fileName) {
             // Remove .html extension
             let displayName = fileName.replace('.html', '');
@@ -227,8 +173,37 @@
             return displayName;
         }
 
+        // Display the list of HTML files
+        async function displayFileList() {
+            const fileList = document.getElementById('fileList');
+            const files = await getHtmlFiles();
+            
+            if (files.length === 0) {
+                fileList.innerHTML = '<li class="no-files">No HTML files found in this directory.</li>';
+                return;
+            }
+            
+            fileList.innerHTML = '';
+            
+            files.forEach(file => {
+                const listItem = document.createElement('li');
+                listItem.className = 'file-item';
+                
+                const link = document.createElement('a');
+                link.className = 'file-link';
+                link.href = file.name;
+                link.innerHTML = `
+                    <span class="file-icon">📄</span>
+                    ${file.displayName}
+                `;
+                
+                listItem.appendChild(link);
+                fileList.appendChild(listItem);
+            });
+        }
+
         // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', autoDiscoverFiles);
+        document.addEventListener('DOMContentLoaded', displayFileList);
     </script>
 </body>
 </html>

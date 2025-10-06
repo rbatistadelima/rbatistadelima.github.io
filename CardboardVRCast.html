@@ -27,12 +27,7 @@
       border: none;
       width: 50%;
       height: 100%;
-      object-fit: cover; /* Fill por padrão */
-      transition: object-fit 0.3s, filter 0.3s;
-    }
-
-    iframe.contained {
-      object-fit: contain; /* Contain mantém proporção */
+      transition: filter 0.3s;
     }
 
     /* Overlay buttons */
@@ -106,7 +101,7 @@
   <!-- Botões principais -->
   <div id="controls">
     <button id="fullscreenBtn">Fullscreen</button>
-    <button id="fitBtn">Fill</button>
+    <button id="fitBtn">Fit: Cover</button>
     <button id="cinematicBtn">Lights Off</button>
   </div>
 
@@ -123,7 +118,7 @@
   <div id="landscapeWarning">Por favor, gire o celular para landscape</div>
 
   <script>
-    let fillMode = true; // true = Fill, false = Contain
+    let fitModeCover = true; // true = cover, false = contain
     let cinematic = true;
     let roomId = null;
     let qualityIndex = 0;
@@ -133,18 +128,11 @@
     function loadIframes() {
       const left = document.getElementById('left');
       const right = document.getElementById('right');
-      const url = `https://vdo.ninja/?view=${roomId}&autostart&muted`;
+      const videofit = fitModeCover ? 'cover' : 'contain';
+      const url = `https://vdo.ninja/?view=${roomId}&autostart&muted&videofit=${videofit}`;
 
       left.src = url;
       right.src = url;
-
-      if (fillMode) {
-        left.classList.remove('contained');
-        right.classList.remove('contained');
-      } else {
-        left.classList.add('contained');
-        right.classList.add('contained');
-      }
 
       if (cinematic) {
         left.classList.add('cinematic');
@@ -164,8 +152,8 @@
     }
 
     function toggleFit() {
-      fillMode = !fillMode;
-      document.getElementById('fitBtn').textContent = fillMode ? 'Fill' : 'Contain';
+      fitModeCover = !fitModeCover;
+      document.getElementById('fitBtn').textContent = fitModeCover ? 'Fit: Cover' : 'Fit: Contain';
       loadIframes();
       showControls();
     }
@@ -181,6 +169,7 @@
       qualityIndex = (qualityIndex + 1) % qualities.length;
       const qualityBtn = document.getElementById('qualityBtn');
       qualityBtn.textContent = "Quality: " + qualities[qualityIndex];
+      // Se desejado, poderia recarregar iframe com param de qualidade
       showControls();
     }
 
@@ -207,27 +196,4 @@
 
     // Eventos
     document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
-    document.getElementById('fitBtn').addEventListener('click', toggleFit);
-    document.getElementById('cinematicBtn').addEventListener('click', toggleCinematic);
-    document.getElementById('qualityBtn').addEventListener('click', toggleQuality);
-    document.body.addEventListener('click', showControls);
-
-    window.addEventListener('resize', checkOrientation);
-    window.addEventListener('orientationchange', checkOrientation);
-
-    // Room ID da URL ou prompt
-    const params = new URLSearchParams(window.location.search);
-    const roomFromURL = params.get('view');
-    if (roomFromURL) {
-      roomId = roomFromURL;
-      loadIframes();
-      showControls();
-      checkOrientation();
-    } else {
-      roomId = prompt("Digite o Room ID do VDO.Ninja:");
-      if (roomId) loadIframes();
-    }
-  </script>
-
-</body>
-</html>
+    document.g

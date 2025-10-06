@@ -27,12 +27,12 @@
       border: none;
       width: 50%;
       height: 100%;
-      object-fit: cover; /* Stretch por padrão */
+      object-fit: cover; /* Fill por padrão */
       transition: object-fit 0.3s, filter 0.3s;
     }
 
-    iframe.unstretched {
-      object-fit: contain; /* Unstretch mantém proporção */
+    iframe.contained {
+      object-fit: contain; /* Contain mantém proporção */
     }
 
     /* Overlay buttons */
@@ -52,7 +52,22 @@
       transition: opacity 0.5s;
     }
 
-    #controls button {
+    #qualityControl {
+      position: fixed;
+      top: 55px; /* abaixo da linha principal */
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 998;
+      background: rgba(255,255,255,0.08);
+      padding: 5px 10px;
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    #controls button,
+    #qualityControl button {
       padding: 6px 12px;
       font-size: 14px;
       cursor: pointer;
@@ -64,7 +79,8 @@
       transition: background 0.3s, transform 0.2s;
     }
 
-    #controls button:hover {
+    #controls button:hover,
+    #qualityControl button:hover {
       background: rgba(255,255,255,0.3);
       transform: scale(1.05);
     }
@@ -87,10 +103,16 @@
 </head>
 <body>
 
+  <!-- Botões principais -->
   <div id="controls">
     <button id="fullscreenBtn">Fullscreen</button>
-    <button id="stretchBtn">Stretch</button>
+    <button id="fitBtn">Fill</button>
     <button id="cinematicBtn">Lights Off</button>
+  </div>
+
+  <!-- Botão de qualidade -->
+  <div id="qualityControl">
+    <button id="qualityBtn">Quality: High</button>
   </div>
 
   <div id="vrView">
@@ -101,9 +123,11 @@
   <div id="landscapeWarning">Por favor, gire o celular para landscape</div>
 
   <script>
-    let stretched = true;
+    let fillMode = true; // true = Fill, false = Contain
     let cinematic = true;
     let roomId = null;
+    let qualityIndex = 0;
+    const qualities = ["Low", "Medium", "High"];
     let controlsTimeout;
 
     function loadIframes() {
@@ -114,12 +138,12 @@
       left.src = url;
       right.src = url;
 
-      if (stretched) {
-        left.classList.remove('unstretched');
-        right.classList.remove('unstretched');
+      if (fillMode) {
+        left.classList.remove('contained');
+        right.classList.remove('contained');
       } else {
-        left.classList.add('unstretched');
-        right.classList.add('unstretched');
+        left.classList.add('contained');
+        right.classList.add('contained');
       }
 
       if (cinematic) {
@@ -139,9 +163,9 @@
       showControls();
     }
 
-    function toggleStretch() {
-      stretched = !stretched;
-      document.getElementById('stretchBtn').textContent = stretched ? 'Stretch' : 'Unstretch';
+    function toggleFit() {
+      fillMode = !fillMode;
+      document.getElementById('fitBtn').textContent = fillMode ? 'Fill' : 'Contain';
       loadIframes();
       showControls();
     }
@@ -150,6 +174,13 @@
       cinematic = !cinematic;
       document.getElementById('cinematicBtn').textContent = cinematic ? 'Lights Off' : 'Lights On';
       loadIframes();
+      showControls();
+    }
+
+    function toggleQuality() {
+      qualityIndex = (qualityIndex + 1) % qualities.length;
+      const qualityBtn = document.getElementById('qualityBtn');
+      qualityBtn.textContent = "Quality: " + qualities[qualityIndex];
       showControls();
     }
 
@@ -164,15 +195,21 @@
 
     function showControls() {
       const controls = document.getElementById('controls');
+      const quality = document.getElementById('qualityControl');
       controls.style.opacity = 1;
+      quality.style.opacity = 1;
       clearTimeout(controlsTimeout);
-      controlsTimeout = setTimeout(() => { controls.style.opacity = 0; }, 3000);
+      controlsTimeout = setTimeout(() => { 
+        controls.style.opacity = 0; 
+        quality.style.opacity = 0; 
+      }, 3000);
     }
 
-    // Botões
+    // Eventos
     document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
-    document.getElementById('stretchBtn').addEventListener('click', toggleStretch);
+    document.getElementById('fitBtn').addEventListener('click', toggleFit);
     document.getElementById('cinematicBtn').addEventListener('click', toggleCinematic);
+    document.getElementById('qualityBtn').addEventListener('click', toggleQuality);
     document.body.addEventListener('click', showControls);
 
     window.addEventListener('resize', checkOrientation);

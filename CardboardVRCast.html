@@ -2,46 +2,22 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Cardboard VR Cast - Options</title>
+  <title>Cardboard VR Cast Elegant</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background: black;
       width: 100%;
       height: 100%;
+      background: black;
       overflow: hidden;
-      font-family: sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    #startScreen, #controls {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      color: white;
-      text-align: center;
-    }
-
-    #startScreen input {
-      padding: 10px;
-      font-size: 16px;
-      width: 200px;
-      margin-bottom: 10px;
-    }
-
-    #startScreen button, #controls button {
-      padding: 8px 15px;
-      font-size: 16px;
-      margin: 2px;
-      cursor: pointer;
-    }
-
+    /* VR view */
     #vrView {
-      display: none;
-      flex: 1;
+      display: flex;
       width: 100%;
       height: 100%;
       flex-direction: row;
@@ -55,6 +31,45 @@
       transition: filter 0.3s;
     }
 
+    /* Overlay buttons */
+    #controls {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      display: flex;
+      gap: 12px;
+      background: rgba(255,255,255,0.1);
+      padding: 8px 16px;
+      border-radius: 12px;
+      backdrop-filter: blur(12px);
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    #controls button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      color: white;
+      background: rgba(255,255,255,0.15);
+      border: none;
+      border-radius: 12px;
+      font-weight: 500;
+      transition: background 0.3s, transform 0.2s;
+    }
+
+    #controls button:hover {
+      background: rgba(255,255,255,0.3);
+      transform: scale(1.05);
+    }
+
+    /* Cinematic filter */
+    .cinematic {
+      filter: contrast(1.2) brightness(0.9) saturate(1.3);
+    }
+
     #landscapeWarning {
       color: white;
       text-align: center;
@@ -65,26 +80,13 @@
       display: none;
       z-index: 20;
     }
-
-    /* Cinematic overlay (optional) */
-    .cinematic {
-      filter: contrast(1.2) brightness(0.9) saturate(1.3);
-    }
   </style>
 </head>
 <body>
 
-  <div id="startScreen">
-    <h1>Cardboard VR Cast</h1>
-    <input type="text" id="roomIdInput" placeholder="Digite o Room ID aqui" />
-    <button onclick="startVR()">Start VR</button>
-  </div>
-
   <div id="controls">
-    <button onclick="setVideoFit('cover')">Cover</button>
-    <button onclick="setVideoFit('contain')">Fit</button>
-    <button onclick="setVideoFit('stretch')">Stretch</button>
-    <button onclick="toggleCinematic()">Cinematic</button>
+    <button id="stretchBtn">Stretch</button>
+    <button id="cinematicBtn">Lights Off</button>
   </div>
 
   <div id="vrView">
@@ -95,11 +97,13 @@
   <div id="landscapeWarning">Por favor, gire o celular para landscape</div>
 
   <script>
-    let cinematicEnabled = false;
-    let currentFit = 'cover';
+    let stretched = false;
+    let cinematic = true;
+    let roomId = null;
+    let controlsTimeout;
 
-    function startVR() {
-      const roomId = document.getElementById('roomIdInput').value.trim();
+    function startVR(room) {
+      roomId = room;
       if (!roomId) {
         alert("Digite um Room ID válido!");
         return;
@@ -111,37 +115,37 @@
       else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
       else if (el.msRequestFullscreen) el.msRequestFullscreen();
 
-      // Show VR and hide start screen
-      document.getElementById('startScreen').style.display = 'none';
-      document.getElementById('vrView').style.display = 'flex';
-
-      loadIframes(roomId);
+      loadIframes();
+      updateCinematic();
       checkOrientation();
+      showControls();
     }
 
-    function loadIframes(roomId) {
-      const url = `https://vdo.ninja/?view=${roomId}&autostart&videofit=${currentFit}&muted`;
+    function loadIframes() {
+      const fit = stretched ? 'stretch' : 'cover';
+      const url = `https://vdo.ninja/?view=${roomId}&autostart&videofit=${fit}&muted`;
       document.getElementById('left').src = url;
       document.getElementById('right').src = url;
-      updateCinematic();
     }
 
-    function setVideoFit(fit) {
-      currentFit = fit;
-      const roomId = document.getElementById('roomIdInput').value.trim();
-      if (!roomId) return;
-      loadIframes(roomId);
+    function toggleStretch() {
+      stretched = !stretched;
+      document.getElementById('stretchBtn').textContent = stretched ? 'Unstretch' : 'Stretch';
+      loadIframes();
+      showControls();
     }
 
     function toggleCinematic() {
-      cinematicEnabled = !cinematicEnabled;
+      cinematic = !cinematic;
+      document.getElementById('cinematicBtn').textContent = cinematic ? 'Lights Off' : 'Lights On';
       updateCinematic();
+      showControls();
     }
 
     function updateCinematic() {
       const left = document.getElementById('left');
       const right = document.getElementById('right');
-      if (cinematicEnabled) {
+      if (cinematic) {
         left.classList.add('cinematic');
         right.classList.add('cinematic');
       } else {
@@ -150,7 +154,6 @@
       }
     }
 
-    // Landscape warning
     function checkOrientation() {
       const warning = document.getElementById('landscapeWarning');
       if (window.innerHeight > window.innerWidth) {
@@ -159,15 +162,38 @@
         warning.style.display = 'none';
       }
     }
+
     window.addEventListener('resize', checkOrientation);
     window.addEventListener('orientationchange', checkOrientation);
 
-    // Pre-fill Room ID from URL
-    const params = new URLSearchParams(window.location.search);
-    const roomIdFromURL = params.get('view');
-    if (roomIdFromURL) {
-      document.getElementById('roomIdInput').value = roomIdFromURL;
+    // Overlay controls show/hide
+    function showControls() {
+      const controls = document.getElementById('controls');
+      controls.style.opacity = 1;
+      clearTimeout(controlsTimeout);
+      controlsTimeout = setTimeout(() => {
+        controls.style.opacity = 0;
+      }, 3000); // fade out after 3s
     }
+
+    // Buttons event listeners
+    document.getElementById('stretchBtn').addEventListener('click', toggleStretch);
+    document.getElementById('cinematicBtn').addEventListener('click', toggleCinematic);
+
+    // Room ID from URL
+    const params = new URLSearchParams(window.location.search);
+    const roomFromURL = params.get('view');
+    if (roomFromURL) {
+      startVR(roomFromURL);
+    } else {
+      const room = prompt("Digite o Room ID do VDO.Ninja:");
+      if (room) startVR(room);
+    }
+
+    // Show controls on any tap/click
+    document.body.addEventListener('click', showControls);
+
   </script>
+
 </body>
 </html>

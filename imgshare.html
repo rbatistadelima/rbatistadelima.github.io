@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Maximized Image Without Crop or Distortion</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: black;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  img {
+    cursor: pointer;
+    user-select: none;
+    max-width: 100vw;
+    max-height: 100vh;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<img id="image" alt="Paste or drag an image" title="Click to copy URL" />
+<script>
+  const imageElement = document.getElementById('image');
+
+  function loadImageFromURL() {
+    const hash = decodeURIComponent(window.location.hash.slice(1));
+    if (hash && hash.startsWith('data:image')) {
+      setImageSource(hash);
+    }
+  }
+
+  function setImageSource(src) {
+    const img = new Image();
+    img.onload = () => {
+      const imgAspect = img.width / img.height;
+      const viewportAspect = window.innerWidth / window.innerHeight;
+
+      if (imgAspect > viewportAspect) {
+        // Wider image: fill width, auto height
+        imageElement.style.width = '100vw';
+        imageElement.style.height = 'auto';
+      } else {
+        // Taller image: fill height, auto width
+        imageElement.style.height = '100vh';
+        imageElement.style.width = 'auto';
+      }
+
+      imageElement.src = src;
+      imageElement.style.display = 'block';
+    };
+    img.src = src;
+  }
+
+  async function compressImage(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxWidth = 800;
+          const scale = Math.min(maxWidth / img.width, 1);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(compressedDataUrl);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleFile(file) {
+    try {
+      const compressedDataUrl = await compressImage(file);
+      window.history.replaceState(null, '', '#' + encodeURIComponent(compressedDataUrl));
+      setImageSource(compressedDataUrl);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  window.addEventListener('paste', e => {
+    if (e.clipboardData) {
+      const items = e.clipboardData.items;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          handleFile(item.getAsFile());
+          break;
+        }
+      }
+    }
+  });
+
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => {
+    e.preventDefault();
+    if (e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith('image/')) handleFile(file);
+    }
+  });
+
+  imageElement.addEventListener('click', () => {
+    navigator.clipboard.writeText(window.location.href).catch(() => {});
+  });
+
+  window.onload = loadImageFromURL;
+</script>
+</body>
+</html>

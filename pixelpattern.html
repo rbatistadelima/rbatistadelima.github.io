@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel-Perfect Pattern Generator</title>
+<style>
+html, body {margin:0; height:100%; overflow:hidden; background:#000; color:#fff; font-family:sans-serif;}
+#controls {position:fixed; top:10px; left:10px; z-index:10; display:flex; flex-wrap:wrap; gap:5px; background: rgba(0,0,0,0.5); padding:10px; border-radius:8px;}
+#controls button, #controls input, #controls label { margin:0 2px; }
+canvas {display:block; cursor:pointer; transform-origin: top left; image-rendering: pixelated;}
+</style>
+</head>
+<body>
+<div id="controls">
+  <button id="patternStraight">Straight</button>
+  <button id="patternOffset">Offset Rows</button>
+  <button id="mirrorH">H</button>
+  <button id="mirrorV">V</button>
+  <button id="randomize">Randomize</button>
+  <button data-shape="circle" class="shapeBtn">Circle</button>
+  <button data-shape="square" class="shapeBtn">Square</button>
+  <button data-shape="triangle" class="shapeBtn">Triangle</button>
+  <button data-shape="diamond" class="shapeBtn">Diamond</button>
+  <label>Size <input type="number" id="size" value="20" min="1"></label>
+  <label>Rotation <input type="number" id="rotation" value="0" min="0" max="360"></label>
+  <label>Distance <input type="number" id="distance" value="10" min="1"></label>
+  <label>Zoom <input type="number" id="zoom" value="2" step="0.1" min="0.1"></label>
+  <button id="resetZoom">Reset Zoom</button>
+</div>
+<canvas id="canvas"></canvas>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+ctx.imageSmoothingEnabled = false;
+let width = window.innerWidth, height = window.innerHeight;
+canvas.width = width; canvas.height = height;
+
+let patternType='straight', shape='circle', mirrorH=false, mirrorV=false, randomizeFlag=false;
+let size=20, rotation=0, distance=10, zoom=2;
+
+// --- Pixel plotting ---
+function putPixel(x,y){ ctx.fillStyle="red"; ctx.fillRect(Math.round(x),Math.round(y),1,1); }
+
+// --- Shapes ---
+function drawCircle(cx,cy,r){ let x=r,y=0,err=0; while(x>=y){ drawCircleScan(cx,cy,x,y); y++; err+=1+2*y; if(2*(err-x)+1>0){ x--; err+=1-2*x; } } }
+function drawCircleScan(cx,cy,x,y){ for(let i=-x;i<=x;i++){ putPixel(cx+i,cy+y); putPixel(cx+i,cy-y);} for(let i=-y;i<=y;i++){ putPixel(cx+i,cy+x); putPixel(cx+i,cy-x);} }
+function drawSquare(cx,cy,s){ let half=Math.floor(s/2); for(let y=-half;y<=half;y++){ for(let x=-half;x<=half;x++) putPixel(cx+x,cy+y); } }
+function drawDiamond(cx,cy,s){ let half=Math.floor(s/2); for(let y=-half;y<=half;y++){ let span=half-Math.abs(y); for(let x=-span;x<=span;x++) putPixel(cx+x,cy+y); } }
+function drawTriangle(cx,cy,s){ let half=Math.floor(s/2); for(let y=0;y<=s;y++){ let span=Math.floor((y/s)*half); for(let x=-span;x<=span;x++) putPixel(cx+x,cy+y-half); } }
+
+function drawShape(cx,cy){ cx=Math.round(cx); cy=Math.round(cy); ctx.save(); ctx.translate(cx,cy); ctx.rotate(rotation*Math.PI/180);
+if(shape==="circle") drawCircle(0,0,Math.floor(size/2));
+else if(shape==="square") drawSquare(0,0,size);
+else if(shape==="diamond") drawDiamond(0,0,size);
+else if(shape==="triangle") drawTriangle(0,0,size);
+ctx.restore();
+}
+
+// --- Pattern ---
+function drawPattern(){
+  ctx.fillStyle="black"; ctx.fillRect(0,0,width,height);
+  let step = size + distance;
+  let rows = Math.ceil(height / step) + 2;
+  let cols = Math.ceil(width / step) + 2;
+
+  for(let i=0;i<rows;i++){
+    let y = Math.round(size/2 + i*step); // fixed vertical step
+    let offsetX = (patternType==='offset' && i%2===1)? Math.floor(step/2):0;
+
+    for(let j=-1; j<cols; j++){ // cover left edge
+      let x = Math.round(j*step + offsetX + size/2);
+      if(randomizeFlag){
+        x += Math.round(Math.random()*distance-distance/2);
+        y += Math.round(Math.random()*distance-distance/2);
+      }
+      drawShape(x,y);
+      if(mirrorH) drawShape(Math.round(width-x),y);
+      if(mirrorV) drawShape(x,Math.round(height-y));
+      if(mirrorH && mirrorV) drawShape(Math.round(width-x),Math.round(height-y));
+    }
+  }
+}
+
+function render(){ drawPattern(); canvas.style.transform=`scale(${zoom})`; }
+
+// --- Controls ---
+window.addEventListener('resize',()=>{ width=window.innerWidth; height=window.innerHeight; canvas.width=width; canvas.height=height; render(); });
+document.getElementById('patternStraight').onclick=()=>{ patternType='straight'; render(); }
+document.getElementById('patternOffset').onclick=()=>{ patternType='offset'; render(); }
+document.getElementById('mirrorH').onclick=()=>{ mirrorH=!mirrorH; render(); }
+document.getElementById('mirrorV').onclick=()=>{ mirrorV=!mirrorV; render(); }
+document.getElementById('randomize').onclick=()=>{ randomizeFlag=!randomizeFlag; render(); }
+document.querySelectorAll('.shapeBtn').forEach(btn=>{ btn.onclick=()=>{ shape=btn.dataset.shape; render(); }});
+document.getElementById('size').oninput=e=>{ size=parseInt(e.target.value); render(); }
+document.getElementById('rotation').oninput=e=>{ rotation=parseInt(e.target.value); render(); }
+document.getElementById('distance').oninput=e=>{ distance=parseInt(e.target.value); render(); }
+document.getElementById('zoom').oninput=e=>{ zoom=parseFloat(e.target.value); render(); }
+document.getElementById('resetZoom').onclick=()=>{ zoom=1; document.getElementById('zoom').value=1; render(); }
+
+canvas.addEventListener('wheel',e=>{ e.preventDefault(); zoom+=e.deltaY*-0.001; zoom=Math.max(0.1,zoom); document.getElementById('zoom').value=zoom.toFixed(2); render(); });
+
+// --- Copy pixels ---
+canvas.addEventListener('click',async()=>{ canvas.toBlob(async blob=>{ await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); }); });
+
+render();
+</script>
+</body>
+</html>

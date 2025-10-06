@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idle ASCII RPG</title>
+    <style>
+        /* Base styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #0a0a0a;
+            color: #ccc;
+            line-height: 1.6;
+            padding: 10px;
+            overflow-x: hidden;
+        }
+        
+        /* Layout */
+        .container {
+            display: flex;
+            gap: 10px;
+            max-width: 1200px;
+            margin: 0 auto;
+            min-height: 100vh;
+        }
+        
+        .column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        /* Panels */
+        .panel {
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 15px;
+            overflow: hidden;
+        }
+        
+        .panel h2 {
+            color: #ffcc00;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+            font-size: 1.2em;
+        }
+        
+        /* Player stats */
+        #player-stats div {
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .stat-value {
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        #ascii-player {
+            color: #00ff00;
+            margin-bottom: 10px;
+            font-family: monospace;
+            line-height: 1.2;
+            text-align: center;
+        }
+        
+        /* Inventory */
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+        }
+        
+        .inventory-item {
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: center;
+            border-radius: 3px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9em;
+        }
+        
+        .inventory-item.filled {
+            background-color: #3a2a2a;
+            border-color: #744;
+        }
+        
+        /* Game log */
+        #game-log {
+            height: 200px;
+            overflow-y: auto;
+            background-color: #111;
+            padding: 10px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            color: #aaccff;
+            border-bottom: 1px dotted #333;
+            padding-bottom: 3px;
+        }
+        
+        /* Buttons */
+        .decision-btn {
+            background-color: #2a2a2a;
+            color: #ffcc00;
+            border: 1px solid #444;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+            cursor: pointer;
+            width: 100%;
+            font-family: 'Courier New', monospace;
+            transition: all 0.2s;
+        }
+        
+        .decision-btn:hover {
+            background-color: #3a3a3a;
+            transform: translateY(-2px);
+        }
+        
+        .decision-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Progress bars */
+        .progress-container {
+            margin-bottom: 15px;
+        }
+        
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            background-color: #2a2a2a;
+            border-radius: 3px;
+            height: 15px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+        
+        #exploration-progress {
+            width: 30%;
+            background: linear-gradient(90deg, #006622, #00cc44);
+        }
+        
+        #combat-progress {
+            width: 15%;
+            background: linear-gradient(90deg, #660000, #cc4444);
+        }
+        
+        #crafting-progress {
+            width: 5%;
+            background: linear-gradient(90deg, #004466, #44aacc);
+        }
+        
+        /* Save system */
+        .system-btn {
+            background-color: #2a2a2a;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 3px;
+            cursor: pointer;
+            width: 100%;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .save-btn {
+            color: #00cc00;
+        }
+        
+        .load-btn {
+            color: #0066cc;
+        }
+        
+        .reset-btn {
+            color: #cc0000;
+        }
+        
+        #save-status {
+            margin-top: 10px;
+            font-style: italic;
+            color: #666;
+            text-align: center;
+        }
+        
+        /* Voice settings */
+        #voice-settings label, #voice-settings div {
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        #voice-volume {
+            width: 100%;
+            margin-top: 5px;
+        }
+        
+        /* Module status */
+        #module-status {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px;
+            text-align: center;
+            z-index: 100;
+            border-bottom: 1px solid #333;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .column {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="module-status">Loading game modules...</div>
+    
+    <div class="container">
+        <!-- Left Column: Player Stats and Inventory -->
+        <div class="column left-column">
+            <div class="panel">
+                <h2>Player</h2>
+                <div id="player-stats">
+                    <pre id="ascii-player">
+    ○
+   /|\
+   / \
+                    </pre>
+                    <div>Level: <span class="stat-value" id="player-level">1</span></div>
+                    <div>Health: <span class="stat-value" id="player-health">100</span>/<span class="stat-value" id="player-max-health">100</span></div>
+                    <div>Mana: <span class="stat-value" id="player-mana">50</span>/<span class="stat-value" id="player-max-mana">50</span></div>
+                    <div>Exp: <span class="stat-value" id="player-exp">0</span>/<span class="stat-value" id="player-next-level">100</span></div>
+                    <div>Gold: <span class="stat-value" id="player-gold">10</span></div>
+                    <div>Attack: <span class="stat-value" id="player-attack">10</span></div>
+                    <div>Defense: <span class="stat-value" id="player-defense">5</span></div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2>Inventory</h2>
+                <div class="inventory-grid" id="inventory">
+                    <div class="inventory-item">Empty</div>
+                    <div class="inventory-item">Empty</div>
+                    <div class="inventory-item">Empty</div>
+                    <div class="inventory-item">Empty</div>
+                    <div class="inventory-item">Empty</div>
+                    <div class="inventory-item">Empty</div>
+                    <div class="inventory-item">Empty</div>
+                    <div class="inventory-item">Empty</div>
+                    <div class="inventory-item">Empty</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Middle Column: Game Events and Decisions -->
+        <div class="column middle-column">
+            <div class="panel">
+                <h2>Adventure Log</h2>
+                <div id="game-log">
+                    <div class="log-entry">Welcome to the Idle ASCII RPG!</div>
+                    <div class="log-entry">Your adventure begins now...</div>
+                    <div class="log-entry">You find yourself in a dark forest.</div>
+                    <div class="log-entry">There are paths leading in several directions.</div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2>Decisions</h2>
+                <div id="decision-buttons">
+                    <button class="decision-btn" id="explore-btn">Explore Area</button>
+                    <button class="decision-btn" id="rest-btn">Rest & Recover</button>
+                    <button class="decision-btn" id="fight-btn">Battle Enemy</button>
+                    <button class="decision-btn" id="gather-btn">Gather Resources</button>
+                    <button class="decision-btn" id="shop-btn">Visit Shop</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column: Progress and Save System -->
+        <div class="column right-column">
+            <div class="panel">
+                <h2>Progress</h2>
+                <div class="progress-container">
+                    <div class="progress-label">
+                        <span>Exploration:</span>
+                        <span id="exploration-percent">30%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="exploration-progress"></div>
+                    </div>
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-label">
+                        <span>Combat:</span>
+                        <span id="combat-percent">15%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="combat-progress"></div>
+                    </div>
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-label">
+                        <span>Crafting:</span>
+                        <span id="crafting-percent">5%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="crafting-progress"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2>Save System</h2>
+                <div id="save-load-buttons">
+                    <button class="system-btn save-btn" id="save-btn">Save Game</button>
+                    <button class="system-btn load-btn" id="load-btn">Load Game</button>
+                    <button class="system-btn reset-btn" id="reset-btn">Reset Game</button>
+                </div>
+                <div id="save-status">No save data found</div>
+            </div>
+            
+            <div class="panel">
+                <h2>Voice Settings</h2>
+                <div id="voice-settings">
+                    <label>
+                        <input type="checkbox" id="voice-toggle"> Enable Voice Notifications
+                    </label>
+                    <div>
+                        Voice Volume:
+                        <input type="range" id="voice-volume" min="0" max="100" value="50">
+                    </div>
+                    <button class="system-btn" id="test-voice-btn">Test Voice</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Main game object
+        const game = {
+            player: {
+                level: 1,
+                health: 100,
+                maxHealth: 100,
+                mana: 50,
+                maxMana: 50,
+                exp: 0,
+                nextLevel: 100,
+                gold: 10,
+                attack: 10,
+                defense: 5
+            },
+            inventory: Array(9).fill(null),
+            progress: {
+                exploration: 30,
+                combat: 15,
+                crafting: 5
+            },
+            gameLog: [
+                "Welcome to the Idle ASCII RPG!",
+                "Your adventure begins now...",
+                "You find yourself in a dark forest.",
+                "There are paths leading in several directions."
+            ],
+            modulesLoaded: 0,
+            totalModules: 8
+        };
+
+        // Simulate module loading
+        document.addEventListener('DOMContentLoaded', function() {
+            const statusElement = document.getElementById('module-status');
+            
+            // Simulate loading modules with progress
+            const loadModules = () => {
+                const modules = [
+                    'decisions.js', 'events.js', 'inventory.js', 'progress.js',
+                    'save-system.js', 'ui.js', 'utils.js', 'voice.js'
+                ];
+                
+                let loaded = 0;
+                
+                const loadNextModule = () => {
+                    if (loaded < modules.length) {
+                        statusElement.textContent = `Loading ${modules[loaded]}... (${loaded+1}/${modules.length})`;
+                        loaded++;
+                        setTimeout(loadNextModule, 300);
+                    } else {
+                        statusElement.innerHTML = 'All modules loaded! <button onclick="startGame()">Start Game</button>';
+                    }
+                };
+                
+                loadNextModule();
+            };
+            
+            loadModules();
+        });
+
+        // Start the game
+        function startGame() {
+            document.getElementById('module-status').style.display = 'none';
+            
+            // Initialize game functionality
+            initDecisions();
+            initUI();
+            
+            // Start the idle game loop
+            setInterval(gameLoop, 1000);
+        }
+
+        // Game loop
+        function gameLoop() {
+            // Passive progress gains
+            game.progress.exploration += 0.1;
+            if (game.progress.exploration > 100) game.progress.exploration = 100;
+            
+            game.progress.combat += 0.05;
+            if (game.progress.combat > 100) game.progress.combat = 100;
+            
+            game.progress.crafting += 0.02;
+            if (game.progress.crafting > 100) game.progress.crafting = 100;
+            
+            // Update UI
+            updateProgressBars();
+        }
+
+        // Initialize decisions
+        function initDecisions() {
+            document.getElementById('explore-btn').addEventListener('click', function() {
+                addToLog("You explore the area and find something interesting.");
+                game.progress.exploration += 5;
+                if (game.progress.exploration > 100) game.progress.exploration = 100;
+                
+                // Chance to find items or gold
+                if (Math.random() > 0.5) {
+                    const goldFound = Math.floor(Math.random() * 5) + 1;
+                    game.player.gold += goldFound;
+                    addToLog(`You found ${goldFound} gold!`);
+                    updatePlayerStats();
+                }
+                
+                updateProgressBars();
+            });
+            
+            document.getElementById('rest-btn').addEventListener('click', function() {
+                addToLog("You rest and recover some health and mana.");
+                game.player.health = game.player.maxHealth;
+                game.player.mana = game.player.maxMana;
+                updatePlayerStats();
+            });
+            
+            document.getElementById('fight-btn').addEventListener('click', function() {
+                addToLog("You engage in battle with a fearsome enemy!");
+                game.progress.combat += 8;
+                if (game.progress.combat > 100) game.progress.combat = 100;
+                
+                // Simulate battle outcome
+                if (Math.random() > 0.3) {
+                    const expGained = Math.floor(Math.random() * 10) + 5;
+                    const goldGained = Math.floor(Math.random() * 3) + 1;
+                    game.player.exp += expGained;
+                    game.player.gold += goldGained;
+                    addToLog(`You won the battle! Gained ${expGained} EXP and ${goldGained} gold.`);
+                    
+                    // Check for level up
+                    if (game.player.exp >= game.player.nextLevel) {
+                        game.player.level++;
+                        game.player.exp = 0;
+                        game.player.nextLevel = Math.floor(game.player.nextLevel * 1.5);
+                        game.player.maxHealth += 10;
+                        game.player.health = game.player.maxHealth;
+                        game.player.maxMana += 5;
+                        game.player.mana = game.player.maxMana;
+                        game.player.attack += 2;
+                        game.player.defense += 1;
+                        addToLog(`You reached level ${game.player.level}!`);
+                    }
+                } else {
+                    const damage = Math.floor(Math.random() * 15) + 5;
+                    game.player.health -= damage;
+                    addToLog(`You lost the battle and took ${damage} damage.`);
+                    
+                    if (game.player.health <= 0) {
+                        game.player.health = 1;
+                        addToLog("You were defeated but managed to escape with 1 HP.");
+                    }
+                }
+                
+                updatePlayerStats();
+                updateProgressBars();
+            });
+            
+            document.getElementById('gather-btn').addEventListener('click', function() {
+                addToLog("You gather resources from the environment.");
+                game.progress.crafting += 7;
+                if (game.progress.crafting > 100) game.progress.crafting = 100;
+                
+                // Chance to find crafting materials
+                if (Math.random() > 0.4) {
+                    addToLog("You found some useful materials!");
+                    // This would normally add items to inventory
+                }
+                
+                updateProgressBars();
+            });
+            
+            document.getElementById('shop-btn').addEventListener('click', function() {
+                addToLog("You visit the shop. (Feature coming soon)");
+            });
+            
+            // Save system buttons
+            document.getElementById('save-btn').addEventListener('click', function() {
+                const saveData = JSON.stringify(game);
+                localStorage.setItem('asciiRpgSave', saveData);
+                document.getElementById('save-status').textContent = 'Game saved successfully!';
+                setTimeout(() => {
+                    document.getElementById('save-status').textContent = 'Game saved at ' + new Date().toLocaleTimeString();
+                }, 2000);
+            });
+            
+            document.getElementById('load-btn').addEventListener('click', function() {
+                const saveData = localStorage.getItem('asciiRpgSave');
+                if (saveData) {
+                    const loadedGame = JSON.parse(saveData);
+                    Object.assign(game, loadedGame);
+                    updatePlayerStats();
+                    updateProgressBars();
+                    updateInventory();
+                    updateGameLog();
+                    document.getElementById('save-status').textContent = 'Game loaded successfully!';
+                    setTimeout(() => {
+                        document.getElementById('save-status').textContent = 'Game loaded from ' + new Date().toLocaleTimeString();
+                    }, 2000);
+                    addToLog("Game progress loaded.");
+                } else {
+                    document.getElementById('save-status').textContent = 'No save data found!';
+                }
+            });
+            
+            document.getElementById('reset-btn').addEventListener('click', function() {
+                if (confirm("Are you sure you want to reset your game? All progress will be lost!")) {
+                    localStorage.removeItem('asciiRpgSave');
+                    game.player = {
+                        level: 1,
+                        health: 100,
+                        maxHealth: 100,
+                        mana: 50,
+                        maxMana: 50,
+                        exp: 0,
+                        nextLevel: 100,
+                        gold: 10,
+                        attack: 10,
+                        defense: 5
+                    };
+                    game.inventory = Array(9).fill(null);
+                    game.progress = {
+                        exploration: 30,
+                        combat: 15,
+                        crafting: 5
+                    };
+                    game.gameLog = [
+                        "Welcome to the Idle ASCII RPG!",
+                        "Your adventure begins now...",
+                        "You find yourself in a dark forest.",
+                        "There are paths leading in several directions."
+                    ];
+                    
+                    updatePlayerStats();
+                    updateProgressBars();
+                    updateInventory();
+                    updateGameLog();
+                    document.getElementById('save-status').textContent = 'Game reset successfully!';
+                    addToLog("Game has been reset.");
+                }
+            });
+            
+            // Voice test button
+            document.getElementById('test-voice-btn').addEventListener('click', function() {
+                if ('speechSynthesis' in window) {
+                    const speech = new SpeechSynthesisUtterance("This is a test of the voice system.");
+                    speech.volume = document.getElementById('voice-volume').value / 100;
+                    window.speechSynthesis.speak(speech);
+                } else {
+                    addToLog("Your browser doesn't support speech synthesis.");
+                }
+            });
+        }
+
+        // Initialize UI
+        function initUI() {
+            updatePlayerStats();
+            updateProgressBars();
+            updateInventory();
+        }
+
+        // Update player stats in UI
+        function updatePlayerStats() {
+            document.getElementById('player-level').textContent = game.player.level;
+            document.getElementById('player-health').textContent = game.player.health;
+            document.getElementById('player-max-health').textContent = game.player.maxHealth;
+            document.getElementById('player-mana').textContent = game.player.mana;
+            document.getElementById('player-max-mana').textContent = game.player.maxMana;
+            document.getElementById('player-exp').textContent = game.player.exp;
+            document.getElementById('player-next-level').textContent = game.player.nextLevel;
+            document.getElementById('player-gold').textContent = game.player.gold;
+            document.getElementById('player-attack').textContent = game.player.attack;
+            document.getElementById('player-defense').textContent = game.player.defense;
+        }
+
+        // Update progress bars
+        function updateProgressBars() {
+            document.getElementById('exploration-progress').style.width = game.progress.exploration + '%';
+            document.getElementById('combat-progress').style.width = game.progress.combat + '%';
+            document.getElementById('crafting-progress').style.width = game.progress.crafting + '%';
+            
+            document.getElementById('exploration-percent').textContent = Math.round(game.progress.exploration) + '%';
+            document.getElementById('combat-percent').textContent = Math.round(game.progress.combat) + '%';
+            document.getElementById('crafting-percent').textContent = Math.round(game.progress.crafting) + '%';
+        }
+
+        // Update inventory display
+        function updateInventory() {
+            const inventoryElements = document.querySelectorAll('.inventory-item');
+            game.inventory.forEach((item, index) => {
+                if (item) {
+                    inventoryElements[index].textContent = item;
+                    inventoryElements[index].classList.add('filled');
+                } else {
+                    inventoryElements[index].textContent = 'Empty';
+                    inventoryElements[index].classList.remove('filled');
+                }
+            });
+        }
+
+        // Add to game log
+        function addToLog(message) {
+            game.gameLog.push(message);
+            if (game.gameLog.length > 20) game.gameLog.shift();
+            updateGameLog();
+        }
+
+        // Update game log display
+        function updateGameLog() {
+            const logElement = document.getElementById('game-log');
+            logElement.innerHTML = '';
+            game.gameLog.forEach(entry => {
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+                logEntry.textContent = entry;
+                logElement.appendChild(logEntry);
+            });
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+    </script>
+</body>
+</html>

@@ -15,14 +15,14 @@ html, body {
   display: flex;
   justify-content: center;
   align-items: center;
-  transform: rotate(90deg); /* always horizontal */
+  transform: rotate(90deg); /* rotate entire page */
   transform-origin: center center;
 }
 #controls {
   position: absolute;
   bottom: 10px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) rotate(-90deg); /* rotate UI back */
   display: flex;
   flex-direction: column;
   gap: 30px;
@@ -30,10 +30,10 @@ html, body {
   padding: 30px;
   border-radius: 20px;
   align-items: center;
-  font-size: 2em; /* 3x bigger */
+  font-size: 2em; /* 3x bigger UI */
 }
 input[type="range"] {
-  width: 360px; /* 3x bigger slider */
+  width: 360px;
   height: 50px;
 }
 button {
@@ -45,7 +45,7 @@ button {
 canvas {
   display: block;
   background: transparent;
-  touch-action: none; /* enable drag */
+  touch-action: none;
 }
 </style>
 </head>
@@ -83,7 +83,7 @@ fabric.Image.fromURL(TROPHY_URL, function(img) {
   });
   canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
 
-  // Load lamp after trophy
+  // Load lamp
   fabric.Image.fromURL(LAMP_URL, function(lamp) {
     lampObj = lamp;
     lampObj.set({
@@ -100,34 +100,34 @@ fabric.Image.fromURL(TROPHY_URL, function(img) {
   });
 });
 
-// Resize canvas to fit screen, maintain trophy aspect ratio
+// Resize canvas
 function resizeCanvas() {
   if (!bgImg) return;
 
-  const windowRatio = window.innerWidth / window.innerHeight;
+  const windowRatio = window.innerHeight / window.innerWidth; // swap width/height for rotation
   const trophyRatio = trophyOriginalWidth / trophyOriginalHeight;
   let canvasWidth, canvasHeight;
 
   if (windowRatio > trophyRatio) {
-    canvasHeight = window.innerHeight;
-    canvasWidth = canvasHeight * trophyRatio;
-  } else {
     canvasWidth = window.innerWidth;
     canvasHeight = canvasWidth / trophyRatio;
+  } else {
+    canvasHeight = window.innerHeight;
+    canvasWidth = canvasHeight * trophyRatio;
   }
 
   canvas.setWidth(canvasWidth);
   canvas.setHeight(canvasHeight);
 
-  canvas.upperCanvasEl.style.marginLeft = ((window.innerWidth - canvasWidth) / 2) + 'px';
-  canvas.upperCanvasEl.style.marginTop = ((window.innerHeight - canvasHeight) / 2) + 'px';
+  canvas.upperCanvasEl.style.marginLeft = ((window.innerWidth - canvasWidth)/2) + 'px';
+  canvas.upperCanvasEl.style.marginTop = ((window.innerHeight - canvasHeight)/2) + 'px';
 
   if (bgImg) {
     bgImg.scaleToWidth(canvasWidth);
-    bgImg.set({ left: canvasWidth / 2, top: canvasHeight / 2 });
+    bgImg.set({ left: canvasWidth/2, top: canvasHeight/2 });
   }
   if (lampObj) {
-    lampObj.set({ left: canvasWidth / 2, top: canvasHeight / 2 });
+    lampObj.set({ left: canvasWidth/2, top: canvasHeight/2 });
   }
 
   canvas.renderAll();
@@ -163,8 +163,8 @@ document.getElementById('saveBtn').onclick = function() {
   trophyClone.set({
     scaleX: 1,
     scaleY: 1,
-    left: trophyOriginalWidth / 2,
-    top: trophyOriginalHeight / 2,
+    left: trophyOriginalWidth/2,
+    top: trophyOriginalHeight/2,
     originX: 'center',
     originY: 'center'
   });

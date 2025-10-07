@@ -17,26 +17,38 @@
     #canvas {
       border: 2px solid #333;
     }
-    button {
+    button, input[type="range"] {
       margin-top: 10px;
       padding: 10px 20px;
       font-size: 16px;
-      cursor: pointer;
       border-radius: 8px;
+    }
+    #controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #sizeSlider {
+      width: 300px;
+      margin-top: 5px;
     }
   </style>
 </head>
 <body>
   <canvas id="canvas" width="500" height="500"></canvas>
-  <button id="saveBtn">Save Image</button>
+  <div id="controls">
+    <input type="range" id="sizeSlider" min="50" max="400" value="150">
+    <button id="saveBtn">Save Image</button>
+  </div>
 
   <script>
     const canvas = new fabric.Canvas('canvas', { preserveObjectStacking: true });
+    let lampObj; // store reference to lamp
 
-    // Load trophy (background)
+    // Load trophy (background, not movable)
     fabric.Image.fromURL('trophy.png', function(img) {
       img.set({
-        selectable: false,   // background not movable
+        selectable: false,
         evented: false
       });
       img.scaleToWidth(canvas.width);
@@ -45,14 +57,25 @@
 
     // Load lamp (movable, resizable, rotatable)
     fabric.Image.fromURL('lamp.png', function(img) {
+      lampObj = img;
       img.set({
         left: 200,
         top: 200,
         cornerColor: 'blue',
-        transparentCorners: false
+        transparentCorners: false,
+        lockUniScaling: true // prevent distortion when dragging corners
       });
       img.scaleToWidth(150);
       canvas.add(img).setActiveObject(img);
+    });
+
+    // Slider to resize lamp
+    document.getElementById('sizeSlider').addEventListener('input', function(e) {
+      if (lampObj) {
+        const newWidth = parseInt(e.target.value, 10);
+        lampObj.scaleToWidth(newWidth); // keep aspect ratio
+        canvas.renderAll();
+      }
     });
 
     // Save button
@@ -62,7 +85,6 @@
         quality: 1
       });
 
-      // Trigger download
       const link = document.createElement('a');
       link.href = dataURL;
       link.download = 'result.png';

@@ -15,14 +15,14 @@ html, body {
   display: flex;
   justify-content: center;
   align-items: center;
-  transform: rotate(90deg); /* always horizontal */
+  transform: rotate(90deg); /* rotate entire page */
   transform-origin: center center;
 }
 #controls {
   position: absolute;
   bottom: 10px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) rotate(-90deg); /* rotate UI back */
   display: flex;
   flex-direction: column;
   gap: 30px;
@@ -30,10 +30,10 @@ html, body {
   padding: 30px;
   border-radius: 20px;
   align-items: center;
-  font-size: 2em; /* 3x bigger */
+  font-size: 2em; /* 3x bigger UI */
 }
 input[type="range"] {
-  width: 360px; /* 3x bigger slider */
+  width: 360px;
   height: 50px;
 }
 button {
@@ -45,7 +45,7 @@ button {
 canvas {
   display: block;
   background: transparent;
-  touch-action: none; /* enable drag */
+  touch-action: none;
 }
 </style>
 </head>
@@ -83,7 +83,7 @@ fabric.Image.fromURL(TROPHY_URL, function(img) {
   });
   canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
 
-  // Load lamp after trophy
+  // Load lamp
   fabric.Image.fromURL(LAMP_URL, function(lamp) {
     lampObj = lamp;
     lampObj.set({
@@ -93,47 +93,59 @@ fabric.Image.fromURL(TROPHY_URL, function(img) {
       top: canvas.height / 2,
       cornerColor: 'blue',
       transparentCorners: false,
-      lockUniScaling: true
+      lockUniScaling: true,
+      hasControls: true,
+      selectable: true
     });
     lampObj.scaleToWidth(200);
     canvas.add(lampObj).setActiveObject(lampObj);
   });
 });
 
-// Resize canvas to fit screen, maintain trophy aspect ratio
+// Resize canvas
 function resizeCanvas() {
   if (!bgImg) return;
 
-  const windowRatio = window.innerWidth / window.innerHeight;
+  const windowRatio = window.innerHeight / window.innerWidth; // swap width/height for rotation
   const trophyRatio = trophyOriginalWidth / trophyOriginalHeight;
   let canvasWidth, canvasHeight;
 
   if (windowRatio > trophyRatio) {
-    canvasHeight = window.innerHeight;
-    canvasWidth = canvasHeight * trophyRatio;
-  } else {
     canvasWidth = window.innerWidth;
     canvasHeight = canvasWidth / trophyRatio;
+  } else {
+    canvasHeight = window.innerHeight;
+    canvasWidth = canvasHeight * trophyRatio;
   }
 
   canvas.setWidth(canvasWidth);
   canvas.setHeight(canvasHeight);
 
-  canvas.upperCanvasEl.style.marginLeft = ((window.innerWidth - canvasWidth) / 2) + 'px';
-  canvas.upperCanvasEl.style.marginTop = ((window.innerHeight - canvasHeight) / 2) + 'px';
+  canvas.upperCanvasEl.style.marginLeft = ((window.innerWidth - canvasWidth)/2) + 'px';
+  canvas.upperCanvasEl.style.marginTop = ((window.innerHeight - canvasHeight)/2) + 'px';
 
   if (bgImg) {
     bgImg.scaleToWidth(canvasWidth);
-    bgImg.set({ left: canvasWidth / 2, top: canvasHeight / 2 });
+    bgImg.set({ left: canvasWidth/2, top: canvasHeight/2 });
   }
   if (lampObj) {
-    lampObj.set({ left: canvasWidth / 2, top: canvasHeight / 2 });
+    lampObj.set({ left: canvasWidth/2, top: canvasHeight/2 });
   }
 
   canvas.renderAll();
 }
 
 window.addEventListener('resize', resizeCanvas);
+
+// Enable drag on lamp for touch and mouse
+canvas.on('object:moving', function(e) {
+  const obj = e.target;
+  if (obj === lampObj) {
+    // Optional: keep inside canvas bounds
+    obj.left = Math.min(Math.max(obj.left, obj.width*obj.scaleX/2), canvas.width - obj.width*obj.scaleX/2);
+    obj.top = Math.min(Math.max(obj.top, obj.height*obj.scaleY/2), canvas.height - obj.height*obj.scaleY/2);
+  }
+});
 
 // Sliders
 document.getElementById('sizeSlider').addEventListener('input', e => {
@@ -163,8 +175,8 @@ document.getElementById('saveBtn').onclick = function() {
   trophyClone.set({
     scaleX: 1,
     scaleY: 1,
-    left: trophyOriginalWidth / 2,
-    top: trophyOriginalHeight / 2,
+    left: trophyOriginalWidth/2,
+    top: trophyOriginalHeight/2,
     originX: 'center',
     originY: 'center'
   });
@@ -178,7 +190,8 @@ document.getElementById('saveBtn').onclick = function() {
     left: lampObj.left * scaleX,
     top: lampObj.top * scaleY,
     scaleX: lampObj.scaleX * scaleX,
-    scaleY: lampObj.scaleY * scaleY
+    scaleY: lampObj.scaleY * scaleY,
+    angle: lampObj.angle
   });
   tempCanvas.add(lampClone);
 

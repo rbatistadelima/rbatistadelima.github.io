@@ -5,47 +5,66 @@
   <title>Overlay Lamp on Trophy</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
   <style>
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden; /* no scrollbars */
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
       background: #f5f5f5;
     }
     #canvas {
       border: 2px solid #333;
-    }
-    button, input[type="range"] {
-      margin-top: 10px;
-      padding: 10px 20px;
-      font-size: 16px;
-      border-radius: 8px;
+      flex-shrink: 0;
     }
     #controls {
       display: flex;
-      flex-direction: column;
+      gap: 20px;
+      margin-top: 10px;
       align-items: center;
     }
-    #sizeSlider {
-      width: 300px;
-      margin-top: 5px;
+    input[type="range"] {
+      width: 200px;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 14px;
+      border-radius: 8px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <canvas id="canvas" width="500" height="500"></canvas>
+  <canvas id="canvas"></canvas>
   <div id="controls">
-    <input type="range" id="sizeSlider" min="50" max="400" value="150">
+    <label>Size 
+      <input type="range" id="sizeSlider" min="50" max="600" value="200">
+    </label>
+    <label>Rotation 
+      <input type="range" id="rotationSlider" min="0" max="360" value="0">
+    </label>
     <button id="saveBtn">Save Image</button>
   </div>
 
   <script>
     const canvas = new fabric.Canvas('canvas', { preserveObjectStacking: true });
-    let lampObj; // store reference to lamp
+    let lampObj;
 
-    // Load trophy (background, not movable)
+    // Make canvas fullscreen (square)
+    function resizeCanvas() {
+      const size = Math.min(window.innerWidth, window.innerHeight) - 20;
+      canvas.setWidth(size);
+      canvas.setHeight(size);
+      canvas.renderAll();
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Load trophy (background)
     fabric.Image.fromURL('trophy.png', function(img) {
       img.set({
         selectable: false,
@@ -59,21 +78,28 @@
     fabric.Image.fromURL('lamp.png', function(img) {
       lampObj = img;
       img.set({
-        left: 200,
-        top: 200,
+        left: canvas.width / 2 - 100,
+        top: canvas.height / 2 - 100,
         cornerColor: 'blue',
         transparentCorners: false,
-        lockUniScaling: true // prevent distortion when dragging corners
+        lockUniScaling: true
       });
-      img.scaleToWidth(150);
+      img.scaleToWidth(200);
       canvas.add(img).setActiveObject(img);
     });
 
-    // Slider to resize lamp
+    // Size slider
     document.getElementById('sizeSlider').addEventListener('input', function(e) {
       if (lampObj) {
-        const newWidth = parseInt(e.target.value, 10);
-        lampObj.scaleToWidth(newWidth); // keep aspect ratio
+        lampObj.scaleToWidth(parseInt(e.target.value, 10));
+        canvas.renderAll();
+      }
+    });
+
+    // Rotation slider
+    document.getElementById('rotationSlider').addEventListener('input', function(e) {
+      if (lampObj) {
+        lampObj.set('angle', parseInt(e.target.value, 10));
         canvas.renderAll();
       }
     });
@@ -84,7 +110,6 @@
         format: 'png',
         quality: 1
       });
-
       const link = document.createElement('a');
       link.href = dataURL;
       link.download = 'result.png';

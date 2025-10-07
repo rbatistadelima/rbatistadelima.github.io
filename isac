@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay Image on Trophy</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #222;
+      color: white;
+      font-family: sans-serif;
+    }
+    #canvas {
+      border: 2px solid white;
+      margin-top: 10px;
+      max-width: 95vw;
+      height: auto;
+    }
+    .controls {
+      margin-top: 10px;
+    }
+    button, input[type="range"] {
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Overlay Image on Trophy</h2>
+  <canvas id="canvas"></canvas>
+  
+  <div class="controls">
+    <label>Rotate: <input type="range" id="rotate" min="0" max="360" value="0"></label>
+    <br>
+    <button id="save">Save Image</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Load base (trophy) and overlay (lamp) images
+    const trophy = new Image();
+    const overlay = new Image();
+
+    // Replace with your actual uploaded image paths if needed
+    trophy.src = "trophy.png"; // <- put your trophy image file here
+    overlay.src = "lamp.png";  // <- put the lamp (#cuidando de pessoas) image here
+
+    let overlayX = 150, overlayY = 150, overlaySize = 200, overlayAngle = 0;
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(trophy, 0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(overlayX, overlayY);
+      ctx.rotate((overlayAngle * Math.PI) / 180);
+      ctx.drawImage(overlay, -overlaySize / 2, -overlaySize / 2, overlaySize, overlaySize);
+      ctx.restore();
+    }
+
+    trophy.onload = () => {
+      canvas.width = trophy.width;
+      canvas.height = trophy.height;
+      draw();
+    };
+
+    overlay.onload = draw;
+
+    // Rotation control
+    document.getElementById("rotate").addEventListener("input", (e) => {
+      overlayAngle = e.target.value;
+      draw();
+    });
+
+    // Drag overlay with mouse/touch
+    let dragging = false;
+
+    canvas.addEventListener("mousedown", (e) => {
+      dragging = true;
+    });
+    canvas.addEventListener(

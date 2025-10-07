@@ -15,6 +15,8 @@ html, body {
   display: flex;
   justify-content: center;
   align-items: center;
+  transform: rotate(90deg); /* always horizontal */
+  transform-origin: center center;
 }
 #controls {
   position: absolute;
@@ -22,27 +24,28 @@ html, body {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
   gap: 30px;
-  background: rgba(255,255,255,0.9);
-  padding: 20px;
-  border-radius: 15px;
+  background: rgba(255,255,255,0.95);
+  padding: 30px;
+  border-radius: 20px;
   align-items: center;
-  font-size: 1.5em; /* 3x bigger UI */
+  font-size: 2em; /* 3x bigger */
 }
 input[type="range"] {
-  width: 300px; /* bigger slider for touch */
-  height: 40px;
+  width: 360px; /* 3x bigger slider */
+  height: 50px;
 }
 button {
-  padding: 20px 30px;
-  font-size: 1.5em;
-  border-radius: 12px;
+  padding: 25px 40px;
+  font-size: 2em;
+  border-radius: 15px;
   cursor: pointer;
 }
 canvas {
   display: block;
   background: transparent;
-  touch-action: none; /* allow drag */
+  touch-action: none; /* enable drag */
 }
 </style>
 </head>
@@ -59,7 +62,6 @@ const canvas = new fabric.Canvas('canvas', { preserveObjectStacking: true, backg
 let lampObj, bgImg;
 let trophyOriginalWidth, trophyOriginalHeight;
 
-// Use raw GitHub URLs
 const TROPHY_URL = "https://raw.githubusercontent.com/rbatistadelima/rbatistadelima.github.io/master/trophy.png";
 const LAMP_URL = "https://raw.githubusercontent.com/rbatistadelima/rbatistadelima.github.io/master/lamp.png";
 
@@ -117,7 +119,6 @@ function resizeCanvas() {
   canvas.setWidth(canvasWidth);
   canvas.setHeight(canvasHeight);
 
-  // Center canvas
   canvas.upperCanvasEl.style.marginLeft = ((window.innerWidth - canvasWidth) / 2) + 'px';
   canvas.upperCanvasEl.style.marginTop = ((window.innerHeight - canvasHeight) / 2) + 'px';
 
@@ -125,7 +126,6 @@ function resizeCanvas() {
     bgImg.scaleToWidth(canvasWidth);
     bgImg.set({ left: canvasWidth / 2, top: canvasHeight / 2 });
   }
-
   if (lampObj) {
     lampObj.set({ left: canvasWidth / 2, top: canvasHeight / 2 });
   }
@@ -159,7 +159,6 @@ document.getElementById('saveBtn').onclick = function() {
     backgroundColor: null
   });
 
-  // Trophy clone
   const trophyClone = fabric.util.object.clone(bgImg);
   trophyClone.set({
     scaleX: 1,
@@ -171,7 +170,6 @@ document.getElementById('saveBtn').onclick = function() {
   });
   tempCanvas.add(trophyClone);
 
-  // Lamp clone with proportional scaling
   const scaleX = trophyOriginalWidth / canvas.width;
   const scaleY = trophyOriginalHeight / canvas.height;
 

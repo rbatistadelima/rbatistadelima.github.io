@@ -3,37 +3,49 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Overlay Image on Trophy</title>
+  <title>Trophy Editor</title>
   <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      background: #222;
-      color: white;
-      font-family: sans-serif;
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #111;
+      overflow: hidden;
     }
     #canvas {
-      border: 2px solid white;
-      margin-top: 10px;
-      max-width: 95vw;
-      height: auto;
+      display: block;
+      margin: auto;
+      max-width: 100%;
+      max-height: 100%;
+      background: #222;
     }
     .controls {
-      margin-top: 10px;
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      background: rgba(0,0,0,0.5);
+      padding: 10px;
+      border-radius: 10px;
     }
-    button, input[type="range"] {
-      margin: 5px;
+    input[type="range"] {
+      width: 200px;
+    }
+    button {
+      margin-top: 5px;
+      padding: 8px 16px;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
-  <h2>Overlay Image on Trophy</h2>
   <canvas id="canvas"></canvas>
-  
+
   <div class="controls">
-    <label>Rotate: <input type="range" id="rotate" min="0" max="360" value="0"></label>
-    <br>
+    <label style="color:white;">Rotate: 
+      <input type="range" id="rotate" min="0" max="360" value="0">
+    </label><br>
     <button id="save">Save Image</button>
   </div>
 
@@ -41,20 +53,30 @@
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
 
-    // Load base (trophy) and overlay (lamp) images
+    // Embed trophy + lamp images (Base64 placeholders - replace with your files)
     const trophy = new Image();
     const overlay = new Image();
 
-    // Replace with your actual uploaded image paths if needed
-    trophy.src = "trophy.png"; // <- put your trophy image file here
-    overlay.src = "lamp.png";  // <- put the lamp (#cuidando de pessoas) image here
+    // TROPHY IMAGE (embedded from your upload)
+    trophy.src = "data:image/png;base64,REPLACE_TROPHY_BASE64";
 
-    let overlayX = 150, overlayY = 150, overlaySize = 200, overlayAngle = 0;
+    // LAMP IMAGE (embedded from your upload)
+    overlay.src = "data:image/png;base64,REPLACE_LAMP_BASE64";
+
+    let overlayX = 300, overlayY = 300, overlaySize = 200, overlayAngle = 0;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      draw();
+    }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Fit trophy to canvas
       ctx.drawImage(trophy, 0, 0, canvas.width, canvas.height);
 
+      // Overlay lamp
       ctx.save();
       ctx.translate(overlayX, overlayY);
       ctx.rotate((overlayAngle * Math.PI) / 180);
@@ -62,24 +84,48 @@
       ctx.restore();
     }
 
-    trophy.onload = () => {
-      canvas.width = trophy.width;
-      canvas.height = trophy.height;
-      draw();
-    };
+    window.addEventListener("resize", resizeCanvas);
 
+    trophy.onload = resizeCanvas;
     overlay.onload = draw;
 
-    // Rotation control
+    // Rotation
     document.getElementById("rotate").addEventListener("input", (e) => {
       overlayAngle = e.target.value;
       draw();
     });
 
-    // Drag overlay with mouse/touch
+    // Dragging
     let dragging = false;
 
-    canvas.addEventListener("mousedown", (e) => {
-      dragging = true;
+    canvas.addEventListener("mousedown", () => dragging = true);
+    canvas.addEventListener("mouseup", () => dragging = false);
+    canvas.addEventListener("mousemove", (e) => {
+      if (dragging) {
+        overlayX = e.offsetX;
+        overlayY = e.offsetY;
+        draw();
+      }
     });
-    canvas.addEventListener(
+
+    canvas.addEventListener("touchstart", () => dragging = true);
+    canvas.addEventListener("touchend", () => dragging = false);
+    canvas.addEventListener("touchmove", (e) => {
+      if (dragging) {
+        const rect = canvas.getBoundingClientRect();
+        overlayX = e.touches[0].clientX - rect.left;
+        overlayY = e.touches[0].clientY - rect.top;
+        draw();
+      }
+    });
+
+    // Save button
+    document.getElementById("save").addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.download = "final_trophy.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+  </script>
+</body>
+</html>

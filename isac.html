@@ -65,18 +65,18 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Fit background like CSS "cover"
+    // Fit background like CSS "contain" (never crop)
     function fitBackground(img) {
       const canvasRatio = canvas.width / canvas.height;
       const imgRatio = img.width / img.height;
       let scale;
 
       if (canvasRatio > imgRatio) {
-        // canvas wider than image -> scale by width
-        scale = canvas.width / img.width;
-      } else {
-        // canvas taller than image -> scale by height
+        // canvas is wider, fit by height
         scale = canvas.height / img.height;
+      } else {
+        // canvas is taller, fit by width
+        scale = canvas.width / img.width;
       }
 
       img.scale(scale);
@@ -121,27 +121,4 @@
       }
     });
 
-    // Rotation slider
-    document.getElementById('rotationSlider').addEventListener('input', function(e) {
-      if (lampObj) {
-        lampObj.set('angle', parseInt(e.target.value, 10));
-        canvas.renderAll();
-      }
-    });
-
-    // Save image (only canvas area, keep transparency)
-    document.getElementById('saveBtn').onclick = function() {
-      const dataURL = canvas.toDataURL({
-        format: 'png',
-        quality: 1,
-        multiplier: 1,
-        enableRetinaScaling: true
-      });
-      const link = document.createElement('a');
-      link.href = dataURL;
-      link.download = 'result.png';
-      link.click();
-    };
-  </script>
-</body>
-</html>
+    // Ro

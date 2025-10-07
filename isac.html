@@ -11,6 +11,9 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       background: #f5f5f5;
     }
     #controls {
@@ -92,7 +95,7 @@
       });
     });
 
-    // Resize canvas to fit screen while keeping trophy aspect ratio
+    // Resize canvas to fit screen, keep trophy aspect ratio, and center canvas
     function resizeCanvas() {
       if (!bgImg) return;
 
@@ -110,6 +113,10 @@
 
       canvas.setWidth(canvasWidth);
       canvas.setHeight(canvasHeight);
+
+      // Center canvas element in the window
+      canvas.upperCanvasEl.style.marginLeft = ((window.innerWidth - canvasWidth) / 2) + 'px';
+      canvas.upperCanvasEl.style.marginTop = ((window.innerHeight - canvasHeight) / 2) + 'px';
 
       if (bgImg) {
         bgImg.scaleToWidth(canvasWidth);
@@ -151,7 +158,7 @@
         backgroundColor: null
       });
 
-      // Add trophy
+      // Trophy
       const trophyClone = fabric.util.object.clone(bgImg);
       trophyClone.set({
         scaleX: 1,
@@ -163,7 +170,7 @@
       });
       tempCanvas.add(trophyClone);
 
-      // Add lamp, scaled proportionally
+      // Lamp scaled proportionally
       const scaleX = trophyOriginalWidth / canvas.width;
       const scaleY = trophyOriginalHeight / canvas.height;
 

@@ -15,14 +15,15 @@ html, body {
   display: flex;
   justify-content: center;
   align-items: center;
-  transform: rotate(90deg); /* rotate entire page */
+  transform: rotate(90deg);
   transform-origin: center center;
+  touch-action: none; /* needed for Fabric touch */
 }
 #controls {
   position: absolute;
   bottom: 10px;
   left: 50%;
-  transform: translateX(-50%) rotate(-90deg); /* rotate UI back */
+  transform: translateX(-50%) rotate(-90deg);
   display: flex;
   flex-direction: column;
   gap: 30px;
@@ -30,7 +31,7 @@ html, body {
   padding: 30px;
   border-radius: 20px;
   align-items: center;
-  font-size: 2em; /* 3x bigger UI */
+  font-size: 2em;
 }
 input[type="range"] {
   width: 360px;
@@ -58,7 +59,12 @@ canvas {
 </div>
 
 <script>
-const canvas = new fabric.Canvas('canvas', { preserveObjectStacking: true, backgroundColor: null });
+const canvas = new fabric.Canvas('canvas', {
+  preserveObjectStacking: true,
+  backgroundColor: null,
+  allowTouchScrolling: false
+});
+
 let lampObj, bgImg;
 let trophyOriginalWidth, trophyOriginalHeight;
 
@@ -106,7 +112,7 @@ fabric.Image.fromURL(TROPHY_URL, function(img) {
 function resizeCanvas() {
   if (!bgImg) return;
 
-  const windowRatio = window.innerHeight / window.innerWidth; // swap width/height for rotation
+  const windowRatio = window.innerHeight / window.innerWidth;
   const trophyRatio = trophyOriginalWidth / trophyOriginalHeight;
   let canvasWidth, canvasHeight;
 
@@ -136,16 +142,6 @@ function resizeCanvas() {
 }
 
 window.addEventListener('resize', resizeCanvas);
-
-// Enable drag on lamp for touch and mouse
-canvas.on('object:moving', function(e) {
-  const obj = e.target;
-  if (obj === lampObj) {
-    // Optional: keep inside canvas bounds
-    obj.left = Math.min(Math.max(obj.left, obj.width*obj.scaleX/2), canvas.width - obj.width*obj.scaleX/2);
-    obj.top = Math.min(Math.max(obj.top, obj.height*obj.scaleY/2), canvas.height - obj.height*obj.scaleY/2);
-  }
-});
 
 // Sliders
 document.getElementById('sizeSlider').addEventListener('input', e => {

@@ -60,9 +60,9 @@
     let lampObj, bgImg;
     let trophyOriginalWidth, trophyOriginalHeight;
 
-    // Hosted images on Imgur
-    const TROPHY_URL = "https://i.imgur.com/1n4Kd2S.png"; // trophy
-    const LAMP_URL   = "https://i.imgur.com/fU4zY2u.png"; // lamp
+    // Local files (same folder as HTML)
+    const TROPHY_URL = "trophy.png";
+    const LAMP_URL   = "lamp.png";
 
     // Load trophy
     fabric.Image.fromURL(TROPHY_URL, function(img) {
@@ -118,7 +118,7 @@
       canvas.setWidth(canvasWidth);
       canvas.setHeight(canvasHeight);
 
-      // Center canvas inside viewport
+      // Center canvas
       canvas.upperCanvasEl.style.marginLeft = ((window.innerWidth - canvasWidth) / 2) + 'px';
       canvas.upperCanvasEl.style.marginTop = ((window.innerHeight - canvasHeight) / 2) + 'px';
 

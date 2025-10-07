@@ -60,7 +60,7 @@
     let lampObj, bgImg;
     let trophyOriginalWidth, trophyOriginalHeight;
 
-    // Local files (same folder as HTML)
+    // ✅ Local files only
     const TROPHY_URL = "trophy.png";
     const LAMP_URL   = "lamp.png";
 
@@ -192,9 +192,4 @@
       const dataURL = tempCanvas.toDataURL({ format: 'png', quality: 1 });
       const link = document.createElement('a');
       link.href = dataURL;
-      link.download = 'trophy_result.png';
-      link.click();
-    };
-  </script>
-</body>
-</html>
+      link.downl

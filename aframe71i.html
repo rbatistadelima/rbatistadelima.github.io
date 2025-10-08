@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Hacky AR VR with Joystick</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    body, html { margin:0; height:100%; overflow:hidden; background:black; }
+    #bgvideo { display:none; }
+    #joystick { position:absolute; bottom:20px; left:20px; width:100px; height:100px; background: rgba(255,255,255,0.2); border-radius:50%; touch-action:none; }
+  </style>
+</head>
+<body>
+<video id="bgvideo" autoplay playsinline muted></video>
+<div id="joystick"></div>
+
+<a-scene embedded vr-mode-ui="enabled: true">
+  <!-- Camera rig -->
+  <a-entity id="rig">
+    <a-entity id="cam" camera look-controls wasd-controls>
+      <!-- Video plane fixed to camera -->
+      <a-entity id="bgPlane"
+                geometry="primitive: plane; height: 2; width: 2"
+                position="0 0 -1"
+                material="shader: flat; src: #bgvideo; side: double; depthTest: false">
+      </a-entity>
+    </a-entity>
+  </a-entity>
+
+  <!-- Box in world space -->
+  <a-box id="spinBox" position="0 0 -5" rotation="0 0 0" color="tomato" depth="1" height="1" width="1"></a-box>
+</a-scene>
+
+<script>
+const video = document.getElementById("bgvideo");
+navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}, audio:false})
+  .then(stream => { video.srcObject = stream; video.play(); })
+  .catch(err => console.error("Camera error:", err));
+
+const box = document.getElementById("spinBox");
+const rig = document.getElementById("rig");
+
+// Virtual joystick
+const joystick = document.getElementById("joystick");
+let dragging=false, startX, startY, move={x:0,z:0};
+joystick.addEventListener("pointerdown", e=>{dragging=true; startX=e.clientX; startY=e.clientY;});
+window.addEventListener("pointermove", e=>{if(!dragging) return; move.x=(e.clientX-startX)/50; move.z=(e.clientY-startY)/50;});
+window.addEventListener("pointerup", ()=>{dragging=false; move.x=0; move.z=0;});
+
+// Tick component
+AFRAME.registerComponent('tick-box',{
+  tick: function(time, timeDelta){
+    // Rotate box 10% faster
+    box.object3D.rotation.y += 0.05*30*1.1; // 10% more
+
+    // Move rig based on joystick, 10% more
+    const rigObj = rig.object3D;
+    const forward = new THREE.Vector3(0,0,-1);
+    const right = new THREE.Vector3(1,0,0);
+    rigObj.getWorldDirection(forward);
+    forward.y = 0; forward.normalize();
+    right.crossVectors(new THREE.Vector3(0,1,0), forward).normalize();
+    rigObj.position.add(forward.multiplyScalar(-move.z*0.1*1.1)); // 10% more
+    rigObj.position.add(right.multiplyScalar(move.x*0.1*1.1));
+  }
+});
+
+const scene = document.querySelector("a-scene");
+scene.setAttribute('tick-box','');
+scene.addEventListener('loaded', ()=>{scene.enterVR();});
+
+// Motion permission for iOS
+function enableMotion(){if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){DeviceMotionEvent.requestPermission().catch(console.error);}}
+document.body.addEventListener("click", enableMotion,{once:true});
+</script>
+</body>
+</html>

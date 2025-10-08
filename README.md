@@ -9,6 +9,5 @@
 [📩 imgshare](https://rbatistadelima.github.io/imgshare.html)  
 [🟩 pixelpattern](https://rbatistadelima.github.io/pixelpattern.html)  
 [🎬 subtitlescroller](https://rbatistadelima.github.io/subtitlescroller.html)  
-[📡 vrcast](https://rbatistadelima.github.io/vrcast.html) 
-[🥽 vrframe](https://rbatistadelima.github.io/vrframe.html) 
-
+[📡 vrcast](https://rbatistadelima.github.io/vrcast.html)  
+[🥽 vrframe](https://rbatistadelima.github.io/vrframe.html)

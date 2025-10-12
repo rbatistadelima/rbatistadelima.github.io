@@ -1,322 +1,298 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>PC-98 Studio (WebGL 2 + Masks)</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PC-98 Pixel Art Converter</title>
 <style>
-html,body{margin:0;height:100%;background:#111;color:#eee;font-family:sans-serif;}
-#ui{position:fixed;left:0;top:0;width:280px;height:100%;overflow:hidden;
-    background:#222;padding:10px;display:flex;flex-direction:column;gap:6px;box-shadow:2px 0 6px #000;}
-#glCanvas{position:fixed;left:280px;top:0;right:0;bottom:0;background:#000;
-          image-rendering:pixelated;}
-label{font-size:12px;margin-top:4px;}
-input[type=range]{width:100%;}
-button{background:#333;color:#eee;border:none;padding:5px 8px;margin-top:4px;border-radius:4px;}
-button:hover{background:#444;}
-.row{display:flex;gap:4px;}
+  body {
+    margin: 0;
+    font-family: sans-serif;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #sidebar {
+    width: 300px;
+    background: #222;
+    color: #fff;
+    padding: 10px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #sidebar label {
+    display: block;
+    margin-top: 5px;
+  }
+  #canvas-container {
+    flex: 1;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+    cursor: grab;
+  }
+  canvas {
+    display: block;
+    margin: auto;
+    max-width: 100%;
+    max-height: 100%;
+    image-rendering: pixelated;
+  }
+  input[type="range"] {
+    width: 100%;
+  }
+  button {
+    margin-top: 5px;
+    padding: 5px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
-<div id="ui">
-  <h3>PC-98 Studio</h3>
-  <label>Upload Image</label>
-  <input type="file" id="fileInput" accept="image/*">
 
-  <label>Brush Size</label>
-  <input type="range" id="brushSize" min="1" max="64" value="16">
-  <label>Brush Opacity</label>
-  <input type="range" id="brushOpacity" min="0" max="1" step="0.01" value="0.5">
-  <div class="row">
-    <button id="lightMode">Lighten</button>
-    <button id="darkMode">Darken</button>
-  </div>
-  <div class="row">
-    <button id="undoBtn">Undo</button>
-    <button id="redoBtn">Redo</button>
-  </div>
-  <button id="clearBtn">Clear Masks</button>
-
-  <hr>
-  <label>Brightness</label>
+<div id="sidebar">
+  <h2>PC-98 Converter</h2>
+  
+  <label>Brightness: <span id="brightnessVal">0</span></label>
   <input type="range" id="brightness" min="-1" max="1" step="0.01" value="0">
-  <label>Contrast</label>
-  <input type="range" id="contrast" min="-1" max="1" step="0.01" value="0">
-  <label>Saturation</label>
+  
+  <label>Contrast: <span id="contrastVal">1</span></label>
+  <input type="range" id="contrast" min="0" max="2" step="0.01" value="1">
+  
+  <label>Saturation: <span id="saturationVal">1</span></label>
   <input type="range" id="saturation" min="0" max="2" step="0.01" value="1">
-
-  <button id="downloadBtn">Download</button>
-  <button id="resetBtn">Reset</button>
+  
+  <label>Outline Thickness: <span id="outlineVal">1</span> px</label>
+  <input type="range" id="outline" min="1" max="10" step="1" value="1">
+  
+  <label>Palette:</label>
+  <select id="palette">
+    <option value="16">16-color</option>
+    <option value="256">256-color</option>
+    <option value="pc98">PC-98 classic</option>
+  </select>
+  
+  <label>Dithering:</label>
+  <select id="dither">
+    <option value="none">None</option>
+    <option value="bayer">Ordered (Bayer)</option>
+    <option value="floyd">Floyd-Steinberg</option>
+    <option value="random">Random</option>
+  </select>
+  
+  <label>Dither Intensity: <span id="ditherVal">1</span></label>
+  <input type="range" id="ditherIntensity" min="0" max="1" step="0.01" value="1">
+  
+  <label>Scale:</label>
+  <input type="range" id="scale" min="10" max="200" value="100"> <span id="scaleVal">100%</span>
+  
+  <button id="reset">Reset</button>
+  <button id="download">Download Image</button>
 </div>
 
-<canvas id="glCanvas" width="640" height="400"></canvas>
+<div id="canvas-container">
+  <canvas id="canvas" width="640" height="400"></canvas>
+</div>
 
 <script>
-const glCanvas=document.getElementById("glCanvas");
-const gl=glCanvas.getContext("webgl2");
-if(!gl){alert("WebGL2 not supported");throw new Error("WebGL2 not supported");}
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let img = new Image();
+let scale = 1;
+let offsetX = 0, offsetY = 0;
+let isDragging = false, dragStart = {x:0, y:0};
 
-let img=null,baseTex=null,lightTex=null,darkTex=null;
-let brushSize=16,brushOpacity=0.5,mode="light";
-let undoStack=[],redoStack=[];
-const maskSize={w:640,h:400};
-const lightMask=document.createElement("canvas");
-const darkMask=document.createElement("canvas");
-lightMask.width=darkMask.width=maskSize.w;
-lightMask.height=darkMask.height=maskSize.h;
-const lctx=lightMask.getContext("2d");
-const dctx=darkMask.getContext("2d");
-function clearMasks(){lctx.clearRect(0,0,maskSize.w,maskSize.h);dctx.clearRect(0,0,maskSize.w,maskSize.h);}
-clearMasks();
+const brightness = document.getElementById('brightness');
+const contrast = document.getElementById('contrast');
+const saturation = document.getElementById('saturation');
+const outline = document.getElementById('outline');
+const palette = document.getElementById('palette');
+const dither = document.getElementById('dither');
+const ditherIntensity = document.getElementById('ditherIntensity');
+const scaleInput = document.getElementById('scale');
 
-function pushUndo(){
-  if(undoStack.length>20)undoStack.shift();
-  undoStack.push({
-    light:lctx.getImageData(0,0,maskSize.w,maskSize.h),
-    dark:dctx.getImageData(0,0,maskSize.w,maskSize.h)
-  });
-  redoStack=[];
+const brightnessVal = document.getElementById('brightnessVal');
+const contrastVal = document.getElementById('contrastVal');
+const saturationVal = document.getElementById('saturationVal');
+const outlineVal = document.getElementById('outlineVal');
+const ditherVal = document.getElementById('ditherVal');
+const scaleVal = document.getElementById('scaleVal');
+
+function resetControls() {
+  brightness.value = 0;
+  contrast.value = 1;
+  saturation.value = 1;
+  outline.value = 1;
+  palette.value = '16';
+  dither.value = 'none';
+  ditherIntensity.value = 1;
+  scaleInput.value = 100;
+  updateDisplayValues();
+  render();
 }
-function restore(state){
-  lctx.putImageData(state.light,0,0);
-  dctx.putImageData(state.dark,0,0);
-  uploadMasks();
-  drawScene();
+
+function updateDisplayValues() {
+  brightnessVal.innerText = brightness.value;
+  contrastVal.innerText = contrast.value;
+  saturationVal.innerText = saturation.value;
+  outlineVal.innerText = outline.value;
+  ditherVal.innerText = ditherIntensity.value;
+  scaleVal.innerText = scaleInput.value + '%';
 }
-document.getElementById("undoBtn").onclick=()=>{
-  if(!undoStack.length)return;
-  redoStack.push({
-    light:lctx.getImageData(0,0,maskSize.w,maskSize.h),
-    dark:dctx.getImageData(0,0,maskSize.w,maskSize.h)
-  });
-  restore(undoStack.pop());
-};
-document.getElementById("redoBtn").onclick=()=>{
-  if(!redoStack.length)return;
-  undoStack.push({
-    light:lctx.getImageData(0,0,maskSize.w,maskSize.h),
-    dark:dctx.getImageData(0,0,maskSize.w,maskSize.h)
-  });
-  restore(redoStack.pop());
-};
 
-document.getElementById("brushSize").oninput=e=>brushSize=+e.target.value;
-document.getElementById("brushOpacity").oninput=e=>brushOpacity=+e.target.value;
-document.getElementById("lightMode").onclick=()=>mode="light";
-document.getElementById("darkMode").onclick=()=>mode="dark";
-document.getElementById("clearBtn").onclick=()=>{clearMasks();uploadMasks();drawScene();};
+function applyFilters(imageData) {
+  const data = imageData.data;
+  const b = parseFloat(brightness.value);
+  const c = parseFloat(contrast.value);
+  const s = parseFloat(saturation.value);
 
-let painting=false;
-glCanvas.addEventListener("mousedown",e=>{
-  if(!img)return;
-  pushUndo();painting=true;
-  paintAt(e);
+  for (let i=0; i<data.length; i+=4){
+    let r = data[i]/255, g = data[i+1]/255, bl = data[i+2]/255;
+
+    // Saturation
+    let avg = 0.2126*r + 0.7152*g + 0.0722*bl;
+    r = avg + s*(r - avg);
+    g = avg + s*(g - avg);
+    bl = avg + s*(bl - avg);
+
+    // Brightness & contrast
+    r = ((r + b) - 0.5)*c + 0.5;
+    g = ((g + b) - 0.5)*c + 0.5;
+    bl = ((bl + b) - 0.5)*c + 0.5;
+
+    data[i] = Math.max(0, Math.min(255, r*255));
+    data[i+1] = Math.max(0, Math.min(255, g*255));
+    data[i+2] = Math.max(0, Math.min(255, bl*255));
+  }
+  return imageData;
+}
+
+function applyOutline(imageData, thickness=1) {
+  const w = canvas.width, h = canvas.height;
+  const copy = new Uint8ClampedArray(imageData.data);
+  const data = imageData.data;
+  
+  function get(x,y,c){
+    if(x<0||x>=w||y<0||y>=h) return 0;
+    return copy[(y*w+x)*4+c];
+  }
+
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      let idx = (y*w+x)*4;
+      let edge = false;
+      for(let oy=-thickness; oy<=thickness; oy++){
+        for(let ox=-thickness; ox<=thickness; ox++){
+          if(ox===0 && oy===0) continue;
+          for(let c=0;c<3;c++){
+            if(Math.abs(get(x,y,c) - get(x+ox,y+oy,c))>20) edge=true;
+          }
+        }
+      }
+      if(edge){
+        data[idx]=0; data[idx+1]=0; data[idx+2]=0;
+      }
+    }
+  }
+  return imageData;
+}
+
+// Simple 16-color palette
+function quantizeColors(imageData) {
+  const data = imageData.data;
+  const palette16 = [
+    [0,0,0],[0,0,170],[0,170,0],[0,170,170],
+    [170,0,0],[170,0,170],[170,85,0],[170,170,170],
+    [85,85,85],[85,85,255],[85,255,85],[85,255,255],
+    [255,85,85],[255,85,255],[255,255,85],[255,255,255]
+  ];
+  for(let i=0;i<data.length;i+=4){
+    let r = data[i], g=data[i+1], b=data[i+2];
+    let best = 0, dist = 1e9;
+    palette16.forEach((c,j)=>{
+      let d = (r-c[0])**2 + (g-c[1])**2 + (b-c[2])**2;
+      if(d<dist){ dist=d; best=j;}
+    });
+    data[i]=palette16[best][0];
+    data[i+1]=palette16[best][1];
+    data[i+2]=palette16[best][2];
+  }
+  return imageData;
+}
+
+function render() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img, 0,0, canvas.width, canvas.height);
+  let imageData = ctx.getImageData(0,0,canvas.width,canvas.height);
+  imageData = applyFilters(imageData);
+  imageData = quantizeColors(imageData);
+  imageData = applyOutline(imageData, parseInt(outline.value));
+  ctx.putImageData(imageData,0,0);
+}
+
+canvas.addEventListener('wheel', e=>{
+  e.preventDefault();
+  scale += e.deltaY<0?0.1:-0.1;
+  scale = Math.max(0.1, Math.min(5, scale));
+  canvas.style.transform = `scale(${scale}) translate(${offsetX}px,${offsetY}px)`;
 });
-glCanvas.addEventListener("mousemove",e=>painting&&paintAt(e));
-window.addEventListener("mouseup",()=>painting=false);
 
-function paintAt(e){
-  const rect=glCanvas.getBoundingClientRect();
-  const x=(e.clientX-rect.left)*(maskSize.w/rect.width);
-  const y=(e.clientY-rect.top)*(maskSize.h/rect.height);
-  const ctx=(mode==="light"?lctx:dctx);
-  ctx.globalAlpha=brushOpacity;
-  ctx.fillStyle=mode==="light"?"white":"black";
-  ctx.beginPath();ctx.arc(x,y,brushSize,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
-  uploadMasks();
-  drawScene();
-}
+canvas.addEventListener('mousedown', e=>{
+  isDragging=true;
+  dragStart = {x:e.clientX-offsetX, y:e.clientY-offsetY};
+  canvas.style.cursor='grabbing';
+});
+canvas.addEventListener('mouseup', e=>{
+  isDragging=false;
+  canvas.style.cursor='grab';
+});
+canvas.addEventListener('mousemove', e=>{
+  if(isDragging){
+    offsetX=e.clientX-dragStart.x;
+    offsetY=e.clientY-dragStart.y;
+    canvas.style.transform = `scale(${scale}) translate(${offsetX}px,${offsetY}px)`;
+  }
+});
 
-function makeTex(image){
-  const tex=gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D,tex);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);
-  return tex;
-}
-
-function uploadMasks(){
-  if(!lightTex)lightTex=gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D,lightTex);
-  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,lightMask);
-  if(!darkTex)darkTex=gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D,darkTex);
-  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,darkMask);
-}
-
-document.getElementById("fileInput").onchange=e=>{
-  const file=e.target.files[0];
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=ev=>{
-    img=new Image();
-    img.onload=()=>{
-      baseTex=makeTex(img);
-      uploadMasks();
-      drawScene();
+// Drag & drop
+document.getElementById('canvas-container').addEventListener('drop', e=>{
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if(file && file.type.startsWith('image')){
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      img.src = ev.target.result;
     };
-    img.src=ev.target.result;
-  };
-  reader.readAsDataURL(file);
-};
+    reader.readAsDataURL(file);
+  }
+});
+document.getElementById('canvas-container').addEventListener('dragover', e=>e.preventDefault());
 
-document.getElementById("downloadBtn").onclick=()=>{
-  const link=document.createElement("a");
-  link.download="pc98_webgl.png";
-  link.href=glCanvas.toDataURL();
+// Update controls
+[brightness, contrast, saturation, outline, ditherIntensity, scaleInput].forEach(input=>{
+  input.addEventListener('input', ()=>{
+    updateDisplayValues();
+    render();
+  });
+});
+[palette,dither].forEach(sel=>{
+  sel.addEventListener('change', render);
+});
+
+document.getElementById('reset').addEventListener('click', resetControls);
+document.getElementById('download').addEventListener('click', ()=>{
+  const link = document.createElement('a');
+  link.download = 'pc98_image.png';
+  link.href = canvas.toDataURL();
   link.click();
-};
+});
 
-document.getElementById("resetBtn").onclick=()=>{
-  ["brightness","contrast"].forEach(id=>document.getElementById(id).value=0);
-  document.getElementById("saturation").value=1;
-  clearMasks();uploadMasks();drawScene();
-};
-
-/* ==== SHADER creation will come in Part 2 ==== */
-
-// Vertex + fragment shaders
-const vertSrc = `#version 300 es
-precision mediump float;
-layout(location=0) in vec2 pos;
-out vec2 vUV;
-void main() {
-  vUV = (pos + 1.0) * 0.5;
-  gl_Position = vec4(pos, 0.0, 1.0);
-}`;
-
-const fragSrc = `#version 300 es
-precision mediump float;
-in vec2 vUV;
-out vec4 fragColor;
-
-uniform sampler2D uBase;
-uniform sampler2D uLight;
-uniform sampler2D uDark;
-uniform float uBrightness;
-uniform float uContrast;
-uniform float uSaturation;
-
-// quantize to 6-bit per channel
-vec3 quantize(vec3 c) {
-  c = clamp(c, 0.0, 1.0);
-  c = floor(c * 63.0 + 0.5) / 63.0;
-  return c;
-}
-
-void main() {
-  vec4 base = texture(uBase, vUV);
-  vec3 light = texture(uLight, vUV).rgb;
-  vec3 dark  = texture(uDark, vUV).rgb;
-
-  // Apply lighten/darken masks (non-destructive)
-  // white pixels = lighten, black = darken
-  base.rgb = mix(base.rgb, vec3(1.0), light.r * 0.5);
-  base.rgb = mix(base.rgb, vec3(0.0), dark.r * 0.5);
-
-  // Basic color corrections
-  vec3 col = base.rgb;
-  col = (col + uBrightness);
-  col = (col - 0.5) * (1.0 + uContrast) + 0.5;
-  float avg = dot(col, vec3(0.3333));
-  col = avg + (col - avg) * uSaturation;
-
-  // Quantization (PC-98 look)
-  col = quantize(col);
-
-  // CRT scanlines + vignette
-  float scan = 0.85 + 0.15 * sin(vUV.y * 800.0);
-  float vign = smoothstep(1.0, 0.5, distance(vUV, vec2(0.5)) * 1.5);
-  col *= scan * vign;
-
-  fragColor = vec4(col, 1.0);
-}`;
-
-// Utility functions
-function makeShader(type, src) {
-  const s = gl.createShader(type);
-  gl.shaderSource(s, src);
-  gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
-    console.error(gl.getShaderInfoLog(s));
-  return s;
-}
-
-function makeProgram(vs, fs) {
-  const p = gl.createProgram();
-  gl.attachShader(p, vs);
-  gl.attachShader(p, fs);
-  gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS))
-    console.error(gl.getProgramInfoLog(p));
-  return p;
-}
-
-// Compile and link
-const prog = makeProgram(makeShader(gl.VERTEX_SHADER, vertSrc),
-                          makeShader(gl.FRAGMENT_SHADER, fragSrc));
-gl.useProgram(prog);
-
-// Full-screen quad
-const quad = gl.createBuffer();
-gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-  -1,-1, 1,-1, -1,1,  -1,1, 1,-1, 1,1
-]), gl.STATIC_DRAW);
-gl.enableVertexAttribArray(0);
-gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-
-// Uniform handles
-const uBase     = gl.getUniformLocation(prog,"uBase");
-const uLight    = gl.getUniformLocation(prog,"uLight");
-const uDark     = gl.getUniformLocation(prog,"uDark");
-const uBright   = gl.getUniformLocation(prog,"uBrightness");
-const uContrast = gl.getUniformLocation(prog,"uContrast");
-const uSat      = gl.getUniformLocation(prog,"uSaturation");
-
-// Ensure textures exist even before load
-function emptyTex() {
-  const t = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, t);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,maskSize.w,maskSize.h,0,
-                gl.RGBA,gl.UNSIGNED_BYTE,null);
-  return t;
-}
-baseTex = emptyTex(); lightTex = emptyTex(); darkTex = emptyTex();
-
-// Draw function
-function drawScene() {
-  if(!baseTex)return;
-  gl.viewport(0,0,glCanvas.width,glCanvas.height);
-  gl.clearColor(0,0,0,1);
-  gl.clear(gl.COLOR_BUFFER_BIT);
-
-  gl.useProgram(prog);
-  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, baseTex);
-  gl.uniform1i(uBase,0);
-  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, lightTex);
-  gl.uniform1i(uLight,1);
-  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, darkTex);
-  gl.uniform1i(uDark,2);
-
-  gl.uniform1f(uBright, parseFloat(document.getElementById("brightness").value));
-  gl.uniform1f(uContrast, parseFloat(document.getElementById("contrast").value));
-  gl.uniform1f(uSat, parseFloat(document.getElementById("saturation").value));
-
-  gl.drawArrays(gl.TRIANGLES,0,6);
-}
-
-// Animate
-function animate(){
-  requestAnimationFrame(animate);
-  drawScene();
-}
-animate();
+// initial
+img.onload = render;
+resetControls();
 </script>
+
 </body>
 </html>

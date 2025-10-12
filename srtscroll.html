@@ -2,54 +2,116 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SRT Scroller</title>
+<title>SRT Smooth Scroller</title>
 <style>
-  body { font-family: sans-serif; background: #111; color: #eee; text-align: center; }
+  body {
+    font-family: "Segoe UI", sans-serif;
+    background: #111;
+    color: #eee;
+    margin: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+  }
+
+  h2 { margin: 15px 0; color: #0ff; }
+
   #dropzone {
     border: 2px dashed #555;
-    padding: 50px;
-    margin: 20px;
+    padding: 40px;
+    width: 60%;
+    text-align: center;
+    margin-top: 50px;
     border-radius: 12px;
     color: #888;
+    transition: background 0.3s;
   }
-  #subs {
-    height: 70vh;
-    overflow: hidden;
+  #dropzone.dragover { background: #222; color: #0ff; }
+
+  #controls {
+    margin: 15px;
+    display: flex;
+    gap: 10px;
+  }
+  button {
+    background: #0ff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.1em;
+    color: #000;
+    transition: background 0.3s;
+  }
+  button:hover { background: #00cccc; }
+
+  #subs-container {
     position: relative;
+    flex: 1;
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  #subs {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
     transition: transform 0.6s ease;
   }
+
   .line {
-    padding: 1em;
-    font-size: 1.2em;
-    opacity: 0.4;
-    transition: opacity 0.3s;
+    text-align: center;
+    font-size: 2.2em;
+    line-height: 1.4em;
+    opacity: 0.3;
+    transition: opacity 0.4s;
+    max-width: 80vw;
+    margin: 30px auto;
   }
-  .active { opacity: 1; color: #0ff; }
+
+  .active {
+    opacity: 1;
+    color: #0ff;
+    text-shadow: 0 0 20px #0ff;
+  }
 </style>
 </head>
 <body>
   <h2>🎬 SRT Smooth Scroller</h2>
   <div id="dropzone">Drop your .srt file here</div>
+
   <div id="controls" style="display:none;">
     <button id="play">▶️ Play</button>
     <button id="pause">⏸ Pause</button>
+    <button id="restart">⏮ Restart</button>
   </div>
-  <div id="subs"></div>
+
+  <div id="subs-container">
+    <div id="subs"></div>
+  </div>
 
 <script>
-let subs = [], timer = null, startTime = 0, currentLine = -1;
+let subs = [], timer = null, startTime = 0, pausedAt = 0, currentLine = -1;
 
 function parseSRT(data) {
   return data.trim().split(/\n\s*\n/).map(block => {
-    const [id, time, ...text] = block.split("\n");
-    const [start, end] = time.split(" --> ").map(t => toSeconds(t));
-    return { start, end, text: text.join(" ") };
-  });
+    const lines = block.split("\n");
+    const timeLine = lines.find(l => l.includes("-->"));
+    if (!timeLine) return null;
+    const [start, end] = timeLine.split(" --> ").map(t => toSeconds(t));
+    const text = lines.slice(lines.indexOf(timeLine)+1).join("<br>");
+    return { start, end, text };
+  }).filter(Boolean);
 }
 
 function toSeconds(t) {
-  const [h,m,s] = t.replace(',',':').split(':').map(Number);
-  return h*3600 + m*60 + s;
+  const [h,m,s,ms] = t.replace(',',':').split(':').map(Number);
+  return h*3600 + m*60 + s + (ms || 0)/1000;
 }
 
 function update() {
@@ -57,25 +119,46 @@ function update() {
   const i = subs.findIndex(s => now >= s.start && now <= s.end);
   if (i !== -1 && i !== currentLine) {
     currentLine = i;
-    document.querySelectorAll('.line').forEach((el, idx) => {
-      el.classList.toggle('active', idx === i);
-    });
-    const offset = -i * 70; // roughly one line height
-    document.getElementById('subs').style.transform = `translateY(${offset}px)`;
+    const lines = document.querySelectorAll('.line');
+    lines.forEach((el, idx) => el.classList.toggle('active', idx === i));
+    const offset = -i * 100; // vertical step per line
+    document.getElementById('subs').style.transform = `translateY(calc(-50% + ${offset}px))`;
   }
 }
 
-document.getElementById('play').onclick = () => {
-  startTime = Date.now();
+function play() {
+  startTime = Date.now() - pausedAt;
   timer = setInterval(update, 100);
-};
-document.getElementById('pause').onclick = () => clearInterval(timer);
+}
 
-document.getElementById('dropzone').addEventListener('dragover', e => {
-  e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
-});
-document.getElementById('dropzone').addEventListener('drop', e => {
+function pause() {
+  pausedAt = Date.now() - startTime;
+  clearInterval(timer);
+}
+
+function restart() {
+  clearInterval(timer);
+  startTime = Date.now();
+  pausedAt = 0;
+  currentLine = -1;
+  document.getElementById('subs').style.transform = 'translateY(-50%)';
+  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
+  timer = setInterval(update, 100);
+}
+
+document.getElementById('play').onclick = play;
+document.getElementById('pause').onclick = pause;
+document.getElementById('restart').onclick = restart;
+
+const dropzone = document.getElementById('dropzone');
+dropzone.addEventListener('dragover', e => {
   e.preventDefault();
+  dropzone.classList.add('dragover');
+});
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
   const file = e.dataTransfer.files[0];
   if (!file.name.endsWith('.srt')) return alert('Please drop a .srt file!');
   const reader = new FileReader();
@@ -83,8 +166,8 @@ document.getElementById('dropzone').addEventListener('drop', e => {
     subs = parseSRT(ev.target.result);
     const subsDiv = document.getElementById('subs');
     subsDiv.innerHTML = subs.map(s => `<div class="line">${s.text}</div>`).join('');
-    document.getElementById('controls').style.display = 'block';
-    document.getElementById('dropzone').style.display = 'none';
+    document.getElementById('controls').style.display = 'flex';
+    dropzone.style.display = 'none';
   };
   reader.readAsText(file);
 });

@@ -2,178 +2,308 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>PC-98 Image Transformer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PC-98 Pixel Art WebApp</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; font-family: sans-serif; background: #222; color: #eee; }
-  #container { display: flex; height: 100%; }
-  #sidebar { width: 280px; background: #333; padding: 10px; box-sizing: border-box; overflow-y: auto; }
-  #main { flex: 1; display: flex; align-items: center; justify-content: center; background: #111; position: relative; }
-  canvas { image-rendering: pixelated; cursor: grab; }
-  h2 { font-size: 16px; margin: 10px 0 5px; }
-  label { display: block; margin: 5px 0 2px; }
-  input[type=range], select, button { width: 100%; margin-bottom: 10px; }
-  button { padding: 5px; background: #555; color: #eee; border: none; cursor: pointer; }
+  body {
+    margin: 0;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    font-family: sans-serif;
+    background: #111;
+    color: #eee;
+  }
+  #sidebar {
+    width: 300px;
+    background: #222;
+    padding: 15px;
+    box-sizing: border-box;
+    overflow-y: auto;
+  }
+  #canvas-container {
+    flex: 1;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+  }
+  canvas {
+    image-rendering: pixelated;
+    max-width: 100%;
+    max-height: 100%;
+    user-select: none;
+  }
+  h3 { margin: 15px 0 5px; font-size: 16px; }
+  input[type=range] { width: 100%; }
+  button {
+    width: 100%;
+    padding: 8px;
+    margin: 5px 0;
+    background: #444;
+    border: none;
+    color: #eee;
+    cursor: pointer;
+  }
   button:hover { background: #666; }
+  select { width: 100%; padding: 5px; margin: 5px 0; }
 </style>
 </head>
 <body>
-<div id="container">
-  <div id="sidebar">
-    <h2>Color Adjustment</h2>
-    <label>Saturation</label><input type="range" id="saturation" min="0" max="200" value="100">
-    <label>Brightness</label><input type="range" id="brightness" min="0" max="200" value="100">
-    <label>Contrast</label><input type="range" id="contrast" min="0" max="200" value="100">
 
-    <h2>Levels</h2>
-    <label>Shadows</label><input type="range" id="shadows" min="0" max="255" value="0">
-    <label>Midtones</label><input type="range" id="midtones" min="0" max="255" value="128">
-    <label>Highlights</label><input type="range" id="highlights" min="0" max="255" value="255">
-    <label>Output Min</label><input type="range" id="outMin" min="0" max="255" value="0">
-    <label>Output Max</label><input type="range" id="outMax" min="0" max="255" value="255">
+<div id="sidebar">
+  <h3>Image Upload</h3>
+  <input type="file" id="upload" accept="image/*"><br>
 
-    <h2>Palette</h2>
-    <select id="palette">
-      <option value="16">16-color</option>
-      <option value="256">256-color</option>
-      <option value="pc98">PC-98 classic</option>
-    </select>
-    <label>Color Depth (bits)</label><input type="range" id="colorDepth" min="2" max="8" value="8">
+  <h3>Input Image Size</h3>
+  <button onclick="setInputScale('fitWidth')">Fit Width</button>
+  <button onclick="setInputScale('fitHeight')">Fit Height</button>
+  <input type="number" id="scalePercent" placeholder="Scale %" min="1" max="400" value="100">
+  <button onclick="applyScale()">Apply Scale</button>
 
-    <h2>Dithering</h2>
-    <select id="dither">
-      <option value="none">None</option>
-      <option value="bayer">Ordered (Bayer)</option>
-      <option value="floyd">Floyd-Steinberg</option>
-      <option value="random">Random</option>
-    </select>
-    <label>Dither Intensity</label><input type="range" id="ditherIntensity" min="0" max="100" value="100">
+  <h3>Color Adjustment</h3>
+  <label>Brightness <input type="range" id="brightness" min="-100" max="100" value="0"></label>
+  <label>Contrast <input type="range" id="contrast" min="-100" max="100" value="0"></label>
 
-    <h2>Outline Filter</h2>
-    <label>Detail</label><input type="range" id="outlineDetail" min="1" max="10" value="1">
-    <label>Thickness</label><input type="range" id="outlineThickness" min="1" max="10" value="1">
+  <h3>Levels</h3>
+  <label>Shadows <input type="range" id="shadows" min="0" max="255" value="0"></label>
+  <label>Midtones <input type="range" id="midtones" min="0" max="255" value="128"></label>
+  <label>Highlights <input type="range" id="highlights" min="0" max="255" value="255"></label>
+  <label>Output Min <input type="range" id="outMin" min="0" max="255" value="0"></label>
+  <label>Output Max <input type="range" id="outMax" min="0" max="255" value="255"></label>
 
-    <h2>Input Size</h2>
-    <select id="inputSize">
-      <option value="fitWidth">Fit Width</option>
-      <option value="fitHeight">Fit Height</option>
-      <option value="scale">Scale %</option>
-    </select>
-    <input type="range" id="scalePercent" min="10" max="200" value="100">
+  <h3>Palette</h3>
+  <select id="palette">
+    <option value="16">16-color</option>
+    <option value="256">256-color</option>
+    <option value="pc98">Classic PC-98</option>
+  </select>
 
-    <button id="downloadBtn">Download</button>
-    <button id="resetBtn">Reset</button>
+  <h3>Dithering</h3>
+  <select id="ditherType">
+    <option value="none">None</option>
+    <option value="bayer">Ordered (Bayer)</option>
+    <option value="floyd">Floyd-Steinberg</option>
+    <option value="random">Random</option>
+  </select>
+  <label>Dither Intensity <input type="range" id="ditherIntensity" min="0" max="100" value="100"></label>
+  <label><input type="checkbox" id="ditherIntermediate"> Dither Only Intermediate Colors</label>
 
-    <h2>Upload Image</h2>
-    <input type="file" id="fileInput" accept="image/*">
-  </div>
-  <div id="main">
-    <canvas id="canvas" width="640" height="400"></canvas>
-  </div>
+  <h3>Outline Filter</h3>
+  <label>Detail <input type="range" id="outlineDetail" min="1" max="10" value="1"></label>
+  <label>Thickness <input type="range" id="outlineThickness" min="1" max="10" value="1"></label>
+  <label><input type="checkbox" id="outlineEnable" checked> Enable Outline</label>
+
+  <button onclick="downloadImage()">Download</button>
+  <button onclick="resetDefaults()">Reset Defaults</button>
+</div>
+
+<div id="canvas-container">
+  <canvas id="canvas" width="640" height="400"></canvas>
 </div>
 
 <script>
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 let img = new Image();
-let imgDataOriginal = null;
+let imgOriginal = null;
+let offsetX = 0, offsetY = 0, dragging = false, startX = 0, startY = 0;
+let scaleMode = 'fitWidth';
+let scalePercent = 100;
 
-// Drag & Drop
-document.body.addEventListener('dragover', e => e.preventDefault());
-document.body.addEventListener('drop', e => {
-  e.preventDefault();
-  if(e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
-});
+function resetDefaults() {
+    document.getElementById('brightness').value = 0;
+    document.getElementById('contrast').value = 0;
+    document.getElementById('shadows').value = 0;
+    document.getElementById('midtones').value = 128;
+    document.getElementById('highlights').value = 255;
+    document.getElementById('outMin').value = 0;
+    document.getElementById('outMax').value = 255;
+    document.getElementById('palette').value = '16';
+    document.getElementById('ditherType').value = 'none';
+    document.getElementById('ditherIntensity').value = 100;
+    document.getElementById('outlineDetail').value = 1;
+    document.getElementById('outlineThickness').value = 1;
+    document.getElementById('outlineEnable').checked = true;
+    scalePercent = 100;
+    applyTransform();
+}
 
-document.getElementById('fileInput').addEventListener('change', e => {
-  if(e.target.files.length) loadFile(e.target.files[0]);
-});
+function setInputScale(mode) {
+    scaleMode = mode;
+    applyTransform();
+}
 
-function loadFile(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    img.onload = () => {
-      drawImage();
-      imgDataOriginal = ctx.getImageData(0,0,canvas.width,canvas.height);
+function applyScale() {
+    scalePercent = parseInt(document.getElementById('scalePercent').value) || 100;
+    applyTransform();
+}
+
+document.getElementById('upload').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        img.src = ev.target.result;
+        img.onload = () => {
+            imgOriginal = img;
+            offsetX = offsetY = 0;
+            applyTransform();
+        };
     };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+    reader.readAsDataURL(file);
+});
+
+canvas.addEventListener('mousedown', e => {
+    dragging = true;
+    startX = e.offsetX - offsetX;
+    startY = e.offsetY - offsetY;
+    canvas.style.cursor = 'grabbing';
+});
+canvas.addEventListener('mouseup', e => { dragging = false; canvas.style.cursor = 'grab'; });
+canvas.addEventListener('mouseout', e => { dragging = false; canvas.style.cursor = 'grab'; });
+canvas.addEventListener('mousemove', e => {
+    if(dragging) { offsetX = e.offsetX - startX; offsetY = e.offsetY - startY; drawCanvas(); }
+});
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    scalePercent *= factor;
+    applyTransform();
+});
+
+const controls = ['brightness','contrast','shadows','midtones','highlights','outMin','outMax','palette','ditherType','ditherIntensity','ditherIntermediate','outlineDetail','outlineThickness','outlineEnable'];
+controls.forEach(id => {
+    document.getElementById(id).addEventListener('input', applyTransform);
+});
+
+function applyTransform() {
+    if(!imgOriginal) return;
+
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = 640;
+    tmpCanvas.height = 400;
+    const tctx = tmpCanvas.getContext('2d');
+    let w = imgOriginal.width;
+    let h = imgOriginal.height;
+
+    if(scaleMode === 'fitWidth') { h = h * (640 / w); w = 640; }
+    else if(scaleMode === 'fitHeight') { w = w * (400 / h); h = 400; }
+    else { w = w * scalePercent / 100; h = h * scalePercent / 100; }
+
+    tctx.drawImage(imgOriginal, 0, 0, w, h);
+
+    let imageData = tctx.getImageData(0,0,640,400);
+    imageData = applyBrightnessContrast(imageData);
+    imageData = applyLevels(imageData);
+    imageData = applyPalette(imageData);
+    imageData = applyDither(imageData);
+    if(document.getElementById('outlineEnable').checked) imageData = applyOutline(imageData);
+
+    ctx.putImageData(imageData, offsetX, offsetY);
 }
 
-// Image transformations
-function drawImage() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  const scale = Math.min(640/img.width, 400/img.height);
-  const w = img.width * scale;
-  const h = img.height * scale;
-  ctx.drawImage(img, 0,0,w,h);
-  applyFilters();
+function drawCanvas() { if(imgOriginal) applyTransform(); }
+
+function applyBrightnessContrast(data) {
+    const b = parseInt(document.getElementById('brightness').value);
+    const c = parseInt(document.getElementById('contrast').value);
+    const factor = (259*(c+255))/(255*(259-c));
+    for(let i=0;i<data.data.length;i+=4){
+        data.data[i] = truncate(factor*(data.data[i]-128)+128+b);
+        data.data[i+1] = truncate(factor*(data.data[i+1]-128)+128+b);
+        data.data[i+2] = truncate(factor*(data.data[i+2]-128)+128+b);
+    }
+    return data;
 }
 
-function applyFilters() {
-  if(!imgDataOriginal) return;
-  const data = ctx.getImageData(0,0,canvas.width,canvas.height);
-  const d = data.data;
-  const sat = document.getElementById('saturation').value / 100;
-  const bright = document.getElementById('brightness').value / 100;
-  const contrast = document.getElementById('contrast').value / 100;
+function applyLevels(data) {
+    const s = parseInt(document.getElementById('shadows').value);
+    const m = parseInt(document.getElementById('midtones').value);
+    const h = parseInt(document.getElementById('highlights').value);
+    const outMin = parseInt(document.getElementById('outMin').value);
+    const outMax = parseInt(document.getElementById('outMax').value);
 
-  for(let i=0;i<d.length;i+=4){
-    // brightness
-    d[i] *= bright;
-    d[i+1] *= bright;
-    d[i+2] *= bright;
-
-    // saturation
-    const gray = 0.3*d[i]+0.59*d[i+1]+0.11*d[i+2];
-    d[i] = gray + (d[i]-gray)*sat;
-    d[i+1] = gray + (d[i+1]-gray)*sat;
-    d[i+2] = gray + (d[i+2]-gray)*sat;
-
-    // contrast
-    d[i] = ((d[i]-128)*contrast+128);
-    d[i+1] = ((d[i+1]-128)*contrast+128);
-    d[i+2] = ((d[i+2]-128)*contrast+128);
-  }
-  ctx.putImageData(data,0,0);
+    for(let i=0;i<data.data.length;i+=4){
+        for(let j=0;j<3;j++){
+            let v = data.data[i+j];
+            if(v <= m) v = s + (v/ m)*(m-s);
+            else v = m + ((v-m)/(255-m))*(h-m);
+            v = outMin + (v/255)*(outMax-outMin);
+            data.data[i+j] = truncate(v);
+        }
+    }
+    return data;
 }
 
-// Controls
-const controls = document.querySelectorAll('input, select');
-controls.forEach(c => c.addEventListener('input', applyFilters));
+function applyPalette(data){
+    const pal = document.getElementById('palette').value;
+    let colors = [];
+    if(pal==='16'){ for(let i=0;i<16;i++){ colors.push([i*16,i*16,i*16]); } }
+    else if(pal==='256'){ for(let i=0;i<256;i++){ colors.push([i,i,i]); } }
+    else if(pal==='pc98'){ for(let i=0;i<16;i++){ colors.push([i*16,(15-i)*16,(i*8)]); } }
+    for(let i=0;i<data.data.length;i+=4){
+        const r=data.data[i], g=data.data[i+1], b=data.data[i+2];
+        let nearest = colors.reduce((a,c)=> colorDist([r,g,b],c)<colorDist([r,g,b],a)?c:a, colors[0]);
+        data.data[i]=nearest[0]; data.data[i+1]=nearest[1]; data.data[i+2]=nearest[2];
+    }
+    return data;
+}
 
-document.getElementById('downloadBtn').addEventListener('click', () => {
-  const link = document.createElement('a');
-  link.download = 'pc98_image.png';
-  link.href = canvas.toDataURL();
-  link.click();
-});
+function colorDist(a,b){ return Math.sqrt((a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2); }
 
-document.getElementById('resetBtn').addEventListener('click', () => {
-  document.querySelectorAll('input[type=range]').forEach(r=>r.value=r.defaultValue);
-  drawImage();
-});
+function applyDither(data){
+    const type = document.getElementById('ditherType').value;
+    if(type==='none') return data;
+    // Simple random dithering demo
+    if(type==='random'){
+        const intensity = parseInt(document.getElementById('ditherIntensity').value)/100;
+        for(let i=0;i<data.data.length;i+=4){
+            const d = (Math.random()-0.5)*255*intensity;
+            data.data[i] = truncate(data.data[i]+d);
+            data.data[i+1] = truncate(data.data[i+1]+d);
+            data.data[i+2] = truncate(data.data[i+2]+d);
+        }
+    }
+    return data;
+}
 
-// Zoom & Pan
-let offsetX=0, offsetY=0, isDragging=false, startX, startY;
-canvas.addEventListener('mousedown', e=>{isDragging=true; startX=e.offsetX; startY=e.offsetY;});
-canvas.addEventListener('mouseup', ()=>{isDragging=false;});
-canvas.addEventListener('mousemove', e=>{
-  if(isDragging){
-    const dx = e.offsetX - startX;
-    const dy = e.offsetY - startY;
-    offsetX += dx; offsetY += dy;
-    startX = e.offsetX; startY = e.offsetY;
-    drawImage();
-  }
-});
-canvas.addEventListener('wheel', e=>{
-  e.preventDefault();
-  const scale = e.deltaY<0?1.1:0.9;
-  canvas.width *= scale;
-  canvas.height *= scale;
-  drawImage();
-});
+function applyOutline(data){
+    const detail = parseInt(document.getElementById('outlineDetail').value);
+    const thickness = parseInt(document.getElementById('outlineThickness').value);
+    const w = data.width, h = data.height;
+    const copy = new Uint8ClampedArray(data.data);
+
+    for(let y=1;y<h-1;y++){
+        for(let x=1;x<w-1;x++){
+            let idx = (y*w+x)*4;
+            let diff = 0;
+            for(let dy=-1;dy<=1;dy++){
+                for(let dx=-1;dx<=1;dx++){
+                    if(dx===0 && dy===0) continue;
+                    let nidx = ((y+dy)*w+(x+dx))*4;
+                    diff += Math.abs(data.data[idx]-data.data[nidx]);
+                }
+            }
+            if(diff>detail*50){
+                copy[idx]=copy[idx+1]=copy[idx+2]=0;
+            }
+        }
+    }
+    data.data.set(copy);
+    return data;
+}
+
+function truncate(v){ return Math.min(255, Math.max(0, v)); }
+
+function downloadImage(){
+    const link = document.createElement('a');
+    link.download = 'pc98_image.png';
+    link.href = canvas.toDataURL();
+    link.click();
+}
+
 </script>
 </body>
 </html>

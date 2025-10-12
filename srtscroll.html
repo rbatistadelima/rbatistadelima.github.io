@@ -27,6 +27,7 @@
     border-radius: 12px;
     color: #888;
     transition: background 0.3s;
+    z-index: 10;
   }
   #dropzone.dragover { background: #222; color: #0ff; }
 
@@ -34,6 +35,8 @@
     margin: 15px;
     display: flex;
     gap: 10px;
+    z-index: 20;
+    position: relative;
   }
   button {
     background: #0ff;
@@ -55,6 +58,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    z-index: 5; /* behind controls */
   }
 
   #subs {
@@ -66,18 +70,19 @@
 
   .line {
     text-align: center;
-    font-size: 2.2em;
-    line-height: 1.4em;
+    font-size: 6em; /* 3x bigger */
+    line-height: 1.2em;
     opacity: 0.3;
     transition: opacity 0.4s;
     max-width: 80vw;
-    margin: 30px auto;
+    margin: 50px auto;
+    pointer-events: none;
   }
 
   .active {
     opacity: 1;
     color: #0ff;
-    text-shadow: 0 0 20px #0ff;
+    text-shadow: 0 0 30px #0ff;
   }
 </style>
 </head>
@@ -86,9 +91,11 @@
   <div id="dropzone">Drop your .srt file here</div>
 
   <div id="controls" style="display:none;">
+    <button id="prev">⏪ Prev Line</button>
+    <button id="restart">⏮ Restart</button>
     <button id="play">▶️ Play</button>
     <button id="pause">⏸ Pause</button>
-    <button id="restart">⏮ Restart</button>
+    <button id="next">⏩ Next Line</button>
   </div>
 
   <div id="subs-container">
@@ -118,12 +125,16 @@ function update() {
   const now = (Date.now() - startTime) / 1000;
   const i = subs.findIndex(s => now >= s.start && now <= s.end);
   if (i !== -1 && i !== currentLine) {
-    currentLine = i;
-    const lines = document.querySelectorAll('.line');
-    lines.forEach((el, idx) => el.classList.toggle('active', idx === i));
-    const offset = -i * 100; // vertical step per line
-    document.getElementById('subs').style.transform = `translateY(calc(-50% + ${offset}px))`;
+    goToLine(i);
   }
+}
+
+function goToLine(i) {
+  currentLine = i;
+  const lines = document.querySelectorAll('.line');
+  lines.forEach((el, idx) => el.classList.toggle('active', idx === i));
+  const offset = -i * 120; // vertical step per line
+  document.getElementById('subs').style.transform = `translateY(calc(-50% + ${offset}px))`;
 }
 
 function play() {
@@ -140,15 +151,30 @@ function restart() {
   clearInterval(timer);
   startTime = Date.now();
   pausedAt = 0;
-  currentLine = -1;
-  document.getElementById('subs').style.transform = 'translateY(-50%)';
-  document.querySelectorAll('.line').forEach(el => el.classList.remove('active'));
-  timer = setInterval(update, 100);
+  goToLine(0);
+}
+
+function prevLine() {
+  if(currentLine > 0) {
+    goToLine(currentLine-1);
+    pausedAt = subs[currentLine].start * 1000;
+    startTime = Date.now() - pausedAt;
+  }
+}
+
+function nextLine() {
+  if(currentLine < subs.length-1) {
+    goToLine(currentLine+1);
+    pausedAt = subs[currentLine].start * 1000;
+    startTime = Date.now() - pausedAt;
+  }
 }
 
 document.getElementById('play').onclick = play;
 document.getElementById('pause').onclick = pause;
 document.getElementById('restart').onclick = restart;
+document.getElementById('prev').onclick = prevLine;
+document.getElementById('next').onclick = nextLine;
 
 const dropzone = document.getElementById('dropzone');
 dropzone.addEventListener('dragover', e => {
@@ -168,6 +194,7 @@ dropzone.addEventListener('drop', e => {
     subsDiv.innerHTML = subs.map(s => `<div class="line">${s.text}</div>`).join('');
     document.getElementById('controls').style.display = 'flex';
     dropzone.style.display = 'none';
+    goToLine(0);
   };
   reader.readAsText(file);
 });

@@ -1,921 +1,179 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PC-98 Pixel Art Transformer</title>
-    <style>
-        :root {
-            --primary-color: #6a5acd;
-            --secondary-color: #483d8b;
-            --bg-color: #1a1a2e;
-            --panel-bg: #2d2d44;
-            --text-color: #e6e6fa;
-            --border-color: #4a4a6a;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Courier New', monospace;
-        }
-        
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            overflow: hidden;
-            height: 100vh;
-        }
-        
-        .container {
-            display: flex;
-            height: 100vh;
-        }
-        
-        .sidebar {
-            width: 300px;
-            background-color: var(--panel-bg);
-            padding: 20px;
-            border-right: 2px solid var(--border-color);
-            overflow-y: auto;
-        }
-        
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-        }
-        
-        .preview-container {
-            flex: 1;
-            background-color: var(--panel-bg);
-            border: 2px solid var(--border-color);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .canvas-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        canvas {
-            image-rendering: pixelated;
-            max-width: 100%;
-            max-height: 100%;
-        }
-        
-        .drop-zone {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 10;
-        }
-        
-        .drop-zone.hidden {
-            display: none;
-        }
-        
-        .drop-zone p {
-            font-size: 18px;
-            margin-bottom: 20px;
-        }
-        
-        .control-group {
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .control-group h3 {
-            margin-bottom: 10px;
-            color: var(--primary-color);
-        }
-        
-        .control-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        
-        label {
-            font-size: 14px;
-        }
-        
-        input[type="range"] {
-            width: 150px;
-        }
-        
-        input[type="number"] {
-            width: 60px;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-            padding: 4px;
-        }
-        
-        select {
-            width: 100%;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-            padding: 6px;
-        }
-        
-        button {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 5px;
-            width: 100%;
-        }
-        
-        button:hover {
-            background-color: var(--secondary-color);
-        }
-        
-        .palette-preview {
-            display: flex;
-            flex-wrap: wrap;
-            margin-top: 10px;
-        }
-        
-        .color-swatch {
-            width: 20px;
-            height: 20px;
-            margin: 2px;
-            border: 1px solid var(--border-color);
-        }
-        
-        .size-controls {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .size-controls button {
-            flex: 1;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>PC-98 Image Transformer</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: sans-serif; background: #222; color: #eee; }
+  #container { display: flex; height: 100%; }
+  #sidebar { width: 280px; background: #333; padding: 10px; box-sizing: border-box; overflow-y: auto; }
+  #main { flex: 1; display: flex; align-items: center; justify-content: center; background: #111; position: relative; }
+  canvas { image-rendering: pixelated; cursor: grab; }
+  h2 { font-size: 16px; margin: 10px 0 5px; }
+  label { display: block; margin: 5px 0 2px; }
+  input[type=range], select, button { width: 100%; margin-bottom: 10px; }
+  button { padding: 5px; background: #555; color: #eee; border: none; cursor: pointer; }
+  button:hover { background: #666; }
+</style>
 </head>
 <body>
-    <div class="container">
-        <div class="sidebar">
-            <div class="control-group">
-                <h3>Image Upload</h3>
-                <input type="file" id="image-upload" accept="image/*" style="display: none;">
-                <button id="upload-btn">Upload Image</button>
-            </div>
-            
-            <div class="control-group">
-                <h3>Color Processing</h3>
-                <div class="control-row">
-                    <label for="palette-select">Palette:</label>
-                    <select id="palette-select">
-                        <option value="16">16-color</option>
-                        <option value="256" selected>256-color</option>
-                        <option value="pc98">Classic PC-98</option>
-                        <option value="custom">Custom</option>
-                    </select>
-                </div>
-                <div class="control-row">
-                    <label for="color-depth">Color Depth:</label>
-                    <select id="color-depth">
-                        <option value="2">2-bit</option>
-                        <option value="4">4-bit</option>
-                        <option value="8" selected>8-bit</option>
-                    </select>
-                </div>
-                <div class="control-row">
-                    <label for="saturation">Saturation:</label>
-                    <input type="range" id="saturation" min="0" max="200" value="100">
-                    <input type="number" id="saturation-value" min="0" max="200" value="100">
-                </div>
-                <div class="control-row">
-                    <label for="brightness">Brightness:</label>
-                    <input type="range" id="brightness" min="0" max="200" value="100">
-                    <input type="number" id="brightness-value" min="0" max="200" value="100">
-                </div>
-                <div class="control-row">
-                    <label for="contrast">Contrast:</label>
-                    <input type="range" id="contrast" min="0" max="200" value="100">
-                    <input type="number" id="contrast-value" min="0" max="200" value="100">
-                </div>
-                <div id="palette-preview" class="palette-preview"></div>
-            </div>
-            
-            <div class="control-group">
-                <h3>Dithering</h3>
-                <div class="control-row">
-                    <label for="dither-type">Type:</label>
-                    <select id="dither-type">
-                        <option value="none">None</option>
-                        <option value="bayer">Ordered (Bayer)</option>
-                        <option value="floyd">Floyd-Steinberg</option>
-                        <option value="random">Random</option>
-                    </select>
-                </div>
-                <div class="control-row">
-                    <label for="dither-intensity">Intensity:</label>
-                    <input type="range" id="dither-intensity" min="0" max="100" value="50">
-                    <input type="number" id="dither-intensity-value" min="0" max="100" value="50">
-                </div>
-                <div class="control-row">
-                    <input type="checkbox" id="intermediate-dither">
-                    <label for="intermediate-dither">Dither only intermediate colors</label>
-                </div>
-            </div>
-            
-            <div class="control-group">
-                <h3>Outline Filter</h3>
-                <div class="control-row">
-                    <label for="outline-detail">Detail:</label>
-                    <input type="range" id="outline-detail" min="1" max="10" value="5">
-                    <input type="number" id="outline-detail-value" min="1" max="10" value="5">
-                </div>
-                <div class="control-row">
-                    <label for="outline-thickness">Thickness:</label>
-                    <input type="range" id="outline-thickness" min="1" max="5" value="1">
-                    <input type="number" id="outline-thickness-value" min="1" max="5" value="1">
-                </div>
-            </div>
-            
-            <div class="control-group">
-                <h3>Size Controls</h3>
-                <div class="size-controls">
-                    <button id="fit-width">Fit Width</button>
-                    <button id="fit-height">Fit Height</button>
-                </div>
-                <div class="control-row">
-                    <label for="scale-percent">Scale %:</label>
-                    <input type="range" id="scale-percent" min="10" max="200" value="100">
-                    <input type="number" id="scale-percent-value" min="10" max="200" value="100">
-                </div>
-            </div>
-            
-            <div class="control-group">
-                <h3>Output</h3>
-                <button id="download-btn">Download Image</button>
-                <button id="reset-btn">Reset to Defaults</button>
-            </div>
-        </div>
-        
-        <div class="main-content">
-            <div class="preview-container">
-                <div class="canvas-container">
-                    <canvas id="preview-canvas"></canvas>
-                </div>
-                <div id="drop-zone" class="drop-zone">
-                    <p>Drag and drop an image here</p>
-                    <p>or</p>
-                    <button id="drop-upload-btn">Select Image</button>
-                </div>
-            </div>
-        </div>
-    </div>
+<div id="container">
+  <div id="sidebar">
+    <h2>Color Adjustment</h2>
+    <label>Saturation</label><input type="range" id="saturation" min="0" max="200" value="100">
+    <label>Brightness</label><input type="range" id="brightness" min="0" max="200" value="100">
+    <label>Contrast</label><input type="range" id="contrast" min="0" max="200" value="100">
 
-    <script>
-        // Global variables
-        let originalImage = null;
-        let processedImage = null;
-        let canvas = document.getElementById('preview-canvas');
-        let ctx = canvas.getContext('2d');
-        let isDragging = false;
-        let lastX = 0;
-        let lastY = 0;
-        let offsetX = 0;
-        let offsetY = 0;
-        let scale = 1.0;
-        
-        // Initialize the application
-        function init() {
-            // Set up event listeners
-            document.getElementById('upload-btn').addEventListener('click', () => {
-                document.getElementById('image-upload').click();
-            });
-            
-            document.getElementById('drop-upload-btn').addEventListener('click', () => {
-                document.getElementById('image-upload').click();
-            });
-            
-            document.getElementById('image-upload').addEventListener('change', handleImageUpload);
-            
-            // Set up drag and drop
-            const dropZone = document.getElementById('drop-zone');
-            dropZone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                dropZone.style.backgroundColor = 'rgba(106, 90, 205, 0.5)';
-            });
-            
-            dropZone.addEventListener('dragleave', () => {
-                dropZone.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-            });
-            
-            dropZone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                dropZone.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-                
-                if (e.dataTransfer.files.length) {
-                    handleFile(e.dataTransfer.files[0]);
-                }
-            });
-            
-            // Set up canvas interaction
-            canvas.addEventListener('wheel', handleZoom);
-            canvas.addEventListener('mousedown', startDrag);
-            canvas.addEventListener('mousemove', drag);
-            canvas.addEventListener('mouseup', endDrag);
-            canvas.addEventListener('mouseleave', endDrag);
-            
-            // Set up control listeners
-            setupControlListeners();
-            
-            // Set up download and reset buttons
-            document.getElementById('download-btn').addEventListener('click', downloadImage);
-            document.getElementById('reset-btn').addEventListener('click', resetToDefaults);
-            
-            // Set up size controls
-            document.getElementById('fit-width').addEventListener('click', fitWidth);
-            document.getElementById('fit-height').addEventListener('click', fitHeight);
-            
-            // Initialize palette preview
-            updatePalettePreview();
-        }
-        
-        // Handle image upload
-        function handleImageUpload(e) {
-            if (e.target.files.length) {
-                handleFile(e.target.files[0]);
-            }
-        }
-        
-        function handleFile(file) {
-            if (!file.type.match('image.*')) {
-                alert('Please select an image file.');
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    originalImage = img;
-                    document.getElementById('drop-zone').classList.add('hidden');
-                    processImage();
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-        
-        // Process the image with current settings
-        function processImage() {
-            if (!originalImage) return;
-            
-            // Create a temporary canvas for processing
-            const tempCanvas = document.createElement('canvas');
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            // Set canvas size to PC-98 resolution (640x400)
-            tempCanvas.width = 640;
-            tempCanvas.height = 400;
-            
-            // Calculate aspect ratio and draw image
-            const aspectRatio = Math.min(
-                640 / originalImage.width,
-                400 / originalImage.height
-            );
-            
-            const drawWidth = originalImage.width * aspectRatio;
-            const drawHeight = originalImage.height * aspectRatio;
-            const offsetX = (640 - drawWidth) / 2;
-            const offsetY = (400 - drawHeight) / 2;
-            
-            tempCtx.drawImage(originalImage, offsetX, offsetY, drawWidth, drawHeight);
-            
-            // Apply color processing
-            applyColorProcessing(tempCtx, tempCanvas.width, tempCanvas.height);
-            
-            // Apply dithering
-            applyDithering(tempCtx, tempCanvas.width, tempCanvas.height);
-            
-            // Apply outline filter
-            applyOutlineFilter(tempCtx, tempCanvas.width, tempCanvas.height);
-            
-            // Update the preview canvas
-            updatePreviewCanvas(tempCanvas);
-        }
-        
-        // Apply color processing effects
-        function applyColorProcessing(ctx, width, height) {
-            const imageData = ctx.getImageData(0, 0, width, height);
-            const data = imageData.data;
-            
-            // Get current settings
-            const saturation = parseInt(document.getElementById('saturation').value) / 100;
-            const brightness = parseInt(document.getElementById('brightness').value) / 100;
-            const contrast = parseInt(document.getElementById('contrast').value) / 100;
-            const colorDepth = parseInt(document.getElementById('color-depth').value);
-            
-            // Apply color adjustments
-            for (let i = 0; i < data.length; i += 4) {
-                let r = data[i];
-                let g = data[i + 1];
-                let b = data[i + 2];
-                
-                // Apply brightness
-                r = Math.min(255, r * brightness);
-                g = Math.min(255, g * brightness);
-                b = Math.min(255, b * brightness);
-                
-                // Apply contrast
-                const contrastFactor = (259 * (contrast * 255 + 255)) / (255 * (259 - contrast * 255));
-                r = contrastFactor * (r - 128) + 128;
-                g = contrastFactor * (g - 128) + 128;
-                b = contrastFactor * (b - 128) + 128;
-                
-                // Apply saturation
-                const gray = 0.2989 * r + 0.5870 * g + 0.1140 * b;
-                r = gray + saturation * (r - gray);
-                g = gray + saturation * (g - gray);
-                b = gray + saturation * (b - gray);
-                
-                // Reduce color depth
-                const levels = Math.pow(2, colorDepth);
-                r = Math.floor(r / (256 / levels)) * (256 / levels);
-                g = Math.floor(g / (256 / levels)) * (256 / levels);
-                b = Math.floor(b / (256 / levels)) * (256 / levels);
-                
-                data[i] = r;
-                data[i + 1] = g;
-                data[i + 2] = b;
-            }
-            
-            ctx.putImageData(imageData, 0, 0);
-        }
-        
-        // Apply dithering effects
-        function applyDithering(ctx, width, height) {
-            const ditherType = document.getElementById('dither-type').value;
-            const intensity = parseInt(document.getElementById('dither-intensity').value) / 100;
-            
-            if (ditherType === 'none') return;
-            
-            const imageData = ctx.getImageData(0, 0, width, height);
-            const data = imageData.data;
-            
-            // Apply selected dithering algorithm
-            switch (ditherType) {
-                case 'bayer':
-                    applyBayerDithering(data, width, height, intensity);
-                    break;
-                case 'floyd':
-                    applyFloydSteinbergDithering(data, width, height, intensity);
-                    break;
-                case 'random':
-                    applyRandomDithering(data, width, height, intensity);
-                    break;
-            }
-            
-            ctx.putImageData(imageData, 0, 0);
-        }
-        
-        // Bayer matrix for ordered dithering
-        const bayerMatrix = [
-            [0, 8, 2, 10],
-            [12, 4, 14, 6],
-            [3, 11, 1, 9],
-            [15, 7, 13, 5]
-        ];
-        
-        function applyBayerDithering(data, width, height, intensity) {
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    const i = (y * width + x) * 4;
-                    const threshold = bayerMatrix[y % 4][x % 4] / 16;
-                    
-                    // Apply dithering to each channel
-                    for (let c = 0; c < 3; c++) {
-                        const value = data[i + c] / 255;
-                        data[i + c] = value > threshold * intensity ? 255 : 0;
-                    }
-                }
-            }
-        }
-        
-        function applyFloydSteinbergDithering(data, width, height, intensity) {
-            // Create a copy of the data to avoid modifying during processing
-            const originalData = new Uint8ClampedArray(data);
-            
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    const i = (y * width + x) * 4;
-                    
-                    for (let c = 0; c < 3; c++) {
-                        const oldValue = originalData[i + c];
-                        const newValue = oldValue > 128 ? 255 : 0;
-                        data[i + c] = newValue;
-                        
-                        const error = (oldValue - newValue) * intensity;
-                        
-                        // Distribute error to neighboring pixels
-                        if (x + 1 < width) {
-                            const rightIndex = i + 4 + c;
-                            originalData[rightIndex] = Math.min(255, Math.max(0, originalData[rightIndex] + error * 7/16));
-                        }
-                        
-                        if (y + 1 < height) {
-                            if (x > 0) {
-                                const bottomLeftIndex = i + width * 4 - 4 + c;
-                                originalData[bottomLeftIndex] = Math.min(255, Math.max(0, originalData[bottomLeftIndex] + error * 3/16));
-                            }
-                            
-                            const bottomIndex = i + width * 4 + c;
-                            originalData[bottomIndex] = Math.min(255, Math.max(0, originalData[bottomIndex] + error * 5/16));
-                            
-                            if (x + 1 < width) {
-                                const bottomRightIndex = i + width * 4 + 4 + c;
-                                originalData[bottomRightIndex] = Math.min(255, Math.max(0, originalData[bottomRightIndex] + error * 1/16));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        function applyRandomDithering(data, width, height, intensity) {
-            for (let i = 0; i < data.length; i += 4) {
-                for (let c = 0; c < 3; c++) {
-                    const threshold = Math.random() * intensity;
-                    data[i + c] = data[i + c] / 255 > threshold ? 255 : 0;
-                }
-            }
-        }
-        
-        // Apply outline filter
-        function applyOutlineFilter(ctx, width, height) {
-            const detail = parseInt(document.getElementById('outline-detail').value);
-            const thickness = parseInt(document.getElementById('outline-thickness').value);
-            
-            // Get image data
-            const imageData = ctx.getImageData(0, 0, width, height);
-            const data = imageData.data;
-            
-            // Create a copy for edge detection
-            const edgeData = new Uint8ClampedArray(data);
-            
-            // Simple edge detection (Sobel operator)
-            for (let y = 1; y < height - 1; y++) {
-                for (let x = 1; x < width - 1; x++) {
-                    const i = (y * width + x) * 4;
-                    
-                    // Calculate gradient in X and Y directions
-                    let gx = 0, gy = 0;
-                    
-                    for (let c = 0; c < 3; c++) {
-                        // Sobel X kernel
-                        gx += -1 * edgeData[i - width * 4 - 4 + c] + 
-                               1 * edgeData[i - width * 4 + 4 + c] +
-                              -2 * edgeData[i - 4 + c] +
-                               2 * edgeData[i + 4 + c] +
-                              -1 * edgeData[i + width * 4 - 4 + c] +
-                               1 * edgeData[i + width * 4 + 4 + c];
-                        
-                        // Sobel Y kernel
-                        gy += -1 * edgeData[i - width * 4 - 4 + c] +
-                              -2 * edgeData[i - width * 4 + c] +
-                              -1 * edgeData[i - width * 4 + 4 + c] +
-                               1 * edgeData[i + width * 4 - 4 + c] +
-                               2 * edgeData[i + width * 4 + c] +
-                               1 * edgeData[i + width * 4 + 4 + c];
-                    }
-                    
-                    // Calculate gradient magnitude
-                    const magnitude = Math.sqrt(gx * gx + gy * gy) / (3 * 255);
-                    
-                    // Apply threshold based on detail setting
-                    if (magnitude > (10 - detail) / 10) {
-                        // Set outline color (black)
-                        for (let t = 0; t < thickness; t++) {
-                            for (let c = 0; c < 3; c++) {
-                                data[i + c - t * 4] = 0; // Left
-                                data[i + c + t * 4] = 0; // Right
-                                data[i + c - t * width * 4] = 0; // Top
-                                data[i + c + t * width * 4] = 0; // Bottom
-                            }
-                        }
-                    }
-                }
-            }
-            
-            ctx.putImageData(imageData, 0, 0);
-        }
-        
-        // Update the preview canvas
-        function updatePreviewCanvas(sourceCanvas) {
-            // Store the processed image
-            processedImage = sourceCanvas;
-            
-            // Update the main canvas
-            const container = canvas.parentElement;
-            const containerWidth = container.clientWidth;
-            const containerHeight = container.clientHeight;
-            
-            // Calculate the scale to fit the container while preserving aspect ratio
-            const aspectRatio = Math.min(
-                containerWidth / sourceCanvas.width,
-                containerHeight / sourceCanvas.height
-            );
-            
-            canvas.width = sourceCanvas.width * aspectRatio;
-            canvas.height = sourceCanvas.height * aspectRatio;
-            
-            // Draw the processed image
-            ctx.drawImage(sourceCanvas, 0, 0, canvas.width, canvas.height);
-        }
-        
-        // Set up control listeners for real-time updates
-        function setupControlListeners() {
-            // Color processing controls
-            const colorControls = [
-                'palette-select', 'color-depth', 'saturation', 'brightness', 'contrast',
-                'dither-type', 'dither-intensity', 'intermediate-dither',
-                'outline-detail', 'outline-thickness', 'scale-percent'
-            ];
-            
-            colorControls.forEach(controlId => {
-                document.getElementById(controlId).addEventListener('input', () => {
-                    // Update linked number inputs for range sliders
-                    if (controlId.includes('saturation') || controlId.includes('brightness') || 
-                        controlId.includes('contrast') || controlId.includes('dither-intensity') ||
-                        controlId.includes('outline-detail') || controlId.includes('outline-thickness') ||
-                        controlId.includes('scale-percent')) {
-                        const valueElement = document.getElementById(controlId + '-value');
-                        if (valueElement) {
-                            valueElement.value = document.getElementById(controlId).value;
-                        }
-                    }
-                    
-                    // Update palette preview when palette changes
-                    if (controlId === 'palette-select') {
-                        updatePalettePreview();
-                    }
-                    
-                    // Process the image with new settings
-                    processImage();
-                });
-            });
-            
-            // Also update sliders when number inputs change
-            const numberInputs = [
-                'saturation-value', 'brightness-value', 'contrast-value',
-                'dither-intensity-value', 'outline-detail-value', 'outline-thickness-value',
-                'scale-percent-value'
-            ];
-            
-            numberInputs.forEach(inputId => {
-                document.getElementById(inputId).addEventListener('input', () => {
-                    const sliderId = inputId.replace('-value', '');
-                    document.getElementById(sliderId).value = document.getElementById(inputId).value;
-                    processImage();
-                });
-            });
-        }
-        
-        // Update the palette preview
-        function updatePalettePreview() {
-            const paletteSelect = document.getElementById('palette-select');
-            const palettePreview = document.getElementById('palette-preview');
-            
-            palettePreview.innerHTML = '';
-            
-            // Generate color swatches based on selected palette
-            let colors = [];
-            
-            switch (paletteSelect.value) {
-                case '16':
-                    // 16-color palette
-                    colors = generatePalette(16);
-                    break;
-                case '256':
-                    // 256-color palette
-                    colors = generatePalette(256);
-                    break;
-                case 'pc98':
-                    // Classic PC-98 palette
-                    colors = generatePC98Palette();
-                    break;
-                case 'custom':
-                    // Custom palette (placeholder)
-                    colors = generatePalette(16);
-                    break;
-            }
-            
-            // Create color swatches
-            colors.forEach(color => {
-                const swatch = document.createElement('div');
-                swatch.className = 'color-swatch';
-                swatch.style.backgroundColor = color;
-                palettePreview.appendChild(swatch);
-            });
-        }
-        
-        // Generate a color palette with the specified number of colors
-        function generatePalette(count) {
-            const colors = [];
-            
-            for (let i = 0; i < count; i++) {
-                // Generate colors with a retro feel
-                const r = Math.floor(Math.random() * 64) * 4;
-                const g = Math.floor(Math.random() * 64) * 4;
-                const b = Math.floor(Math.random() * 64) * 4;
-                colors.push(`rgb(${r}, ${g}, ${b})`);
-            }
-            
-            return colors;
-        }
-        
-        // Generate a classic PC-98 style palette
-        function generatePC98Palette() {
-            // This is a simplified representation of PC-98 colors
-            const colors = [
-                '#000000', '#0000AA', '#00AA00', '#00AAAA',
-                '#AA0000', '#AA00AA', '#AA5500', '#AAAAAA',
-                '#555555', '#5555FF', '#55FF55', '#55FFFF',
-                '#FF5555', '#FF55FF', '#FFFF55', '#FFFFFF'
-            ];
-            
-            // Expand to 256 colors by interpolating
-            const expandedColors = [...colors];
-            
-            for (let i = 0; i < 240; i++) {
-                const baseColor = colors[i % 16];
-                const r = parseInt(baseColor.substr(1, 2), 16);
-                const g = parseInt(baseColor.substr(3, 2), 16);
-                const b = parseInt(baseColor.substr(5, 2), 16);
-                
-                // Create variations
-                const variation = Math.floor(i / 16) * 16;
-                const newR = Math.min(255, r + variation);
-                const newG = Math.min(255, g + variation);
-                const newB = Math.min(255, b + variation);
-                
-                expandedColors.push(
-                    `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`
-                );
-            }
-            
-            return expandedColors;
-        }
-        
-        // Canvas interaction functions
-        function handleZoom(e) {
-            e.preventDefault();
-            
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            const zoomIntensity = 0.1;
-            const wheel = e.deltaY < 0 ? 1 : -1;
-            const zoom = Math.exp(wheel * zoomIntensity);
-            
-            // Apply zoom
-            scale *= zoom;
-            scale = Math.max(0.1, Math.min(5, scale));
-            
-            // Redraw the canvas with new scale
-            redrawCanvas();
-        }
-        
-        function startDrag(e) {
-            isDragging = true;
-            lastX = e.clientX;
-            lastY = e.clientY;
-        }
-        
-        function drag(e) {
-            if (!isDragging) return;
-            
-            const dx = e.clientX - lastX;
-            const dy = e.clientY - lastY;
-            
-            offsetX += dx;
-            offsetY += dy;
-            
-            lastX = e.clientX;
-            lastY = e.clientY;
-            
-            redrawCanvas();
-        }
-        
-        function endDrag() {
-            isDragging = false;
-        }
-        
-        function redrawCanvas() {
-            if (!processedImage) return;
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Calculate scaled dimensions
-            const scaledWidth = processedImage.width * scale;
-            const scaledHeight = processedImage.height * scale;
-            
-            // Draw the image with current offset and scale
-            ctx.drawImage(
-                processedImage, 
-                offsetX, offsetY, 
-                scaledWidth, scaledHeight
-            );
-        }
-        
-        // Size control functions
-        function fitWidth() {
-            if (!processedImage) return;
-            
-            const container = canvas.parentElement;
-            const containerWidth = container.clientWidth;
-            
-            scale = containerWidth / processedImage.width;
-            offsetX = 0;
-            offsetY = (container.clientHeight - processedImage.height * scale) / 2;
-            
-            redrawCanvas();
-        }
-        
-        function fitHeight() {
-            if (!processedImage) return;
-            
-            const container = canvas.parentElement;
-            const containerHeight = container.clientHeight;
-            
-            scale = containerHeight / processedImage.height;
-            offsetX = (container.clientWidth - processedImage.width * scale) / 2;
-            offsetY = 0;
-            
-            redrawCanvas();
-        }
-        
-        // Download the processed image
-        function downloadImage() {
-            if (!processedImage) {
-                alert('Please upload an image first.');
-                return;
-            }
-            
-            const link = document.createElement('a');
-            link.download = 'pc98-pixel-art.png';
-            link.href = processedImage.toDataURL('image/png');
-            link.click();
-        }
-        
-        // Reset all controls to defaults
-        function resetToDefaults() {
-            document.getElementById('palette-select').value = '256';
-            document.getElementById('color-depth').value = '8';
-            document.getElementById('saturation').value = '100';
-            document.getElementById('saturation-value').value = '100';
-            document.getElementById('brightness').value = '100';
-            document.getElementById('brightness-value').value = '100';
-            document.getElementById('contrast').value = '100';
-            document.getElementById('contrast-value').value = '100';
-            document.getElementById('dither-type').value = 'none';
-            document.getElementById('dither-intensity').value = '50';
-            document.getElementById('dither-intensity-value').value = '50';
-            document.getElementById('intermediate-dither').checked = false;
-            document.getElementById('outline-detail').value = '5';
-            document.getElementById('outline-detail-value').value = '5';
-            document.getElementById('outline-thickness').value = '1';
-            document.getElementById('outline-thickness-value').value = '1';
-            document.getElementById('scale-percent').value = '100';
-            document.getElementById('scale-percent-value').value = '100';
-            
-            updatePalettePreview();
-            processImage();
-        }
-        
-        // Initialize the application when the page loads
-        window.addEventListener('load', init);
-    </script>
+    <h2>Levels</h2>
+    <label>Shadows</label><input type="range" id="shadows" min="0" max="255" value="0">
+    <label>Midtones</label><input type="range" id="midtones" min="0" max="255" value="128">
+    <label>Highlights</label><input type="range" id="highlights" min="0" max="255" value="255">
+    <label>Output Min</label><input type="range" id="outMin" min="0" max="255" value="0">
+    <label>Output Max</label><input type="range" id="outMax" min="0" max="255" value="255">
+
+    <h2>Palette</h2>
+    <select id="palette">
+      <option value="16">16-color</option>
+      <option value="256">256-color</option>
+      <option value="pc98">PC-98 classic</option>
+    </select>
+    <label>Color Depth (bits)</label><input type="range" id="colorDepth" min="2" max="8" value="8">
+
+    <h2>Dithering</h2>
+    <select id="dither">
+      <option value="none">None</option>
+      <option value="bayer">Ordered (Bayer)</option>
+      <option value="floyd">Floyd-Steinberg</option>
+      <option value="random">Random</option>
+    </select>
+    <label>Dither Intensity</label><input type="range" id="ditherIntensity" min="0" max="100" value="100">
+
+    <h2>Outline Filter</h2>
+    <label>Detail</label><input type="range" id="outlineDetail" min="1" max="10" value="1">
+    <label>Thickness</label><input type="range" id="outlineThickness" min="1" max="10" value="1">
+
+    <h2>Input Size</h2>
+    <select id="inputSize">
+      <option value="fitWidth">Fit Width</option>
+      <option value="fitHeight">Fit Height</option>
+      <option value="scale">Scale %</option>
+    </select>
+    <input type="range" id="scalePercent" min="10" max="200" value="100">
+
+    <button id="downloadBtn">Download</button>
+    <button id="resetBtn">Reset</button>
+
+    <h2>Upload Image</h2>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+  <div id="main">
+    <canvas id="canvas" width="640" height="400"></canvas>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let img = new Image();
+let imgDataOriginal = null;
+
+// Drag & Drop
+document.body.addEventListener('dragover', e => e.preventDefault());
+document.body.addEventListener('drop', e => {
+  e.preventDefault();
+  if(e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  if(e.target.files.length) loadFile(e.target.files[0]);
+});
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    img.onload = () => {
+      drawImage();
+      imgDataOriginal = ctx.getImageData(0,0,canvas.width,canvas.height);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Image transformations
+function drawImage() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const scale = Math.min(640/img.width, 400/img.height);
+  const w = img.width * scale;
+  const h = img.height * scale;
+  ctx.drawImage(img, 0,0,w,h);
+  applyFilters();
+}
+
+function applyFilters() {
+  if(!imgDataOriginal) return;
+  const data = ctx.getImageData(0,0,canvas.width,canvas.height);
+  const d = data.data;
+  const sat = document.getElementById('saturation').value / 100;
+  const bright = document.getElementById('brightness').value / 100;
+  const contrast = document.getElementById('contrast').value / 100;
+
+  for(let i=0;i<d.length;i+=4){
+    // brightness
+    d[i] *= bright;
+    d[i+1] *= bright;
+    d[i+2] *= bright;
+
+    // saturation
+    const gray = 0.3*d[i]+0.59*d[i+1]+0.11*d[i+2];
+    d[i] = gray + (d[i]-gray)*sat;
+    d[i+1] = gray + (d[i+1]-gray)*sat;
+    d[i+2] = gray + (d[i+2]-gray)*sat;
+
+    // contrast
+    d[i] = ((d[i]-128)*contrast+128);
+    d[i+1] = ((d[i+1]-128)*contrast+128);
+    d[i+2] = ((d[i+2]-128)*contrast+128);
+  }
+  ctx.putImageData(data,0,0);
+}
+
+// Controls
+const controls = document.querySelectorAll('input, select');
+controls.forEach(c => c.addEventListener('input', applyFilters));
+
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = 'pc98_image.png';
+  link.href = canvas.toDataURL();
+  link.click();
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.querySelectorAll('input[type=range]').forEach(r=>r.value=r.defaultValue);
+  drawImage();
+});
+
+// Zoom & Pan
+let offsetX=0, offsetY=0, isDragging=false, startX, startY;
+canvas.addEventListener('mousedown', e=>{isDragging=true; startX=e.offsetX; startY=e.offsetY;});
+canvas.addEventListener('mouseup', ()=>{isDragging=false;});
+canvas.addEventListener('mousemove', e=>{
+  if(isDragging){
+    const dx = e.offsetX - startX;
+    const dy = e.offsetY - startY;
+    offsetX += dx; offsetY += dy;
+    startX = e.offsetX; startY = e.offsetY;
+    drawImage();
+  }
+});
+canvas.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const scale = e.deltaY<0?1.1:0.9;
+  canvas.width *= scale;
+  canvas.height *= scale;
+  drawImage();
+});
+</script>
 </body>
 </html>

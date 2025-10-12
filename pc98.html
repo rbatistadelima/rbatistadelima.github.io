@@ -1,234 +1,75 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>PC-98 Image Studio</title>
-<style>
-  html,body{margin:0;padding:0;overflow:hidden;background:#111;color:#eee;
-    font-family:sans-serif;height:100vh;width:100vw;}
-  #app{display:grid;grid-template-columns:300px 1fr;height:100vh;}
-  aside{background:#222;padding:12px;display:flex;flex-direction:column;gap:8px;
-    overflow:hidden;box-shadow:2px 0 6px #000;}
-  label{font-size:13px;margin-top:6px;}
-  input[type=range]{width:100%;}
-  canvas{background:#000;display:block;margin:auto;max-width:100%;image-rendering:pixelated;}
-  button{background:#333;border:none;color:#eee;padding:6px 8px;cursor:pointer;
-    border-radius:4px;margin-top:4px;}
-  button:hover{background:#444;}
-  .row{display:flex;gap:4px;}
+<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8" /> <meta name="viewport" content="width=device-width, initial-scale=1" /> <title>PC-98 Style Image Processor with Dodge & Burn Masks</title> <style> /* Layout and UI */ body { margin: 0; background: #111; color: #eee; font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; } #sidebar { width: 300px; background-color: #222; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; user-select: none; } #main { flex: 1; position: relative; background: #000; display: flex; justify-content: center; align-items: center; } canvas { background: #000; image-rendering: pixelated; cursor: crosshair; }
+label {
+font-size: 0.9rem;
+margin-bottom: 4px;
+display: block;
+}
+
+input[type="range"], select, button {
+width: 100%;
+}
+
+#instructions {
+font-size: 0.8rem;
+color: #666;
+}
+
+#upload-area {
+border: 2px dashed #666;
+border-radius: 6px;
+padding: 10px;
+text-align: center;
+cursor: pointer;
+margin-bottom: 8px;
+}
 </style>
-</head>
-<body>
-<div id="app">
-  <aside>
-    <h3>PC-98 Studio</h3>
-    <label>Upload Image</label>
-    <input type="file" id="fileInput" accept="image/*"/>
 
-    <label>Brush Size</label>
-    <input type="range" id="brushSize" min="1" max="64" value="16"/>
-    <label>Brush Opacity</label>
-    <input type="range" id="brushOpacity" min="0" max="1" step="0.01" value="0.5"/>
+</head> <body> <div id="sidebar"> <div id="upload-area" tabindex="0">Drag & Drop Image or Click to Upload</div> <input type="file" id="fileInput" accept="image/*" style="display:none" />
+<label for="brightnessRange">Brightness</label>
+<input type="range" id="brightnessRange" min="-1" max="1" step="0.01" value="0" />
 
-    <div class="row">
-      <button id="modeLight">Lighten</button>
-      <button id="modeDark">Darken</button>
-    </div>
-    <div class="row">
-      <button id="undoBtn">Undo</button>
-      <button id="redoBtn">Redo</button>
-    </div>
-    <button id="clearMask">Clear Masks</button>
+<label for="contrastRange">Contrast</label>
+<input type="range" id="contrastRange" min="-1" max="1" step="0.01" value="0" />
 
-    <hr>
-    <label>Brightness</label>
-    <input type="range" id="brightness" min="-1" max="1" step="0.01" value="0"/>
-    <label>Contrast</label>
-    <input type="range" id="contrast" min="-1" max="1" step="0.01" value="0"/>
-    <label>Saturation</label>
-    <input type="range" id="saturation" min="0" max="2" step="0.01" value="1"/>
+<label for="saturationRange">Saturation</label>
+<input type="range" id="saturationRange" min="0" max="2" step="0.01" value="1" />
 
-    <button id="downloadBtn">Download</button>
-    <button id="resetBtn">Reset</button>
-  </aside>
-  <canvas id="canvas" width="640" height="400"></canvas>
-</div>
+<label for="paletteSelect">Color Palette</label>
+<select id="paletteSelect">
+<option value="default">PC-98 Default 16 Color</option>
+<option value="vaporwave">Vaporwave</option>
+<option value="custom">Custom Palette</option>
+</select>
 
-<script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-let img = new Image();
-let baseLayer, darkMask, lightMask;
-let painting=false, paintMode='light', brushSize=16, brushOpacity=0.5;
-let undoStack=[], redoStack=[];
+<label for="bitDepthRange">Color Depth Reduction</label>
+<input type="range" id="bitDepthRange" min="2" max="8" step="1" value="4" />
 
-function resetMasks(){
-  darkMask = document.createElement('canvas');
-  lightMask = document.createElement('canvas');
-  [darkMask,lightMask].forEach(c=>{
-    c.width=canvas.width;c.height=canvas.height;
-    c.getContext('2d').clearRect(0,0,c.width,c.height);
-  });
-}
-resetMasks();
+<label for="ditherSelect">Dithering</label>
+<select id="ditherSelect">
+<option value="none">None</option>
+<option value="bayer">Ordered (Bayer)</option>
+<option value="floyd">Floyd-Steinberg</option>
+<option value="random">Random</option>
+</select>
 
-function pushUndo(){
-  if(undoStack.length>20) undoStack.shift();
-  undoStack.push({
-    dark: darkMask.getContext('2d').getImageData(0,0,canvas.width,canvas.height),
-    light: lightMask.getContext('2d').getImageData(0,0,canvas.width,canvas.height)
-  });
-  redoStack=[];
-}
+<label for="ditherIntensityRange">Dither Intensity</label>
+<input type="range" id="ditherIntensityRange" min="0" max="1" step="0.01" value="0.5" />
 
-function restoreState(state){
-  darkMask.getContext('2d').putImageData(state.dark,0,0);
-  lightMask.getContext('2d').putImageData(state.light,0,0);
-  render();
-}
+<!-- Darken/Lighten Mask Painting Controls -->
+<label>Mask Brush Size</label>
+<input type="range" id="brushSizeRange" min="1" max="50" step="1" value="15" />
 
-document.getElementById('undoBtn').onclick=()=>{
-  if(undoStack.length){
-    redoStack.push({
-      dark:darkMask.getContext('2d').getImageData(0,0,canvas.width,canvas.height),
-      light:lightMask.getContext('2d').getImageData(0,0,canvas.width,canvas.height)
-    });
-    restoreState(undoStack.pop());
-  }
-};
-document.getElementById('redoBtn').onclick=()=>{
-  if(redoStack.length){
-    undoStack.push({
-      dark:darkMask.getContext('2d').getImageData(0,0,canvas.width,canvas.height),
-      light:lightMask.getContext('2d').getImageData(0,0,canvas.width,canvas.height)
-    });
-    restoreState(redoStack.pop());
-  }
-};
+<label>Mask Brush Opacity</label>
+<input type="range" id="brushOpacityRange" min="0" max="1" step="0.01" value="0.5" />
 
-function drawBrush(x,y){
-  const ctxMask = (paintMode==='light'?lightMask:darkMask).getContext('2d');
-  ctxMask.globalAlpha = brushOpacity;
-  ctxMask.fillStyle = paintMode==='light' ? 'white' : 'black';
-  ctxMask.beginPath();
-  ctxMask.arc(x,y,brushSize,0,Math.PI*2);
-  ctxMask.fill();
-  ctxMask.globalAlpha=1;
-}
+<label>Mask Mode</label>
+<select id="maskModeSelect">
+<option value="none">Off</option>
+<option value="lighten">Lighten (Dodge)</option>
+<option value="darken">Darken (Burn)</option>
+</select>
 
-canvas.addEventListener('mousedown',e=>{
-  if(!img.src)return;
-  pushUndo();
-  painting=true;
-  const rect=canvas.getBoundingClientRect();
-  drawBrush(e.clientX-rect.left,e.clientY-rect.top);
-  render();
-});
-canvas.addEventListener('mousemove',e=>{
-  if(!painting)return;
-  const rect=canvas.getBoundingClientRect();
-  drawBrush(e.clientX-rect.left,e.clientY-rect.top);
-  render();
-});
-window.addEventListener('mouseup',()=>painting=false);
+<button id="resetBtn">Reset to Defaults</button>
+<button id="downloadBtn">Download Image</button>
 
-document.getElementById('brushSize').oninput=e=>brushSize=parseInt(e.target.value);
-document.getElementById('brushOpacity').oninput=e=>brushOpacity=parseFloat(e.target.value);
-document.getElementById('modeLight').onclick=()=>paintMode='light';
-document.getElementById('modeDark').onclick=()=>paintMode='dark';
-document.getElementById('clearMask').onclick=()=>{resetMasks();render();};
-
-function render(){
-  if(!img.src)return;
-  ctx.drawImage(baseLayer,0,0,canvas.width,canvas.height);
-  ctx.save();
-  // darken mask
-  ctx.globalCompositeOperation='multiply';
-  ctx.drawImage(darkMask,0,0);
-  // lighten mask
-  ctx.globalCompositeOperation='screen';
-  ctx.drawImage(lightMask,0,0);
-  ctx.restore();
-
-  applyPC98Look();
-}
-
-function applyPC98Look(){
-  const brightness=parseFloat(document.getElementById('brightness').value);
-  const contrast=parseFloat(document.getElementById('contrast').value);
-  const saturation=parseFloat(document.getElementById('saturation').value);
-  const imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
-  const d=imgData.data;
-  for(let i=0;i<d.length;i+=4){
-    let r=d[i],g=d[i+1],b=d[i+2];
-    // brightness & contrast
-    r=(r/255+brightness)* (1+contrast);
-    g=(g/255+brightness)* (1+contrast);
-    b=(b/255+brightness)* (1+contrast);
-    // saturation
-    const avg=(r+g+b)/3;
-    r=avg+(r-avg)*saturation;
-    g=avg+(g-avg)*saturation;
-    b=avg+(b-avg)*saturation;
-    // quantize 6-bit (PC-98 style)
-    r=Math.round(r*63)/63;
-    g=Math.round(g*63)/63;
-    b=Math.round(b*63)/63;
-    d[i]=Math.min(255,Math.max(0,r*255));
-    d[i+1]=Math.min(255,Math.max(0,g*255));
-    d[i+2]=Math.min(255,Math.max(0,b*255));
-  }
-  ctx.putImageData(imgData,0,0);
-  // simple CRT scanlines
-  const scan=ctx.getImageData(0,0,canvas.width,canvas.height);
-  for(let y=0;y<canvas.height;y+=2){
-    for(let x=0;x<canvas.width;x++){
-      const idx=(y*canvas.width+x)*4;
-      scan.data[idx]*=0.75;
-      scan.data[idx+1]*=0.75;
-      scan.data[idx+2]*=0.75;
-    }
-  }
-  ctx.putImageData(scan,0,0);
-}
-
-document.getElementById('fileInput').addEventListener('change',e=>{
-  const file=e.target.files[0];
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=ev=>{
-    img.onload=()=>{
-      const scale=Math.min(canvas.width/img.width,canvas.height/img.height);
-      baseLayer=document.createElement('canvas');
-      baseLayer.width=canvas.width;
-      baseLayer.height=canvas.height;
-      const bctx=baseLayer.getContext('2d');
-      const w=img.width*scale,h=img.height*scale;
-      const x=(canvas.width-w)/2,y=(canvas.height-h)/2;
-      bctx.drawImage(img,x,y,w,h);
-      resetMasks();
-      render();
-    };
-    img.src=ev.target.result;
-  };
-  reader.readAsDataURL(file);
-});
-
-document.getElementById('downloadBtn').onclick=()=>{
-  const link=document.createElement('a');
-  link.download='pc98-image.png';
-  link.href=canvas.toDataURL();
-  link.click();
-};
-
-document.getElementById('resetBtn').onclick=()=>{
-  document.querySelectorAll('input[type=range]').forEach(i=>{
-    if(i.id==='saturation')i.value=1;else i.value=0;
-  });
-  resetMasks();
-  render();
-};
-</script>
-</body>
-</html>
+<div id="instructions"> Use mouse wheel to zoom, drag image with mouse.<br /> Select mask mode and paint on image to lighten or darken.<br /> Drag image or drop new image to upload. </div> </div> <div id="main"> <canvas id="glCanvas" width="640" height="400"></canvas> <canvas id="paintCanvas" width="640" height="400" style="position:absolute; top:0; left:0; pointer-events:none;"></canvas> </div> <script> "use strict"; const canvas = document.getElementById("glCanvas"); const paintCanvas = document.getElementById("paintCanvas"); const gl = canvas.getContext("webgl2"); const paintCtx = paintCanvas.getContext("2d"); // Globals for image, zoom, pan let imageTexture = null; let imageResolution = { width: 640, height: 400 }; let zoom = 1, offsetX = 0, offsetY = 0; let isPanning = false, lastMouseX = 0, lastMouseY = 0; // Mask painting state let maskLightenCanvas, maskDarkenCanvas; let maskLightenCtx, maskDarkenCtx; let currentMaskMode = "none"; let brushSize = 15; let brushOpacity = 0.5; let isPainting = false; // Shader helpers & compilation omitted here for brevity; will add below // Initialize canvases for masks function initMaskCanvases() { maskLightenCanvas = document.createElement('canvas'); maskLightenCanvas.width = 640; maskLightenCanvas.height = 400; maskLightenCtx = maskLightenCanvas.getContext('2d'); maskLightenCtx.clearRect(0, 0, 640, 400); maskDarkenCanvas = document.createElement('canvas'); maskDarkenCanvas.width = 640; maskDarkenCanvas.height = 400; maskDarkenCtx = maskDarkenCanvas.getContext('2d'); maskDarkenCtx.clearRect(0, 0, 640, 400); } // Load Image into WebGL texture function loadImageToTexture(img) { if(imageTexture) { gl.deleteTexture(imageTexture); } imageTexture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, imageTexture); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE, img); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); imageResolution.width = img.naturalWidth; imageResolution.height = img.naturalHeight; // Reset zoom and pan zoom = 1; offsetX = 0; offsetY = 0; } // Handle image upload function handleFile(file) { if(!file.type.startsWith('image/')) return; const img = new Image(); img.onload = () => { loadImageToTexture(img); draw(); }; img.src = URL.createObjectURL(file); } // Zoom and pan controls for canvas canvas.addEventListener('wheel', (e) => { e.preventDefault(); const zoomAmount = e.deltaY * -0.001; zoom += zoomAmount; zoom = Math.min(Math.max(zoom, 0.25), 10); draw(); }); canvas.addEventListener('mousedown', e => { if (currentMaskMode !== 'none') return; // Don't pan if painting mode active isPanning = true; lastMouseX = e.clientX; lastMouseY = e.clientY; }); window.addEventListener('mouseup', () => { isPanning = false; }); window.addEventListener('mousemove', e => { if (isPanning) { offsetX += (e.clientX - lastMouseX) / zoom; offsetY += (e.clientY - lastMouseY) / zoom; lastMouseX = e.clientX; lastMouseY = e.clientY; draw(); } }); // Brush painting on masks (lighten/darken) paintCanvas.style.pointerEvents = 'auto'; paintCanvas.addEventListener('mousedown', e => { if (currentMaskMode === 'none') return; isPainting = true; paintAtMouse(e); }); window.addEventListener('mouseup', (e) => { isPainting = false; }); paintCanvas.addEventListener('mousemove', e => { if(isPainting) { paintAtMouse(e); } }); function paintAtMouse(e) { const rect = paintCanvas.getBoundingClientRect(); const x = (e.clientX - rect.left) / zoom - offsetX; const y = (e.clientY - rect.top) / zoom - offsetY; let ctx = currentMaskMode === 'lighten' ? maskLightenCtx : maskDarkenCtx; ctx.globalAlpha = brushOpacity; ctx.fillStyle = currentMaskMode === 'lighten' ? "white" : "black"; ctx.beginPath(); ctx.arc(x, y, brushSize, 0, 2 * Math.PI); ctx.fill(); draw(); } // Setup UI bindings function setupUI() { document.getElementById("fileInput").addEventListener('change', e => { if (e.target.files.length > 0) handleFile(e.target.files[0]); }); const uploadArea = document.getElementById('upload-area'); uploadArea.onclick = () => document.getElementById('fileInput').click(); uploadArea.ondragover = (e) => { e.preventDefault(); uploadArea.style.borderColor = "#39f"; }; uploadArea.ondragleave = () => { uploadArea.style.borderColor = "#666"; }; uploadArea.ondrop = (e) => { e.preventDefault(); uploadArea.style.borderColor = "#666"; if (e.dataTransfer.files.length > 0) { handleFile(e.dataTransfer.files[0]); } }; document.getElementById('brightnessRange').addEventListener('input', draw); document.getElementById('contrastRange').addEventListener('input', draw); document.getElementById('saturationRange').addEventListener('input', draw); document.getElementById('paletteSelect').addEventListener('change', draw); document.getElementById('bitDepthRange').addEventListener('input', draw); document.getElementById('ditherSelect').addEventListener('change', draw); document.getElementById('ditherIntensityRange').addEventListener('input', draw); document.getElementById('brushSizeRange').addEventListener('input', e => { brushSize = +e.target.value; }); document.getElementById('brushOpacityRange').addEventListener('input', e => { brushOpacity = +e.target.value; }); document.getElementById('maskModeSelect').addEventListener('change', e => { currentMaskMode = e.target.value; paintCanvas.style.pointerEvents = (currentMaskMode === 'none' ? 'none' : 'auto'); }); document.getElementById('resetBtn').onclick = () => { resetDefaults(); draw(); }; document.getElementById('downloadBtn').onclick = () => { const link = document.createElement('a'); link.download = 'pc98-image.png'; link.href = canvas.toDataURL(); link.click(); }; } function resetDefaults() { document.getElementById('brightnessRange').value = 0; document.getElementById('contrastRange').value = 0; document.getElementById('saturationRange').value = 1; document.getElementById('paletteSelect').value = 'default'; document.getElementById('bitDepthRange').value = 4; document.getElementById('ditherSelect').value = 'none'; document.getElementById('ditherIntensityRange').value = 0.5; document.getElementById('brushSizeRange').value = 15; brushSize = 15; document.getElementById('brushOpacityRange').value = 0.5; brushOpacity = 0.5; document.getElementById('maskModeSelect').value = 'none'; currentMaskMode = 'none'; paintCanvas.style.pointerEvents = 'none'; maskLightenCtx.clearRect(0, 0, 640, 400); maskDarkenCtx.clearRect(0, 0, 640, 400); zoom = 1; offsetX = 0; offsetY = 0; } // Shaders & rendering pipeline (core example of palettes, color depth, dithering, brightness/contrast adjustments) const vertexShaderSrc = `#version 300 es precision highp float; layout(location=0) in vec2 a_position; out vec2 v_uv; void main() { v_uv = a_position * 0.5 + 0.5; gl_Position = vec4(a_position, 0, 1); } `; const fragmentShaderSrc = `#version 300 es precision highp float; in vec2 v_uv; out vec4 outColor; uniform sampler2D u_image; uniform sampler2D u_lightenMask; uniform sampler2D u_darkenMask; uniform float u_brightness; uniform float u_contrast; uniform float u_saturation; uniform int u_paletteMode; uniform int u_bitDepth; uniform int u_ditherMode; uniform float u_ditherIntensity; float luminance(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); } vec3 applyBrightnessContrast(vec3 color, float brightness, float contrast) { color += brightness; if (contrast > 0.0) { color = (color - 0.5) / (1.0 - contrast) + 0.5; } else { color = (color - 0.5) * (1.0 + contrast) + 0.5; } return clamp(color, 0.0, 1.0); } vec3 applySaturation(vec3 color, float saturation) { float gray = luminance(color); return mix(vec3(gray), color, saturation); } // Simple fixed PC-98 default 16 color palette approximation vec3 palettePC98Default(int idx) { vec3 pal[16]; pal[0] = vec3(0.0, 0.0, 0.0); pal[1] = vec3(0.0, 0.0, 0.75); pal[2] = vec3(0.0, 0.5, 0.0); pal[3] = vec3(0.0, 0.5, 0.75); pal[4] = vec3(0.5, 0.0, 0.0); pal[5] = vec3(0.5, 0.0, 0.75); pal[6] = vec3(0.5, 0.5, 0.0); pal[7] = vec3(0.75, 0.75, 0.75); pal[8] = vec3(0.25, 0.25, 0.25); pal[9] = vec3(0.0, 0.0, 1.0); pal[10] = vec3(0.0, 1.0, 0.0); pal[11] = vec3(0.0, 1.0, 1.0); pal[12] = vec3(1.0, 0.0, 0.0); pal[13] = vec3(1.0, 0.0, 1.0); pal[14] = vec3(1.0, 1.0, 0.0); pal[15] = vec3(1.0, 1.0, 1.0); return pal[idx]; } // Find closest palette color (basic Euclidean) vec3 findClosestPaletteColor(vec3 color) { float minDist = 1000.0; vec3 closest = vec3(0.0); for(int i=0; i<16; ++i) { vec3 p = palettePC98Default(i); float dist = distance(color, p); if(dist < minDist) { minDist = dist; closest = p; } } return closest; } void main() { vec4 texColor = texture(u_image, v_uv); // Apply brightness, contrast, saturation vec3 col = applyBrightnessContrast(texColor.rgb, u_brightness, u_contrast); col = applySaturation(col, u_saturation); // Dithering (basic threshold dithering for demo) if(u_ditherMode != 0) { float threshold = fract(sin(dot(v_uv.xy * float(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453); if (threshold < u_ditherIntensity) { col = floor(col * 256.0) / 256.0; } } // Reduce bit depth float bits = float(u_bitDepth); col = floor(col * pow(2.0, bits)) / pow(2.0, bits); // Palette reduction - map to palette col = findClosestPaletteColor(col); // Apply lighten and darken masks non-destructively float lightenMask = texture(u_lightenMask, v_uv).r; float darkenMask = texture(u_darkenMask, v_uv).r; // Lighten mask brightens color linearly col += lightenMask * 0.25; // Darken mask darkens color linearly col -= darkenMask * 0.25; outColor = vec4(clamp(col, 0.0, 1.0), texColor.a); } `; // Compile and link shaders, create program function createShader(gl, type, source) { const shader = gl.createShader(type); gl.shaderSource(shader, source); gl.compileShader(shader); if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) { console.error("Shader compile error:", gl.getShaderInfoLog(shader)); gl.deleteShader(shader); return null; } return shader; } function createProgram(gl, vertSrc, fragSrc) { const vertShader = createShader(gl, gl.VERTEX_SHADER, vertSrc); const fragShader = createShader(gl, gl.FRAGMENT_SHADER, fragSrc); const prog = gl.createProgram(); gl.attachShader(prog, vertShader); gl.attachShader(prog, fragShader); gl.linkProgram(prog); if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.error("Program link error:", gl.getProgramInfoLog(prog)); gl.deleteProgram(prog); return null; } return prog; } let program; let positionBuffer; function initGL() { program = createProgram(gl, vertexShaderSrc, fragmentShaderSrc); const posLoc = 0; positionBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer); // Fullscreen quad gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([ -1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1 ]), gl.STATIC_DRAW); } function setUniforms() { gl.useProgram(program); // Set uniforms for parameters and textures gl.uniform1f(gl.getUniformLocation(program, "u_brightness"), +document.getElementById('brightnessRange').value); gl.uniform1f(gl.getUniformLocation(program, "u_contrast"), +document.getElementById('contrastRange').value); gl.uniform1f(gl.getUniformLocation(program, "u_saturation"), +document.getElementById('saturationRange').value); const paletteMode = document.getElementById('paletteSelect').value === 'default' ? 0 : 1; gl.uniform1i(gl.getUniformLocation(program, "u_paletteMode"), paletteMode); gl.uniform1i(gl.getUniformLocation(program, "u_bitDepth"), +document.getElementById('bitDepthRange').value); const ditherMap = { none:0, bayer:1, floyd:2, random:3 }; gl.uniform1i(gl.getUniformLocation(program, "u_ditherMode"), ditherMap[document.getElementById('ditherSelect').value] || 0); gl.uniform1f(gl.getUniformLocation(program, "u_ditherIntensity"), +document.getElementById('ditherIntensityRange').value); // Set texture units gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, imageTexture); gl.uniform1i(gl.getUniformLocation(program, "u_image"), 0); // Upload mask textures dynamically from 2D canvases const lightenMaskTex = gl.createTexture(); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, lightenMaskTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 640, 400, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(maskLightenCtx.getImageData(0, 0, 640, 400).data.filter((v,i)=>i%4===0))); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.uniform1i(gl.getUniformLocation(program, "u_lightenMask"), 1); const darkenMaskTex = gl.createTexture(); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, darkenMaskTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, 640, 400, 0, gl.RED, gl.UNSIGNED_BYTE, new Uint8Array(maskDarkenCtx.getImageData(0, 0, 640, 400).data.filter((v,i)=>i%4===0))); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.uniform1i(gl.getUniformLocation(program, "u_darkenMask"), 2); } function draw() { if (!imageTexture) return; gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.useProgram(program); // Setup position attribute gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); setUniforms(); gl.drawArrays(gl.TRIANGLES, 0, 6); // Draw mask painting overlay canvas with zoom and pan paintCanvas.style.width = 640 * zoom + 'px'; paintCanvas.style.height = 400 * zoom + 'px'; paintCanvas.style.left = offsetX * zoom + 'px'; paintCanvas.style.top = offsetY * zoom + 'px'; // Also draw mask content visible for painting: paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height); if(currentMaskMode === 'lighten') { paintCtx.globalAlpha = brushOpacity; paintCtx.drawImage(maskLightenCanvas, 0, 0); } else if(currentMaskMode === 'darken') { paintCtx.globalAlpha = brushOpacity; paintCtx.drawImage(maskDarkenCanvas, 0, 0); } } // Initialization function main() { initMaskCanvases(); initGL(); setupUI(); // Load default demo image const demoImg = new Image(); demoImg.onload = () => { loadImageToTexture(demoImg); draw(); }; demoImg.src = "https://i.imgur.com/O3U5ZQZ.png"; // Example demo image (replace if needed) } main(); </script> </body> </html> 

@@ -1,7 +1,93 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SRT Scroller Fix</title>
+<title>SRT Scroller</title>
 <style>
-  body {
+  body { font-family: sans-serif; background: #111; color: #eee; text-align: center; }
+  #dropzone {
+    border: 2px dashed #555;
+    padding: 50px;
+    margin: 20px;
+    border-radius: 12px;
+    color: #888;
+  }
+  #subs {
+    height: 70vh;
+    overflow: hidden;
+    position: relative;
+    transition: transform 0.6s ease;
+  }
+  .line {
+    padding: 1em;
+    font-size: 1.2em;
+    opacity: 0.4;
+    transition: opacity 0.3s;
+  }
+  .active { opacity: 1; color: #0ff; }
+</style>
+</head>
+<body>
+  <h2>🎬 SRT Smooth Scroller</h2>
+  <div id="dropzone">Drop your .srt file here</div>
+  <div id="controls" style="display:none;">
+    <button id="play">▶️ Play</button>
+    <button id="pause">⏸ Pause</button>
+  </div>
+  <div id="subs"></div>
+
+<script>
+let subs = [], timer = null, startTime = 0, currentLine = -1;
+
+function parseSRT(data) {
+  return data.trim().split(/\n\s*\n/).map(block => {
+    const [id, time, ...text] = block.split("\n");
+    const [start, end] = time.split(" --> ").map(t => toSeconds(t));
+    return { start, end, text: text.join(" ") };
+  });
+}
+
+function toSeconds(t) {
+  const [h,m,s] = t.replace(',',':').split(':').map(Number);
+  return h*3600 + m*60 + s;
+}
+
+function update() {
+  const now = (Date.now() - startTime) / 1000;
+  const i = subs.findIndex(s => now >= s.start && now <= s.end);
+  if (i !== -1 && i !== currentLine) {
+    currentLine = i;
+    document.querySelectorAll('.line').forEach((el, idx) => {
+      el.classList.toggle('active', idx === i);
+    });
+    const offset = -i * 70; // roughly one line height
+    document.getElementById('subs').style.transform = `translateY(${offset}px)`;
+  }
+}
+
+document.getElementById('play').onclick = () => {
+  startTime = Date.now();
+  timer = setInterval(update, 100);
+};
+document.getElementById('pause').onclick = () => clearInterval(timer);
+
+document.getElementById('dropzone').addEventListener('dragover', e => {
+  e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+});
+document.getElementById('dropzone').addEventListener('drop', e => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (!file.name.endsWith('.srt')) return alert('Please drop a .srt file!');
+  const reader = new FileReader();
+  reader.onload = ev => {
+    subs = parseSRT(ev.target.result);
+    const subsDiv = document.getElementById('subs');
+    subsDiv.innerHTML = subs.map(s => `<div class="line">${s.text}</div>`).join('');
+    document.getElementById('controls').style.display = 'block';
+    document.getElementById('dropzone').style.display = 'none';
+  };
+  reader.readAsText(file);
+});
+</script>
+</body>
+</html>

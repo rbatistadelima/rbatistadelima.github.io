@@ -90,8 +90,9 @@ button:hover { background: #00cccc; }
   left: 0;
   white-space: nowrap;
   overflow: hidden;
-  color: #ff0; /* highlight color */
+  color: #ff0; /* yellow karaoke */
   width: 0%;
+  transition: width 0.05s linear;
 }
 </style>
 </head>
@@ -135,7 +136,7 @@ function goToLine(i) {
   const lines = document.querySelectorAll('.line');
   lines.forEach((el, idx) => {
     el.classList.toggle('active', idx === i);
-    if(idx === i) {
+    if(idx === i){
       el.innerHTML = `<span>${subs[i].text}</span><span class="karaoke-fill">${subs[i].text}</span>`;
     } else {
       el.innerHTML = subs[idx].text;
@@ -150,8 +151,6 @@ function update() {
   const i = subs.findIndex(s => now >= s.start && now <= s.end);
   if (i !== -1) {
     if (i !== currentLine) goToLine(i);
-
-    // Karaoke fill
     const lineEl = document.querySelectorAll('.line')[i];
     const fillEl = lineEl.querySelector('.karaoke-fill');
     if(fillEl){
@@ -163,7 +162,7 @@ function update() {
 
 function play() {
   startTime = Date.now() - pausedAt;
-  timer = setInterval(update, 50);
+  timer = setInterval(update, 30); // smoother update
 }
 
 function pause() {
@@ -179,7 +178,7 @@ function restart() {
 }
 
 function prevLine() {
-  if(currentLine > 0) {
+  if(currentLine > 0){
     goToLine(currentLine-1);
     pausedAt = subs[currentLine].start*1000;
     startTime = Date.now() - pausedAt;
@@ -187,7 +186,7 @@ function prevLine() {
 }
 
 function nextLine() {
-  if(currentLine < subs.length-1) {
+  if(currentLine < subs.length-1){
     goToLine(currentLine+1);
     pausedAt = subs[currentLine].start*1000;
     startTime = Date.now() - pausedAt;

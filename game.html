@@ -1,324 +1,332 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Jogo Top-Down Emoji</title>
+<title>Emoji Battle</title>
 <style>
-    * {margin:0; padding:0; box-sizing:border-box;}
-    body, html {width:100%; height:100%; overflow:hidden; font-family:Comic Sans MS, cursive, sans-serif;}
-    canvas {display:block; margin:0 auto; touch-action: none;}
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    height: 100%;
+    background: #b3e0ff;
+    font-family: Comic Sans MS, sans-serif;
+    user-select: none;
+    touch-action: none;
+  }
+  #game {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+  }
+  .entity {
+    position: absolute;
+    font-size: 48px;
+    text-align: center;
+    filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.6));
+    transform-origin: center center;
+  }
+
+  /* Barra de vida */
+  .health-container {
+    position: absolute;
+    width: 70px;
+    height: 22px;
+    text-align: center;
+    pointer-events: none;
+  }
+  .health-bar {
+    position: relative;
+    height: 8px;
+    background: black;
+    border: 2px solid black;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .health-fill, .health-damage {
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .health-fill {
+    background: limegreen;
+    z-index: 2;
+  }
+  .health-damage {
+    background: red;
+    z-index: 1;
+  }
+  .health-text {
+    color: white;
+    font-weight: bold;
+    font-size: 13px;
+    margin-top: 2px;
+    text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(-5px, 5px); }
+    50% { transform: translate(5px, -5px); }
+    75% { transform: translate(-5px, -5px); }
+  }
+  .shake { animation: shake 0.3s; }
+
+  @keyframes fadeout { from { opacity: 1; } to { opacity: 0; } }
+  .fade { animation: fadeout 3s forwards; }
+
+  #score {
+    position: absolute;
+    top: 10px;
+    left: 15px;
+    color: white;
+    font-size: 22px;
+    font-weight: bold;
+    text-shadow: -2px -2px 0 black, 2px -2px 0 black, -2px 2px 0 black, 2px 2px 0 black;
+  }
 </style>
 </head>
 <body>
-<canvas id="game"></canvas>
-
+<div id="game"></div>
+<div id="score">💀 0</div>
 <script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const game = document.getElementById('game');
+const scoreDisplay = document.getElementById('score');
+const player = document.createElement('div');
+player.className = 'entity';
+player.textContent = '😀';
+game.appendChild(player);
 
-const size = 50; // tamanho padrão dos emojis
+let playerX = window.innerWidth / 2;
+let playerY = window.innerHeight / 2;
+let playerHP = 100;
+let playerHPDisplay = 100;
+let playerAlive = true;
+let canShoot = true;
+let fireRate = 400;
+let score = 0;
+let isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
-let keys = {};
-let mouse = {x:0, y:0, down:false};
-let touches = {};
-const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+// Barra de vida
+const healthContainer = document.createElement('div');
+healthContainer.className = 'health-container';
+const healthText = document.createElement('div');
+healthText.className = 'health-text';
+const healthBar = document.createElement('div');
+healthBar.className = 'health-bar';
+const healthFill = document.createElement('div');
+healthFill.className = 'health-fill';
+const healthDamage = document.createElement('div');
+healthDamage.className = 'health-damage';
+healthBar.appendChild(healthDamage);
+healthBar.appendChild(healthFill);
+healthContainer.appendChild(healthBar);
+healthContainer.appendChild(healthText);
+game.appendChild(healthContainer);
 
-class Entity {
-    constructor(x, y, emoji){
-        this.x = x;
-        this.y = y;
-        this.emoji = emoji;
-        this.width = size;
-        this.height = size;
-    }
-    draw(opacity=1){
-        ctx.save();
-        ctx.globalAlpha = opacity;
-        ctx.shadowColor = 'rgba(0,0,0,0.7)';
-        ctx.shadowOffsetX = 5;
-        ctx.shadowOffsetY = 5;
-        ctx.shadowBlur = 0;
-        ctx.font = `${this.width}px Arial`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(this.emoji, this.x, this.y);
-        ctx.restore();
-    }
+// Controles
+const keys = {};
+document.addEventListener('keydown', e => keys[e.key] = true);
+document.addEventListener('keyup', e => keys[e.key] = false);
+
+// Movimento touch (somente celular)
+if (isMobile) {
+  let touchStart = null;
+  game.addEventListener('touchstart', e => touchStart = e.touches[0]);
+  game.addEventListener('touchmove', e => {
+    if (!touchStart) return;
+    const t = e.touches[0];
+    playerX += (t.clientX - touchStart.clientX) * 0.1;
+    playerY += (t.clientY - touchStart.clientY) * 0.1;
+    touchStart = t;
+  });
 }
 
-class Player extends Entity {
-    constructor(x, y){
-        super(x, y, '😀');
-        this.speed = 5;
-        this.vx = 0;
-        this.vy = 0;
-        this.maxHealth = 100;
-        this.health = this.maxHealth;
-        this.shootCooldown = 0;
-        this.hitTimer = 0;
-        this.dead = false;
-    }
-    update(){
-        if(this.dead) return;
+// Atirar com mouse
+game.addEventListener('mousedown', e => {
+  if (!playerAlive) return;
+  shoot(e.clientX, e.clientY);
+});
 
-        // Movimento teclado (PC)
-        this.vx = 0; this.vy = 0;
-        if(!isMobile){
-            if(keys['ArrowUp'] || keys['w']) this.vy = -this.speed;
-            if(keys['ArrowDown'] || keys['s']) this.vy = this.speed;
-            if(keys['ArrowLeft'] || keys['a']) this.vx = -this.speed;
-            if(keys['ArrowRight'] || keys['d']) this.vx = this.speed;
-        }
-
-        // Movimento touch (Mobile)
-        if(isMobile){
-            for(let id in touches){
-                let t = touches[id];
-                let dx = t.x - this.x;
-                let dy = t.y - this.y;
-                let dist = Math.hypot(dx, dy);
-                if(dist>1){
-                    this.vx = (dx/dist)*this.speed;
-                    this.vy = (dy/dist)*this.speed;
-                }
-            }
-        }
-
-        this.x += this.vx;
-        this.y += this.vy;
-
-        // Limites da tela
-        this.x = Math.max(size/2, Math.min(canvas.width-size/2, this.x));
-        this.y = Math.max(size/2, Math.min(canvas.height-size/2, this.y));
-
-        // Tiros
-        if(((!isMobile && keys[' ']) || (isMobile && Object.keys(touches).length>0)) && this.shootCooldown <=0){
-            this.shoot();
-            this.shootCooldown = 15;
-        }
-        if(this.shootCooldown>0) this.shootCooldown--;
-
-        // Mudança de emoji
-        if(this.hitTimer>0){
-            this.emoji = '😖';
-            this.hitTimer--;
-        } else if(this.shootCooldown>0){
-            this.emoji = '🤫';
-        } else{
-            this.emoji = '😀';
-        }
-
-        if(this.health <=0 && !this.dead){
-            this.emoji = '😭';
-            this.dead = true;
-        }
-    }
-    draw(){
-        super.draw();
-        // fundo da barra de vida
-        ctx.fillStyle = 'red';
-        ctx.fillRect(this.x-size/2-1, this.y-size-1, size+2, 7);
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.x-size/2-1, this.y-size-1, size+2, 7);
-
-        // barra verde
-        ctx.fillStyle = 'green';
-        ctx.fillRect(this.x-size/2, this.y-size, size*(this.health/this.maxHealth), 5);
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.x-size/2, this.y-size, size*(this.health/this.maxHealth), 5);
-
-        // número da vida
-        ctx.font = `bold 16px Comic Sans MS`;
-        ctx.textAlign = 'center';
-        ctx.fillStyle = 'white';
-        ctx.strokeStyle = 'black';
-        ctx.lineWidth = 2;
-        ctx.strokeText(this.health, this.x, this.y-size-10);
-        ctx.fillText(this.health, this.x, this.y-size-10);
-    }
-    shoot(){
-        let dx = mouse.x - this.x;
-        let dy = mouse.y - this.y;
-        let angle = Math.atan2(dy, dx);
-        bullets.push(new Bullet(this.x, this.y, angle));
-    }
-    takeDamage(amount){
-        this.health -= amount;
-        this.hitTimer = 120; // 2 segundos
-        if(this.health<=0) this.health = 0;
-    }
-}
-
-class Bullet extends Entity {
-    constructor(x, y, angle){
-        super(x, y, '🔥');
-        this.speed = 10;
-        this.angle = angle;
-        this.flip = false;
-        this.flipTimer = 0;
-        this.life = 180; // 3 segundos a 60fps
-    }
-    update(){
-        this.x += Math.cos(this.angle)*this.speed;
-        this.y += Math.sin(this.angle)*this.speed;
-
-        this.flipTimer++;
-        if(this.flipTimer%10===0) this.flip = !this.flip;
-
-        this.life--;
-        if(this.life<=0){
-            bullets.splice(bullets.indexOf(this),1);
-        }
-    }
-    draw(){
-        let opacity = this.life/180; // fade
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle + Math.PI); // 180°
-        ctx.scale(this.flip?-1:1,1);
-        ctx.shadowColor = 'rgba(0,0,0,0.7)';
-        ctx.shadowOffsetX = 5;
-        ctx.shadowOffsetY = 5;
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = opacity;
-        ctx.font = `${size}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.emoji,0,0);
-        ctx.restore();
-    }
-}
-
-class Enemy extends Entity {
-    constructor(x, y){
-        super(x, y, '🕷');
-        this.speed = 2;
-        this.angle = 0;
-        this.dead = false;
-    }
-    update(){
-        if(this.dead) return;
-        let dx = player.x - this.x;
-        let dy = player.y - this.y;
-        let dist = Math.hypot(dx, dy);
-        this.angle = Math.atan2(dy, dx);
-        this.x += (dx/dist)*this.speed;
-        this.y += (dy/dist)*this.speed;
-
-        if(dist<size){
-            player.takeDamage(10);
-            this.dead = true;
-            explosions.push(new Explosion(this.x,this.y));
-        }
-    }
-    draw(){
-        if(this.dead) return;
-        ctx.save();
-        ctx.translate(this.x,this.y);
-        ctx.rotate(this.angle);
-        ctx.shadowColor = 'rgba(0,0,0,0.7)';
-        ctx.shadowOffsetX = 5;
-        ctx.shadowOffsetY = 5;
-        ctx.shadowBlur = 0;
-        ctx.font = `${size}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.emoji,0,0);
-        ctx.restore();
-    }
-}
-
-class Explosion extends Entity {
-    constructor(x,y){
-        super(x,y,'💥');
-        this.life = 180; // 3 segundos
-    }
-    update(){
-        this.life--;
-        if(this.life<=0) explosions.splice(explosions.indexOf(this),1);
-    }
-    draw(){
-        let opacity = this.life/180;
-        super.draw(opacity);
-    }
-}
-
-const player = new Player(canvas.width/2, canvas.height/2);
-const bullets = [];
+let lastEnemySpawn = 0;
 const enemies = [];
-const explosions = [];
+const bullets = [];
 
-function spawnEnemy(){
-    let corners = [
-        [size/2,size/2],
-        [canvas.width-size/2,size/2],
-        [size/2,canvas.height-size/2],
-        [canvas.width-size/2,canvas.height-size/2]
-    ];
-    let c = corners[Math.floor(Math.random()*4)];
-    enemies.push(new Enemy(c[0],c[1]));
+function updateHealth() {
+  playerHPDisplay += (playerHP - playerHPDisplay) * 0.05;
+  healthFill.style.width = playerHP + '%';
+  healthDamage.style.width = playerHPDisplay + '%';
+  healthText.textContent = Math.round(playerHP);
+
+  const offsetY = 60;
+  const offsetX = 35;
+  healthContainer.style.left = (playerX - offsetX) + 'px';
+  healthContainer.style.top = (playerY - offsetY) + 'px';
 }
-setInterval(spawnEnemy, 2000);
 
-window.addEventListener('keydown', e=>{keys[e.key]=true;});
-window.addEventListener('keyup', e=>{keys[e.key]=false;});
+function shoot(targetX, targetY) {
+  if (!canShoot) return;
+  canShoot = false;
+  player.textContent = '🤫';
+  setTimeout(() => { if (playerAlive) player.textContent = '😀'; }, 1000);
 
-// Touch Mobile
-canvas.addEventListener('touchstart', e=>{
-    if(isMobile){
-        for(let t of e.touches){
-            touches[t.identifier]={x:t.clientX, y:t.clientY};
-        }
+  const bullet = document.createElement('div');
+  bullet.className = 'entity';
+  bullet.textContent = '🔥';
+  game.appendChild(bullet);
+  const dx = targetX - playerX;
+  const dy = targetY - playerY;
+  const dist = Math.hypot(dx, dy);
+  bullet.dirX = dx / dist;
+  bullet.dirY = dy / dist;
+  bullet.x = playerX;
+  bullet.y = playerY;
+  bullet.rot = Math.atan2(dy, dx) * 180 / Math.PI + 90; // 🔥 90°
+  bullet.style.transform = `rotate(${bullet.rot}deg)`;
+
+  bullet.flip = true;
+  const flipInterval = setInterval(() => {
+    bullet.style.transform = `rotate(${bullet.rot}deg) scaleX(${bullet.flip ? -1 : 1})`;
+    bullet.flip = !bullet.flip;
+  }, 150);
+
+  setTimeout(() => {
+    bullet.classList.add('fade');
+    setTimeout(() => {
+      clearInterval(flipInterval);
+      bullet.remove();
+      const idx = bullets.indexOf(bullet);
+      if (idx >= 0) bullets.splice(idx, 1);
+    }, 3000);
+  }, 0);
+
+  bullets.push(bullet);
+  setTimeout(() => canShoot = true, fireRate);
+}
+
+function spawnEnemy() {
+  if (!playerAlive) return;
+  const e = document.createElement('div');
+  e.className = 'entity';
+  e.textContent = '🕷️';
+  e.style.opacity = '0';
+  game.appendChild(e);
+
+  const margin = 50;
+  const side = Math.floor(Math.random() * 4);
+  if (side === 0) { e.x = -margin; e.y = Math.random() * window.innerHeight; }
+  else if (side === 1) { e.x = window.innerWidth + margin; e.y = Math.random() * window.innerHeight; }
+  else if (side === 2) { e.x = Math.random() * window.innerWidth; e.y = -margin; }
+  else { e.x = Math.random() * window.innerWidth; e.y = window.innerHeight + margin; }
+
+  e.hp = 30;
+  enemies.push(e);
+  setTimeout(() => e.style.opacity = '1', 20);
+}
+
+function explosion(x, y) {
+  const ex = document.createElement('div');
+  ex.className = 'entity fade';
+  ex.textContent = '💥';
+  ex.style.left = x + 'px';
+  ex.style.top = y + 'px';
+  game.appendChild(ex);
+  setTimeout(() => ex.remove(), 3000);
+}
+
+function takeDamage(amount) {
+  if (!playerAlive) return;
+  playerHP -= amount;
+  player.classList.add('shake');
+  player.textContent = '😖';
+  setTimeout(() => player.classList.remove('shake'), 300);
+  setTimeout(() => {
+    if (playerAlive && playerHP > 0) player.textContent = '😀';
+  }, 2000);
+  if (playerHP <= 0) {
+    playerHP = 0;
+    playerAlive = false;
+    player.textContent = '😭';
+    // Remover todos inimigos
+    enemies.forEach(e => e.remove());
+    enemies.length = 0;
+  }
+}
+
+function update() {
+  if (playerAlive) {
+    const speed = 4;
+    if (keys['w'] || keys['ArrowUp']) playerY -= speed;
+    if (keys['s'] || keys['ArrowDown']) playerY += speed;
+    if (keys['a'] || keys['ArrowLeft']) playerX -= speed;
+    if (keys['d'] || keys['ArrowRight']) playerX += speed;
+  }
+
+  playerX = Math.max(20, Math.min(window.innerWidth - 20, playerX));
+  playerY = Math.max(20, Math.min(window.innerHeight - 20, playerY));
+
+  player.style.left = playerX + 'px';
+  player.style.top = playerY + 'px';
+  player.style.zIndex = 10;
+  updateHealth();
+
+  bullets.forEach(b => {
+    b.x += b.dirX * 10;
+    b.y += b.dirY * 10;
+    b.style.left = b.x + 'px';
+    b.style.top = b.y + 'px';
+  });
+
+  enemies.forEach(e => {
+    const dx = playerX - e.x;
+    const dy = playerY - e.y;
+    const dist = Math.hypot(dx, dy);
+    const speed = 2;
+    e.x += dx / dist * speed;
+    e.y += dy / dist * speed;
+    e.style.left = e.x + 'px';
+    e.style.top = e.y + 'px';
+    const rot = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+    e.style.transform = `rotate(${rot}deg)`;
+    if (playerAlive && dist < 40) {
+      takeDamage(10);
+      e.hp = 0;
     }
-});
-canvas.addEventListener('touchmove', e=>{
-    if(isMobile){
-        touches={};
-        for(let t of e.touches){
-            touches[t.identifier]={x:t.clientX, y:t.clientY};
-        }
-    }
-});
-canvas.addEventListener('touchend', e=>{
-    if(isMobile){
-        touches={};
-    }
-});
+  });
 
-function loop(){
-    ctx.fillStyle = 'green';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    enemies.forEach(enemy=>{enemy.update(); enemy.draw();});
-    bullets.forEach(bullet=>{
-        bullet.update();
-        bullet.draw();
-        enemies.forEach(enemy=>{
-            if(!enemy.dead && Math.hypot(bullet.x-enemy.x, bullet.y-enemy.y)<size/1.5){
-                enemy.dead = true;
-                explosions.push(new Explosion(enemy.x, enemy.y));
-                bullets.splice(bullets.indexOf(bullet),1);
-            }
-        });
+  bullets.forEach(b => {
+    enemies.forEach(e => {
+      const dx = b.x - e.x;
+      const dy = b.y - e.y;
+      if (Math.hypot(dx, dy) < 40) {
+        e.hp = 0;
+        score++;
+        scoreDisplay.textContent = `💀 ${score}`;
+        explosion(e.x, e.y);
+        b.classList.add('fade');
+        setTimeout(() => b.remove(), 3000);
+      }
     });
-    player.update();
-    player.draw();
-    explosions.forEach(explosion=>{explosion.update(); explosion.draw();});
+  });
 
-    requestAnimationFrame(loop);
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    if (enemies[i].hp <= 0) {
+      enemies[i].remove();
+      enemies.splice(i, 1);
+    }
+  }
+
+  if (playerAlive && Date.now() - lastEnemySpawn > 2000) {
+    spawnEnemy();
+    lastEnemySpawn = Date.now();
+  }
+
+  requestAnimationFrame(update);
 }
-
-loop();
-
-window.addEventListener('resize', ()=>{
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-});
+update();
 </script>
 </body>
 </html>

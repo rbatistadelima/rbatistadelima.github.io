@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎤 Legenda Ao Vivo</title>
+<title>🎤 Legenda Ao Vivo Simplificada</title>
 <style>
 body {
   margin: 0;
@@ -13,8 +13,8 @@ body {
   color: white;
   overflow: hidden;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 #controls {
   position: absolute;
@@ -33,14 +33,11 @@ body {
   margin: 5px;
   font-size: 1em;
 }
-select#fontFamily option { font-size: 1.2em; }
-
 #output {
   width: 100%;
   padding: 20px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   align-items: center;
   text-align: center;
   position: relative;
@@ -62,6 +59,7 @@ select#fontFamily option { font-size: 1.2em; }
   transition: opacity 0.3s;
 }
 .previous { opacity: 0.5; }
+
 .jrpg-mode {
   align-items: flex-start;
   justify-content: flex-end;
@@ -72,22 +70,20 @@ select#fontFamily option { font-size: 1.2em; }
   text-align: left;
   max-width: 50%;
   background: rgba(0,0,0,0.9);
+  position: relative;
 }
 
-/* Barra de volume */
-#volumeBar {
+#voiceBarContainer {
   position: absolute;
-  bottom: 10px;
-  width: 80%;
+  top: 0;
+  width: 100%;
   height: 10px;
   background: rgba(255,255,255,0.2);
-  border-radius: 5px;
-  overflow: hidden;
 }
-#volumeLevel {
+#voiceBar {
   width: 0%;
   height: 100%;
-  background: limegreen;
+  background: linear-gradient(to right, red, yellow, lime);
 }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@600&family=Oswald:wght@600&family=Roboto:wght@500&family=Lato&family=Raleway&family=PT+Sans&family=Nunito&family=Open+Sans&family=Ubuntu&family=Press+Start+2P&family=VT323&family=Roboto+Mono&display=swap" rel="stylesheet">
@@ -97,11 +93,6 @@ select#fontFamily option { font-size: 1.2em; }
   <button id="toggleBtn">🎧 Clique para Iniciar</button>
   <label>Microfone:</label>
   <select id="micSelect"></select>
-  <label>Fundo:</label>
-  <select id="bgColor">
-    <option value="#000000">Preto</option>
-    <option value="#222222">Escuro</option>
-  </select>
   <label>Fonte:</label>
   <select id="fontFamily">
     <option value="Arial">Arial</option>
@@ -127,15 +118,15 @@ select#fontFamily option { font-size: 1.2em; }
   <input type="checkbox" id="jrpgMode">
 </div>
 
+<div id="voiceBarContainer"><div id="voiceBar"></div></div>
 <div id="output">
   <div class="line previous"></div>
   <div class="line current">🎧 Clique para Iniciar</div>
-  <div id="volumeBar"><div id="volumeLevel"></div></div>
 </div>
 
 <script>
 let recognition, listening=false;
-let previousText="", currentText="", interimText="";
+let previousText="", currentText="";
 let selectedMicId=null, fadeTimers=[];
 const toggleBtn=document.getElementById("toggleBtn");
 const micSelect=document.getElementById("micSelect");
@@ -144,16 +135,17 @@ const currLine=document.querySelector(".current");
 const jrpgCheckbox=document.getElementById("jrpgMode");
 const allCapsCheckbox=document.getElementById("allCaps");
 const outputDiv=document.getElementById("output");
-const bgColorSelect=document.getElementById("bgColor");
-const volumeLevel=document.getElementById("volumeLevel");
+const fontSelect=document.getElementById("fontFamily");
+const fontSizeInput=document.getElementById("fontSize");
+const borderWidthInput=document.getElementById("borderWidth");
+const voiceBar=document.getElementById("voiceBar");
 
 async function loadMicrophones(){
   const devices=await navigator.mediaDevices.enumerateDevices();
   micSelect.innerHTML="";
   devices.filter(d=>d.kind==="audioinput").forEach(device=>{
     const opt=document.createElement("option");
-    const parts=device.label.split(" ");
-    opt.innerHTML=parts.length>1?`<b>${parts[0]}</b> ${parts.slice(1).join(" ")}`:device.label;
+    opt.text=device.label || "Microfone";
     opt.value=device.deviceId;
     micSelect.appendChild(opt);
   });
@@ -161,11 +153,9 @@ async function loadMicrophones(){
 navigator.mediaDevices.getUserMedia({audio:true}).then(loadMicrophones).catch(()=>{currLine.textContent="⚠️ Permita o uso do microfone";});
 
 function applySettings(){
-  const bgColor=bgColorSelect.value;
-  const fontFamily=document.getElementById("fontFamily").value;
-  const fontSize=document.getElementById("fontSize").value;
-  let borderWidth=document.getElementById("borderWidth").value;
-  if(borderWidth>4) borderWidth=4;
+  const fontFamily=fontSelect.value;
+  const fontSize=fontSizeInput.value;
+  let borderWidth=borderWidthInput.value; if(borderWidth>4) borderWidth=4;
   [prevLine,currLine].forEach(line=>{
     line.style.fontFamily=fontFamily;
     line.style.fontSize=fontSize+"em";
@@ -173,8 +163,6 @@ function applySettings(){
                           ${borderWidth}px -${borderWidth}px 0 #000,
                          -${borderWidth}px ${borderWidth}px 0 #000,
                           ${borderWidth}px ${borderWidth}px 0 #000`;
-    line.style.background=bgColor;
-    line.style.opacity=1;
   });
   if(jrpgCheckbox.checked) outputDiv.classList.add("jrpg-mode");
   else outputDiv.classList.remove("jrpg-mode");
@@ -182,35 +170,17 @@ function applySettings(){
 
 applySettings();
 
-function splitLineWords(text){
-  const words=text.split(" ");
-  const lines=[];
-  let currentLine="";
-  for(let word of words){
-    if((currentLine+" "+word).trim().length<=22) currentLine=(currentLine+" "+word).trim();
-    else { if(currentLine) lines.push(currentLine); currentLine=word;}
-  }
-  if(currentLine) lines.push(currentLine);
-  return lines;
-}
-
 function clearFadeTimers(){ fadeTimers.forEach(t=>clearTimeout(t)); fadeTimers=[];}
 
-function updateDisplay(isFinal=false){
+function updateDisplay(text){
+  if(allCapsCheckbox.checked) text=text.toUpperCase();
+  prevLine.textContent=currentText || "";
+  currLine.textContent=text;
+  currentText=text;
   clearFadeTimers();
-  const lines=isFinal?splitLineWords(currentText):splitLineWords(interimText);
-  let displayPrev=previousText;
-  let displayCurr=lines.length>1?lines[lines.length-1]:lines[0];
-  if(allCapsCheckbox.checked) { displayPrev=displayPrev.toUpperCase(); displayCurr=displayCurr.toUpperCase();}
-  prevLine.textContent=displayPrev;
-  currLine.textContent=displayCurr;
-  if(isFinal){
-    fadeTimers.push(setTimeout(()=>{
-      prevLine.style.opacity=0;
-      currLine.style.opacity=0;
-      previousText=""; currentText="";
-    },3000));
-  }
+  fadeTimers.push(setTimeout(()=>{
+    prevLine.style.opacity=0; currLine.style.opacity=0; currentText=""; previousText="";
+  },3000));
 }
 
 if('webkitSpeechRecognition' in window){
@@ -220,15 +190,12 @@ if('webkitSpeechRecognition' in window){
   recognition.interimResults=true;
 
   recognition.onresult=(event)=>{
-    let interim="";
     for(let i=event.resultIndex;i<event.results.length;i++){
       const txt=event.results[i][0].transcript.trim();
-      if(event.results[i].isFinal){ currentText=txt; interimText=""; updateDisplay(true);}
-      else interim=txt;
+      if(event.results[i].isFinal) updateDisplay(txt);
+      else currLine.textContent=txt;
     }
-    if(interim){ interimText=interim; updateDisplay(false);}
   };
-
   recognition.onerror=(e)=>{ if(["no-speech","aborted","audio-capture"].includes(e.error)) return; currLine.textContent="⚠️ Erro: "+e.error;}
   recognition.onend=()=>{if(listening) recognition.start();}
 } else currLine.textContent="❌ Navegador não suporta SpeechRecognition";
@@ -240,7 +207,7 @@ async function toggleListening(){
       const stream=await navigator.mediaDevices.getUserMedia({audio:{deviceId:selectedMicId?{exact:selectedMicId}:undefined}});
       recognition.start(); listening=true;
       toggleBtn.textContent="⏹️ Parar"; currLine.textContent="🎧 Ouvindo...";
-      setupVolumeMeter(stream);
+      setupVoiceMeter(stream);
     } catch{currLine.textContent="⚠️ Permita o uso do microfone";}
   } else{
     listening=false; recognition.stop(); toggleBtn.textContent="🎧 Clique para Iniciar"; currLine.textContent="⏸️ Parado";
@@ -250,8 +217,7 @@ async function toggleListening(){
 toggleBtn.onclick=toggleListening; currLine.onclick=toggleListening;
 document.querySelectorAll("#controls input,#controls select").forEach(el=>el.addEventListener("input",applySettings));
 
-// Volume Meter
-function setupVolumeMeter(stream){
+function setupVoiceMeter(stream){
   const audioCtx=new AudioContext();
   const source=audioCtx.createMediaStreamSource(stream);
   const analyser=audioCtx.createAnalyser();
@@ -263,7 +229,7 @@ function setupVolumeMeter(stream){
     requestAnimationFrame(draw);
     analyser.getByteFrequencyData(dataArray);
     const volume=Math.max(...dataArray)/255*100;
-    volumeLevel.style.width=volume+"%";
+    voiceBar.style.width=volume+"%";
   }
   draw();
 }

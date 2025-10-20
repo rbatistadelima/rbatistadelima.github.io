@@ -90,12 +90,6 @@ select#fontFamily option { font-size: 1.2em; }
     <option value="Oswald">Oswald</option>
     <option value="Montserrat">Montserrat</option>
     <option value="Bebas Neue">Bebas Neue</option>
-    <option value="Lato">Lato</option>
-    <option value="Raleway">Raleway</option>
-    <option value="PT Sans">PT Sans</option>
-    <option value="Nunito">Nunito</option>
-    <option value="Open Sans">Open Sans</option>
-    <option value="Ubuntu">Ubuntu</option>
     <option value="'Press Start 2P'">Pixel 1</option>
     <option value="VT323">Pixel 2</option>
     <option value="'Roboto Mono'">Pixel 3</option>
@@ -166,12 +160,21 @@ function applySettings(){
 }
 applySettings();
 
-function splitLine(txt){
-  if(txt.length<=22) return [txt];
-  const parts=[];
-  let i=0;
-  while(i<txt.length){ parts.push(txt.slice(i,i+22)); i+=22; }
-  return parts;
+// Split respeitando palavras inteiras
+function splitLineWords(text){
+  const words = text.split(" ");
+  const lines = [];
+  let currentLine = "";
+  for(let word of words){
+    if((currentLine + " " + word).trim().length <=22){
+      currentLine = (currentLine + " " + word).trim();
+    } else {
+      if(currentLine) lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if(currentLine) lines.push(currentLine);
+  return lines;
 }
 
 function clearFadeTimers(){
@@ -181,15 +184,15 @@ function clearFadeTimers(){
 
 function updateDisplay(isFinal=false){
   clearFadeTimers();
-  const lines=isFinal?splitLine(currentText):splitLine(interimText);
+  const lines = isFinal ? splitLineWords(currentText) : splitLineWords(interimText);
   if(lines.length>1){
     previousText=lines.slice(0,lines.length-1).join("\n");
     currentText=lines[lines.length-1];
   }
-  // Se a linha anterior fizer parte da mesma frase, mantém opacidade
   prevLine.textContent=previousText;
   currLine.textContent=currentText;
   applySettings();
+
   if(isFinal){
     fadeTimers.push(setTimeout(()=>{
       prevLine.style.opacity=0;

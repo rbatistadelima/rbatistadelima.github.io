@@ -3,206 +3,234 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎤 Legenda Ao Vivo JRPG</title>
+<title>Legendas ao Vivo</title>
 <style>
-body {
-  margin: 0;
-  height: 100vh;
-  background: #00ff00; /* chroma verde */
-  color: white;
-  overflow: hidden;
-  font-family: "Roboto", sans-serif;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-}
-#controls {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0,0,0,0.7);
-  padding: 10px;
-  border-radius: 12px;
-  z-index: 10;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-#controls label, #controls select, #controls input, #controls button {
-  margin: 5px;
-  font-size: 1em;
-}
-#voiceBarContainer {
-  position: absolute;
-  top: 0;
-  width: 100%;
-  height: 10px;
-  background: rgba(255,255,255,0.1);
-}
-#voiceBar {
-  width: 0%;
-  height: 100%;
-  background: linear-gradient(to right, lime, yellow, red);
-  transition: width 0.05s linear;
-}
+  body {
+    margin: 0;
+    background: #00ff00; /* verde chroma */
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+  }
 
-/* --- Caixa JRPG --- */
-#jrpgBox {
-  position: fixed;
-  bottom: 5%;
-  width: 80%;
-  max-width: 900px;
-  min-height: 120px;
-  background: rgba(0,0,0,0.85);
-  border: 3px solid rgba(255,255,255,0.3);
-  border-radius: 18px;
-  padding: 20px 25px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  color: white;
-  font-size: 2em;
-  line-height: 1.3em;
-  text-align: left;
-  text-shadow: -2px -2px 0 #000,
-                2px -2px 0 #000,
-               -2px 2px 0 #000,
-                2px 2px 0 #000;
-  box-shadow: 0 0 20px rgba(0,0,0,0.5);
-}
-.hidden { display: none; }
+  #micLevel {
+    width: 300px;
+    height: 10px;
+    background: linear-gradient(to right, red, yellow, lime);
+    transform: scaleX(-1); /* inverter ordem das cores */
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  #micFill {
+    height: 100%;
+    width: 0%;
+    background: white;
+    border-radius: 10px;
+    transition: width 0.1s linear;
+  }
+
+  #controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    background: rgba(0,0,0,0.6);
+    padding: 10px;
+    border-radius: 10px;
+    position: absolute;
+    top: 10px;
+  }
+
+  select, input[type="checkbox"], input[type="range"], button {
+    font-size: 1em;
+    padding: 5px;
+    border-radius: 5px;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  #captions {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    line-height: 1.1em;
+  }
+
+  .caption {
+    background: rgba(0,0,0,0.7);
+    padding: 10px 20px;
+    border-radius: 20px;
+    display: inline-block;
+    max-width: 80vw;
+    box-shadow: 0 0 10px rgba(0,0,0,0.6);
+    margin: 5px 0;
+    word-break: break-word;
+  }
+
+  /* Caixa JRPG */
+  #jrpgBox {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(20, 20, 20, 0.9);
+    color: white;
+    text-align: left;
+    padding: 20px 30px;
+    border-radius: 20px;
+    width: 80%;
+    max-width: 800px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+  }
 </style>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@600&family=Oswald:wght@600&family=Roboto:wght@500&family=Lato&family=Raleway&family=PT+Sans&family=Nunito&family=Open+Sans&family=Ubuntu&family=Press+Start+2P&family=VT323&family=Roboto+Mono&display=swap" rel="stylesheet">
 </head>
 <body>
-<div id="voiceBarContainer"><div id="voiceBar"></div></div>
+  <div id="micLevel"><div id="micFill"></div></div>
 
-<div id="controls">
-  <button id="toggleBtn">🎧 Clique para Iniciar</button>
-  <label>Microfone:</label>
-  <select id="micSelect"></select>
-  <label>Fonte:</label>
-  <select id="fontFamily">
-    <option value="Roboto">Roboto</option>
-    <option value="Oswald">Oswald</option>
-    <option value="Montserrat">Montserrat</option>
-    <option value="Bebas Neue">Bebas Neue</option>
-    <option value="Raleway">Raleway</option>
-    <option value="Nunito">Nunito</option>
-    <option value="Open Sans">Open Sans</option>
-    <option value="Press Start 2P">Pixel 1</option>
-    <option value="VT323">Pixel 2</option>
-    <option value="Roboto Mono">Pixel 3</option>
-  </select>
-  <label>Tamanho:</label>
-  <input type="number" id="fontSize" value="2" step="0.1" min="1" max="6">em
-  <label>Maiúsculas:</label>
-  <input type="checkbox" id="allCaps">
-  <label>Modo JRPG:</label>
-  <input type="checkbox" id="jrpgMode">
-</div>
+  <div id="controls">
+    <select id="micSelect"></select>
+    <button id="toggle">🎧 Clique para Iniciar</button>
+    <label>Maiúsculas <input type="checkbox" id="upper"></label>
+    <label>Modo JRPG <input type="checkbox" id="jrpg"></label>
+    <label>Fonte:
+      <select id="fontSelect">
+        <option style="font-family: Arial;" value="Arial">Arial</option>
+        <option style="font-family: Verdana;" value="Verdana">Verdana</option>
+        <option style="font-family: Tahoma;" value="Tahoma">Tahoma</option>
+        <option style="font-family: Georgia;" value="Georgia">Georgia</option>
+        <option style="font-family: Trebuchet MS;" value="Trebuchet MS">Trebuchet</option>
+        <option style="font-family: Comic Sans MS;" value="Comic Sans MS">Comic Sans</option>
+        <option style="font-family: Impact;" value="Impact">Impact</option>
+        <option style="font-family: 'Press Start 2P';" value="'Press Start 2P'">Pixel 2P</option>
+        <option style="font-family: 'VT323';" value="'VT323'">VT323</option>
+        <option style="font-family: 'Silkscreen';" value="'Silkscreen'">Silkscreen</option>
+      </select>
+    </label>
+    <label>Borda <input type="range" id="borderRange" min="0" max="3" step="1" value="2"></label>
+  </div>
 
-<div id="jrpgBox" class="hidden">🎧 Clique para Iniciar</div>
+  <div id="captions"></div>
+  <div id="jrpgBox"></div>
+
+<!-- fontes pixel extras -->
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Silkscreen&display=swap" rel="stylesheet">
 
 <script>
-let recognition, listening=false;
-let selectedMicId=null;
-const toggleBtn=document.getElementById("toggleBtn");
-const micSelect=document.getElementById("micSelect");
-const jrpgBox=document.getElementById("jrpgBox");
-const voiceBar=document.getElementById("voiceBar");
-const fontSelect=document.getElementById("fontFamily");
-const fontSizeInput=document.getElementById("fontSize");
-const allCapsCheckbox=document.getElementById("allCaps");
-const jrpgCheckbox=document.getElementById("jrpgMode");
+let recognition, listening = false, lastText = "", timer;
+const captions = document.getElementById("captions");
+const jrpgBox = document.getElementById("jrpgBox");
+const micSelect = document.getElementById("micSelect");
+const toggle = document.getElementById("toggle");
+const micFill = document.getElementById("micFill");
+const upper = document.getElementById("upper");
+const jrpg = document.getElementById("jrpg");
+const fontSelect = document.getElementById("fontSelect");
+const borderRange = document.getElementById("borderRange");
 
-async function loadMicrophones(){
-  const devices=await navigator.mediaDevices.enumerateDevices();
-  micSelect.innerHTML="";
-  devices.filter(d=>d.kind==="audioinput").forEach(device=>{
-    const opt=document.createElement("option");
-    const label=device.label || "Microfone";
-    const parts=label.split("(");
-    opt.textContent=parts[0].trim()+(parts[1]?` (${parts[1]}`:"");
-    opt.value=device.deviceId;
+async function loadMics() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  micSelect.innerHTML = "";
+  devices.filter(d => d.kind === "audioinput").forEach(d => {
+    const opt = document.createElement("option");
+    const [first, ...rest] = d.label.split(" ");
+    opt.value = d.deviceId;
+    opt.textContent = `🎙️ ${first ? first : 'Microfone'} ${rest.join(" ")}`;
     micSelect.appendChild(opt);
   });
 }
-navigator.mediaDevices.getUserMedia({audio:true}).then(loadMicrophones).catch(()=>{jrpgBox.textContent="⚠️ Permita o uso do microfone";});
 
-function applySettings(){
-  jrpgBox.style.fontFamily=fontSelect.value;
-  jrpgBox.style.fontSize=fontSizeInput.value+"em";
-}
-applySettings();
-document.querySelectorAll("#controls select,#controls input").forEach(el=>el.addEventListener("input",applySettings));
+function showCaption(text) {
+  clearTimeout(timer);
+  if (upper.checked) text = text.toUpperCase();
 
-function updateText(text){
-  if(allCapsCheckbox.checked) text=text.toUpperCase();
-  jrpgBox.textContent=text;
-}
+  const caption = document.createElement("div");
+  caption.className = "caption";
+  caption.textContent = text;
+  caption.style.fontFamily = fontSelect.value;
+  caption.style.webkitTextStroke = borderRange.value + "px black";
 
-if('webkitSpeechRecognition' in window){
-  recognition=new webkitSpeechRecognition();
-  recognition.lang='pt-BR';
-  recognition.continuous=true;
-  recognition.interimResults=true;
+  captions.innerHTML = "";
+  captions.appendChild(caption);
 
-  recognition.onresult=(event)=>{
-    let interim="", final="";
-    for(let i=event.resultIndex;i<event.results.length;i++){
-      if(event.results[i].isFinal) final+=event.results[i][0].transcript+" ";
-      else interim+=event.results[i][0].transcript;
-    }
-    updateText(final || interim);
-  };
-  recognition.onerror=(e)=>{ if(e.error!=="no-speech") jrpgBox.textContent="⚠️ Erro: "+e.error; };
-  recognition.onend=()=>{ if(listening) recognition.start(); };
-} else jrpgBox.textContent="❌ Navegador não suporta SpeechRecognition";
-
-async function toggleListening(){
-  if(!listening){
-    try{
-      selectedMicId=micSelect.value;
-      const stream=await navigator.mediaDevices.getUserMedia({audio:{deviceId:selectedMicId?{exact:selectedMicId}:undefined}});
-      recognition.start(); listening=true;
-      toggleBtn.textContent="⏹️ Parar"; jrpgBox.textContent="🎧 Ouvindo...";
-      setupVoiceMeter(stream);
-      if(jrpgCheckbox.checked){
-        jrpgBox.classList.remove("hidden");
-        document.getElementById("controls").style.display="none";
-      }
-    } catch{
-      jrpgBox.textContent="⚠️ Permita o uso do microfone";
-    }
+  if (jrpg.checked) {
+    jrpgBox.style.display = "block";
+    jrpgBox.style.fontFamily = fontSelect.value;
+    jrpgBox.style.webkitTextStroke = borderRange.value + "px black";
+    jrpgBox.textContent = text;
   } else {
-    listening=false; recognition.stop();
-    toggleBtn.textContent="🎧 Clique para Iniciar";
-    jrpgBox.textContent="⏸️ Parado";
-    document.getElementById("controls").style.display="flex";
+    jrpgBox.style.display = "none";
   }
+
+  timer = setTimeout(() => {
+    if (!jrpg.checked) captions.innerHTML = "";
+  }, 3000);
 }
-toggleBtn.onclick=toggleListening;
-jrpgBox.onclick=toggleListening;
 
-function setupVoiceMeter(stream){
-  const audioCtx=new AudioContext();
-  const source=audioCtx.createMediaStreamSource(stream);
-  const analyser=audioCtx.createAnalyser();
-  analyser.fftSize=256;
-  source.connect(analyser);
-  const dataArray=new Uint8Array(analyser.frequencyBinCount);
+function startListening() {
+  window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = "pt-BR";
+  recognition.interimResults = true;
+  recognition.continuous = true;
 
-  function draw(){
-    requestAnimationFrame(draw);
-    analyser.getByteFrequencyData(dataArray);
-    const volume=Math.max(...dataArray)/255*100;
-    voiceBar.style.width=volume+"%";
+  recognition.onresult = (e) => {
+    let transcript = Array.from(e.results)
+      .map(r => r[0].transcript)
+      .join(" ");
+    if (transcript.trim() && transcript !== lastText) {
+      lastText = transcript.trim();
+      showCaption(transcript);
+    }
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error !== "no-speech") console.error(e);
+  };
+
+  recognition.start();
+  toggle.textContent = "⏸️ Parado";
+  listening = true;
+}
+
+function stopListening() {
+  if (recognition) recognition.stop();
+  toggle.textContent = "🎧 Clique para Iniciar";
+  listening = false;
+}
+
+toggle.onclick = () => {
+  if (!listening) startListening(); else stopListening();
+};
+
+loadMics();
+
+// medidor de som
+navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+  const ctx = new AudioContext();
+  const src = ctx.createMediaStreamSource(stream);
+  const analyser = ctx.createAnalyser();
+  src.connect(analyser);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  function loop() {
+    analyser.getByteFrequencyData(data);
+    let volume = data.reduce((a,b)=>a+b)/data.length;
+    micFill.style.width = Math.min(volume/2,100) + "%";
+    requestAnimationFrame(loop);
   }
-  draw();
-}
+  loop();
+});
 </script>
 </body>
 </html>

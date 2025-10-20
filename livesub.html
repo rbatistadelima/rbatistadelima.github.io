@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎤 Legenda JRPG Ao Vivo</title>
+<title>🎤 Legenda Pixel Ao Vivo</title>
 <style>
 body {
   margin: 0;
@@ -14,7 +14,7 @@ body {
   overflow: hidden;
   display: flex;
   justify-content: center;
-  align-items: flex-end; /* modo JRPG: caixa fixa inferior */
+  align-items: center;
 }
 #controls {
   position: absolute;
@@ -33,16 +33,15 @@ body {
   margin: 5px;
   font-size: 1em;
 }
-select#fontFamily option {
-  font-size: 1.2em;
-}
+select#fontFamily option { font-size: 1.2em; }
 #output {
   width: 100%;
   padding: 20px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end; /* caixa fixa inferior */
-  align-items: flex-start; /* texto alinhado à esquerda */
+  justify-content: flex-end;
+  align-items: center;
+  text-align: center;
 }
 .line {
   display: block;
@@ -54,19 +53,20 @@ select#fontFamily option {
   word-wrap: break-word;
   color: white;
   background: rgba(0,0,0,0.8);
-  text-shadow: 
-    -2px -2px 0 #000,
-     2px -2px 0 #000,
-    -2px 2px 0 #000,
-     2px 2px 0 #000;
+  text-shadow: -2px -2px 0 #000,
+                2px -2px 0 #000,
+               -2px 2px 0 #000,
+                2px 2px 0 #000;
 }
-.previous {
-  opacity: 0.5;
+.previous { opacity: 0.5; }
+.jrpg-mode .line {
+  align-self: flex-start;
+  text-align: left;
+  border-radius: 5px;
 }
 </style>
 <!-- Google Fonts + Pixel -->
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@600&family=Oswald:wght@600&family=Roboto:wght@500&family=Lato&family=Raleway&family=PT+Sans&family=Nunito&family=Open+Sans&family=Ubuntu&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Roboto+Mono&family=Courier+Prime&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="controls">
@@ -85,22 +85,17 @@ select#fontFamily option {
     <option value="Impact">Impact</option>
     <option value="Times New Roman">Times New Roman</option>
     <option value="Comic Sans MS">Comic Sans MS</option>
-    <option value="Roboto">Roboto</option>
-    <option value="Oswald">Oswald</option>
-    <option value="Montserrat">Montserrat</option>
-    <option value="Bebas Neue">Bebas Neue</option>
-    <option value="Lato">Lato</option>
-    <option value="Raleway">Raleway</option>
-    <option value="PT Sans">PT Sans</option>
-    <option value="Nunito">Nunito</option>
-    <option value="Open Sans">Open Sans</option>
-    <option value="Ubuntu">Ubuntu</option>
-    <option value="'Press Start 2P'">Pixel</option>
+    <option value="'Press Start 2P'">Pixel 1</option>
+    <option value="VT323">Pixel 2</option>
+    <option value="'Roboto Mono'">Pixel 3</option>
+    <option value="'Courier Prime'">Pixel 4</option>
   </select>
   <label>Tamanho:</label>
   <input type="number" id="fontSize" value="2.5" step="0.1" min="1" max="8">em
   <label>Grossura Borda (max 4px):</label>
-  <input type="number" id="borderWidth" value="2" step="1" min="1" max="4">px
+  <input type="number" id="borderWidth" value="2" step="1" min="1" max="4">
+  <label>Modo JRPG:</label>
+  <input type="checkbox" id="jrpgMode">
 </div>
 
 <div id="output">
@@ -120,11 +115,13 @@ const toggleBtn=document.getElementById("toggleBtn");
 const micSelect=document.getElementById("micSelect");
 const prevLine=document.querySelector(".previous");
 const currLine=document.querySelector(".current");
+const jrpgCheckbox=document.getElementById("jrpgMode");
+const outputDiv=document.getElementById("output");
 
 async function loadMicrophones(){
   const devices=await navigator.mediaDevices.enumerateDevices();
   micSelect.innerHTML="";
-  devices.filter(d=>d.kind==="audioinput").forEach((device)=>{
+  devices.filter(d=>d.kind==="audioinput").forEach(device=>{
     const opt=document.createElement("option");
     const parts=device.label.split(" ");
     if(parts.length>1) opt.innerHTML=`<b>${parts[0]}</b> ${parts.slice(1).join(" ")}`;
@@ -141,17 +138,18 @@ function applySettings(){
   const fontSize=document.getElementById("fontSize").value;
   let borderWidth=document.getElementById("borderWidth").value;
   if(borderWidth>4) borderWidth=4;
+  document.body.style.background=bgColor;
   [prevLine,currLine].forEach(line=>{
     line.style.fontFamily=fontFamily;
     line.style.fontSize=fontSize+"em";
-    line.style.textShadow=`
-      -${borderWidth}px -${borderWidth}px 0 #000,
-       ${borderWidth}px -${borderWidth}px 0 #000,
-      -${borderWidth}px ${borderWidth}px 0 #000,
-       ${borderWidth}px ${borderWidth}px 0 #000
-    `;
-    line.style.background="rgba(0,0,0,0.8)";
+    line.style.textShadow=`-${borderWidth}px -${borderWidth}px 0 #000,
+                          ${borderWidth}px -${borderWidth}px 0 #000,
+                         -${borderWidth}px ${borderWidth}px 0 #000,
+                          ${borderWidth}px ${borderWidth}px 0 #000`;
+    line.style.background=bgColor==="00ff00"?"#00ff00":"rgba(0,0,0,0.8)";
   });
+  if(jrpgCheckbox.checked) outputDiv.classList.add("jrpg-mode");
+  else outputDiv.classList.remove("jrpg-mode");
 }
 applySettings();
 
@@ -159,10 +157,7 @@ function splitLine(txt){
   if(txt.length<=22) return [txt];
   const parts=[];
   let i=0;
-  while(i<txt.length){
-    parts.push(txt.slice(i,i+22));
-    i+=22;
-  }
+  while(i<txt.length){ parts.push(txt.slice(i,i+22)); i+=22; }
   return parts;
 }
 
@@ -182,7 +177,6 @@ if('webkitSpeechRecognition' in window){
   recognition.lang='pt-BR';
   recognition.continuous=true;
   recognition.interimResults=true;
-
   recognition.onresult=(event)=>{
     let interim="";
     for(let i=event.resultIndex;i<event.results.length;i++){
@@ -194,10 +188,7 @@ if('webkitSpeechRecognition' in window){
         updateDisplay(true);
       } else interim=txt;
     }
-    if(interim){
-      interimText=interim;
-      updateDisplay(false);
-    }
+    if(interim){ interimText=interim; updateDisplay(false);}
   };
   recognition.onerror=(e)=>{
     if(["no-speech","aborted","audio-capture"].includes(e.error)) return;

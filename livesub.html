@@ -3,18 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎤 Legenda Ao Vivo HD</title>
+<title>🎤 Legenda JRPG Ao Vivo</title>
 <style>
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   height: 100vh;
   background: #000;
   color: white;
   overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end; /* modo JRPG: caixa fixa inferior */
 }
 #controls {
   position: absolute;
@@ -37,36 +37,36 @@ select#fontFamily option {
   font-size: 1.2em;
 }
 #output {
+  width: 100%;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  padding: 20px;
-  width: 100%;
+  justify-content: flex-end; /* caixa fixa inferior */
+  align-items: flex-start; /* texto alinhado à esquerda */
 }
 .line {
-  display: inline-block;
-  margin: 2px 0; /* menor distância entre linhas */
+  display: block;
+  margin: 2px 0;
   padding: 12px 25px;
-  border-radius: 25px;
+  border-radius: 15px;
   max-width: 90%;
   line-height: 1.2em;
   word-wrap: break-word;
   color: white;
-  background: rgba(0,0,0,0.7); /* fundo escuro sólido */
+  background: rgba(0,0,0,0.8);
   text-shadow: 
     -2px -2px 0 #000,
      2px -2px 0 #000,
     -2px 2px 0 #000,
-     2px 2px 0 #000; /* borda das letras */
+     2px 2px 0 #000;
 }
 .previous {
   opacity: 0.5;
 }
 </style>
-<!-- Google Fonts -->
+<!-- Google Fonts + Pixel -->
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@600&family=Oswald:wght@600&family=Roboto:wght@500&family=Lato&family=Raleway&family=PT+Sans&family=Nunito&family=Open+Sans&family=Ubuntu&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
 <div id="controls">
@@ -83,7 +83,6 @@ select#fontFamily option {
     <option value="Arial">Arial</option>
     <option value="Verdana">Verdana</option>
     <option value="Impact">Impact</option>
-    <option value="Courier New">Courier New</option>
     <option value="Times New Roman">Times New Roman</option>
     <option value="Comic Sans MS">Comic Sans MS</option>
     <option value="Roboto">Roboto</option>
@@ -96,11 +95,12 @@ select#fontFamily option {
     <option value="Nunito">Nunito</option>
     <option value="Open Sans">Open Sans</option>
     <option value="Ubuntu">Ubuntu</option>
+    <option value="'Press Start 2P'">Pixel</option>
   </select>
   <label>Tamanho:</label>
   <input type="number" id="fontSize" value="2.5" step="0.1" min="1" max="8">em
-  <label>Grossura Borda:</label>
-  <input type="number" id="borderWidth" value="2" step="1" min="1" max="10">px
+  <label>Grossura Borda (max 4px):</label>
+  <input type="number" id="borderWidth" value="2" step="1" min="1" max="4">px
 </div>
 
 <div id="output">
@@ -110,26 +110,25 @@ select#fontFamily option {
 
 <script>
 let recognition;
-let listening = false;
-let previousText = "";
-let currentText = "";
-let interimText = "";
-let selectedMicId = null;
+let listening=false;
+let previousText="";
+let currentText="";
+let interimText="";
+let selectedMicId=null;
 
-const toggleBtn = document.getElementById("toggleBtn");
-const micSelect = document.getElementById("micSelect");
-const prevLine = document.querySelector(".previous");
-const currLine = document.querySelector(".current");
+const toggleBtn=document.getElementById("toggleBtn");
+const micSelect=document.getElementById("micSelect");
+const prevLine=document.querySelector(".previous");
+const currLine=document.querySelector(".current");
 
-async function loadMicrophones() {
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  micSelect.innerHTML = "";
-  devices.filter(d => d.kind === "audioinput").forEach((device,i)=>{
+async function loadMicrophones(){
+  const devices=await navigator.mediaDevices.enumerateDevices();
+  micSelect.innerHTML="";
+  devices.filter(d=>d.kind==="audioinput").forEach((device)=>{
     const opt=document.createElement("option");
     const parts=device.label.split(" ");
-    if(parts.length>1){
-      opt.innerHTML=`<b>${parts[0]}</b> ${parts.slice(1).join(" ")}`;
-    } else opt.innerHTML=device.label;
+    if(parts.length>1) opt.innerHTML=`<b>${parts[0]}</b> ${parts.slice(1).join(" ")}`;
+    else opt.innerHTML=device.label;
     opt.value=device.deviceId;
     micSelect.appendChild(opt);
   });
@@ -140,9 +139,8 @@ function applySettings(){
   const bgColor=document.getElementById("bgColor").value;
   const fontFamily=document.getElementById("fontFamily").value;
   const fontSize=document.getElementById("fontSize").value;
-  const borderWidth=document.getElementById("borderWidth").value;
-
-  document.body.style.background=bgColor;
+  let borderWidth=document.getElementById("borderWidth").value;
+  if(borderWidth>4) borderWidth=4;
   [prevLine,currLine].forEach(line=>{
     line.style.fontFamily=fontFamily;
     line.style.fontSize=fontSize+"em";
@@ -152,14 +150,30 @@ function applySettings(){
       -${borderWidth}px ${borderWidth}px 0 #000,
        ${borderWidth}px ${borderWidth}px 0 #000
     `;
-    line.style.background="rgba(0,0,0,0.7)";
+    line.style.background="rgba(0,0,0,0.8)";
   });
 }
 applySettings();
 
+function splitLine(txt){
+  if(txt.length<=22) return [txt];
+  const parts=[];
+  let i=0;
+  while(i<txt.length){
+    parts.push(txt.slice(i,i+22));
+    i+=22;
+  }
+  return parts;
+}
+
 function updateDisplay(isFinal=false){
-  currLine.textContent=isFinal?currentText:interimText;
-  if(previousText) prevLine.textContent=previousText;
+  const lines=isFinal?splitLine(currentText):splitLine(interimText);
+  if(lines.length>1){
+    previousText=lines.slice(0,lines.length-1).join("\n");
+    currentText=lines[lines.length-1];
+  }
+  currLine.textContent=currentText;
+  prevLine.textContent=previousText;
   applySettings();
 }
 
@@ -185,14 +199,12 @@ if('webkitSpeechRecognition' in window){
       updateDisplay(false);
     }
   };
-
   recognition.onerror=(e)=>{
     if(["no-speech","aborted","audio-capture"].includes(e.error)) return;
     currLine.textContent="⚠️ Erro: "+e.error;
   };
-
   recognition.onend=()=>{if(listening) recognition.start();}
-} else {currLine.textContent="❌ Navegador não suporta SpeechRecognition";}
+} else currLine.textContent="❌ Navegador não suporta SpeechRecognition";
 
 async function toggleListening(){
   if(!listening){
@@ -206,7 +218,7 @@ async function toggleListening(){
     } catch{
       currLine.textContent="⚠️ Permita o uso do microfone";
     }
-  } else {
+  } else{
     listening=false;
     recognition.stop();
     toggleBtn.textContent="🎧 Clique para Iniciar";
@@ -215,8 +227,7 @@ async function toggleListening(){
 }
 
 toggleBtn.onclick=toggleListening;
-currLine.onclick=toggleListening; // clicando em Parado também inicia
-
+currLine.onclick=toggleListening;
 document.querySelectorAll("#controls input,#controls select").forEach(el=>el.addEventListener("input",applySettings));
 </script>
 </body>

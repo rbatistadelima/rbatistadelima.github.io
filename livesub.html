@@ -3,296 +3,185 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Legenda ao Vivo com Efeito Karaokê e VU Meter</title>
+<title>🎤 Legenda ao Vivo Pro</title>
 <style>
-  :root {
-    --bg: #000;
-    --text: #fff;
-    --highlight: #ffd500;
-    --font-size: 3vw;
-  }
   body {
     margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: sans-serif;
+    font-family: Arial, sans-serif;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
     height: 100vh;
-  }
-  header {
-    background: #111;
-    padding: 0.5em 1em;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.5em;
-  }
-  header h1 {
-    font-size: 1.2em;
-    margin: 0;
-  }
-  #controls button {
-    background: var(--highlight);
-    border: none;
-    color: #000;
-    font-weight: bold;
-    padding: 0.5em 1em;
-    border-radius: 0.5em;
-    cursor: pointer;
-  }
-  #config {
-    background: #111;
-    padding: 0.5em 1em;
-    display: none;
-    flex-wrap: wrap;
-    gap: 1em;
-    color: #ccc;
-  }
-  #config label {
-    font-size: 0.9em;
-  }
-  #caption {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 1em;
-    font-size: var(--font-size);
-    text-align: center;
-    line-height: 1.4em;
-  }
-  .word {
-    opacity: 0.4;
-    transition: opacity 0.2s, color 0.2s;
-  }
-  .active {
-    opacity: 1;
-    color: var(--highlight);
-  }
-  .progress {
-    background: linear-gradient(to right, var(--highlight) 50%, var(--text) 50%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: fill 1s linear forwards;
-  }
-  @keyframes fill {
-    from { background-position: 0% 0; }
-    to { background-position: 100% 0; }
-  }
-
-  /* Barra de volume (VU Meter) */
-  #vu-container {
-    width: 100%;
-    height: 10px;
-    background: #333;
-    margin-top: 4px;
-    border-radius: 4px;
+    background: #000;
+    color: white;
     overflow: hidden;
   }
-  #vu-bar {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(to right, #0f0, #ff0, #f00);
-    transition: width 0.1s linear;
+  #controls {
+    width: 100%;
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    background: rgba(0,0,0,0.7);
+    z-index: 10;
+  }
+  #controls label, #controls select, #controls input, #controls button {
+    margin: 5px;
+    font-size: 1em;
+  }
+  #output {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    width: 100%;
+    transition: background 0.4s ease;
+  }
+  .line {
+    display: inline-block;
+    margin: 5px;
+    padding: 10px 20px;
+    border-radius: 20px;
+    line-height: 1.4em;
+    word-wrap: break-word;
+    max-width: 90%;
+    border: 3px solid #000;
+  }
+  .previous {
+    opacity: 0.4;
+  }
+  .highlight {
+    color: #ff0;
   }
 </style>
 </head>
 <body>
-
-<header>
-  <div style="flex:1">
-    <h1>🎙️ Legenda ao Vivo</h1>
-    <div id="vu-container"><div id="vu-bar"></div></div>
-  </div>
   <div id="controls">
-    <select id="micSelect">
-      <option value="">Carregando microfones...</option>
+    <button id="toggleBtn">▶️ Iniciar</button>
+    <label>Fundo:</label>
+    <select id="bgColor">
+      <option value="#000000">Preto</option>
+      <option value="#00ff00">Verde (Chroma)</option>
     </select>
-    <button id="startBtn">▶️ Iniciar</button>
-    <button id="stopBtn" disabled>⏹️ Parar</button>
-    <button id="configBtn">⚙️ Configurações</button>
+    <label>Maiúsculo:</label>
+    <input type="checkbox" id="upperCase">
+    <label>Fonte:</label>
+    <select id="fontFamily">
+      <option value="Arial">Arial</option>
+      <option value="Verdana">Verdana</option>
+      <option value="Impact">Impact</option>
+      <option value="Courier New">Courier</option>
+    </select>
+    <label>Tamanho:</label>
+    <input type="number" id="fontSize" value="2" step="0.2" min="1" max="6">em
+    <label>Borda:</label>
+    <input type="color" id="borderColor" value="#000000">
+    <label>Fundo:</label>
+    <select id="bgMode">
+      <option value="fixed">Fixo</option>
+      <option value="adaptive">Adaptativo</option>
+    </select>
+    <label>Duas Linhas:</label>
+    <input type="checkbox" id="twoLines" checked>
   </div>
-</header>
 
-<div id="config">
-  <div>
-    <label>Cor do texto: <input type="color" id="textColor" value="#ffffff"></label>
+  <div id="output">
+    <div class="line previous"></div>
+    <div class="line current">🎧 Clique em Iniciar</div>
   </div>
-  <div>
-    <label>Cor de destaque: <input type="color" id="highlightColor" value="#ffd500"></label>
-  </div>
-  <div>
-    <label>Cor de fundo: <input type="color" id="bgColor" value="#000000"></label>
-  </div>
-  <div>
-    <label>Tamanho da fonte: 
-      <input type="range" id="fontSize" min="16" max="120" value="60">
-      <span id="fontVal">60px</span>
-    </label>
-  </div>
-  <div>
-    <label>Modo karaokê: 
-      <select id="karaokeMode">
-        <option value="current">Atual</option>
-        <option value="progress">Progresso</option>
-      </select>
-    </label>
-  </div>
-</div>
-
-<div id="caption">Permita acesso ao microfone 🎤</div>
 
 <script>
-const micSelect = document.getElementById('micSelect');
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const configBtn = document.getElementById('configBtn');
-const config = document.getElementById('config');
-const caption = document.getElementById('caption');
-const vuBar = document.getElementById('vu-bar');
-
 let recognition;
 let listening = false;
-let words = [];
-let activeIndex = 0;
-let karaokeMode = "current";
-let currentStream = null;
-let audioContext, analyser, dataArray, source;
+let previousText = "";
+let currentText = "";
+const toggleBtn = document.getElementById("toggleBtn");
+const output = document.getElementById("output");
+const prevLine = document.querySelector(".previous");
+const currLine = document.querySelector(".current");
 
-// === MICROFONE ===
-async function loadMicrophones() {
-  try {
-    await navigator.mediaDevices.getUserMedia({ audio: true });
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const mics = devices.filter(d => d.kind === 'audioinput');
-    micSelect.innerHTML = mics.map(
-      (m, i) => `<option value="${m.deviceId}">${m.label || 'Microfone ' + (i+1)}</option>`
-    ).join('');
-  } catch (err) {
-    caption.textContent = "❌ Erro ao acessar microfones: " + err.message;
-  }
-}
+if ('webkitSpeechRecognition' in window) {
+  recognition = new webkitSpeechRecognition();
+  recognition.lang = 'pt-BR';
+  recognition.continuous = true;
+  recognition.interimResults = true;
 
-async function setMicrophone(deviceId) {
-  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
-  try {
-    currentStream = await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId: deviceId ? { exact: deviceId } : undefined }
-    });
-    setupVUMeter(currentStream);
-    caption.textContent = "Microfone pronto ✅";
-  } catch (err) {
-    caption.textContent = "Erro ao acessar microfone: " + err.message;
-  }
-}
-
-// === RECONHECIMENTO ===
-function setupRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    caption.textContent = "Seu navegador não suporta reconhecimento de voz 😢";
-    return null;
-  }
-  const rec = new SpeechRecognition();
-  rec.lang = "pt-BR";
-  rec.continuous = true;
-  rec.interimResults = true;
-
-  rec.onresult = e => {
-    const result = e.results[e.resultIndex];
-    const transcript = result[0].transcript.trim();
-    updateCaption(transcript);
-  };
-  rec.onerror = e => console.error("Erro:", e);
-  rec.onend = () => { if (listening) rec.start(); };
-  return rec;
-}
-
-// === LEGENDA ===
-function updateCaption(text) {
-  if (!text) return;
-  words = text.split(/\s+/);
-  caption.innerHTML = words.map((w, i) => `<span class="word" id="w${i}">${w}</span>`).join(" ");
-  animateWords();
-}
-
-function animateWords() {
-  if (!words.length) return;
-  activeIndex = 0;
-  const interval = setInterval(() => {
-    document.querySelectorAll('.word').forEach(w => w.classList.remove('active', 'progress'));
-    const current = document.getElementById(`w${activeIndex}`);
-    if (!current) return;
-    if (karaokeMode === "current") {
-      current.classList.add('active');
-    } else {
-      current.classList.add('progress');
-      current.style.animation = 'fill 0.8s linear forwards';
+  recognition.onresult = (event) => {
+    let interim = "";
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      const txt = event.results[i][0].transcript.trim();
+      if (event.results[i].isFinal) {
+        previousText = currentText;
+        currentText = txt;
+      } else {
+        interim = txt;
+      }
     }
-    activeIndex++;
-    if (activeIndex >= words.length) clearInterval(interval);
-  }, 400);
+    updateDisplay((currentText + " " + interim).trim());
+  };
+
+  recognition.onerror = (e) => currLine.textContent = "❌ Erro: " + e.error;
+  recognition.onend = () => { if (listening) recognition.start(); };
+} else {
+  currLine.textContent = "❌ Navegador não suporta SpeechRecognition.";
 }
 
-// === VU METER ===
-function setupVUMeter(stream) {
-  if (audioContext) audioContext.close();
-  audioContext = new AudioContext();
-  analyser = audioContext.createAnalyser();
-  analyser.fftSize = 256;
-  dataArray = new Uint8Array(analyser.frequencyBinCount);
-  source = audioContext.createMediaStreamSource(stream);
-  source.connect(analyser);
-  animateVUMeter();
+function updateDisplay(text) {
+  const upper = document.getElementById("upperCase").checked;
+  const twoLines = document.getElementById("twoLines").checked;
+  const bgMode = document.getElementById("bgMode").value;
+  const fontSize = document.getElementById("fontSize").value;
+  const fontFamily = document.getElementById("fontFamily").value;
+  const borderColor = document.getElementById("borderColor").value;
+
+  const bgColor = document.getElementById("bgColor").value;
+  document.body.style.background = bgColor;
+
+  if (upper) text = text.toUpperCase();
+  currLine.textContent = text;
+  currLine.style.fontSize = fontSize + "em";
+  currLine.style.fontFamily = fontFamily;
+  currLine.style.borderColor = borderColor;
+  currLine.style.borderRadius = "25px";
+
+  if (twoLines) {
+    prevLine.textContent = previousText ? (upper ? previousText.toUpperCase() : previousText) : "";
+    prevLine.style.display = "block";
+    prevLine.style.fontFamily = fontFamily;
+    prevLine.style.borderColor = borderColor;
+  } else {
+    prevLine.style.display = "none";
+  }
+
+  if (bgMode === "adaptive") {
+    output.style.background = `linear-gradient(90deg, ${bgColor}, ${borderColor})`;
+  } else {
+    output.style.background = bgColor;
+  }
 }
 
-function animateVUMeter() {
-  requestAnimationFrame(animateVUMeter);
-  if (!analyser) return;
-  analyser.getByteFrequencyData(dataArray);
-  const volume = dataArray.reduce((a, b) => a + b) / dataArray.length;
-  const percent = Math.min(100, (volume / 128) * 100);
-  vuBar.style.width = percent + "%";
-}
-
-// === CONTROLES ===
-startBtn.onclick = async () => {
-  if (!recognition) recognition = setupRecognition();
-  if (recognition) {
-    await setMicrophone(micSelect.value);
-    recognition.start();
-    listening = true;
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-    caption.textContent = "🎧 Ouvindo...";
+toggleBtn.onclick = async () => {
+  if (!listening) {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      recognition.start();
+      listening = true;
+      toggleBtn.textContent = "⏹️ Parar";
+      currLine.textContent = "🎧 Ouvindo...";
+    } catch {
+      currLine.textContent = "⚠️ Permita o uso do microfone.";
+    }
+  } else {
+    listening = false;
+    recognition.stop();
+    toggleBtn.textContent = "▶️ Iniciar";
+    currLine.textContent = "⏸️ Parado";
   }
 };
-stopBtn.onclick = () => {
-  if (recognition) recognition.stop();
-  listening = false;
-  startBtn.disabled = false;
-  stopBtn.disabled = true;
-  caption.textContent = "🛑 Parado";
-};
-configBtn.onclick = () => {
-  config.style.display = config.style.display === 'flex' ? 'none' : 'flex';
-};
-
-// === CONFIG VISUAL ===
-document.getElementById('textColor').oninput = e => document.documentElement.style.setProperty('--text', e.target.value);
-document.getElementById('highlightColor').oninput = e => document.documentElement.style.setProperty('--highlight', e.target.value);
-document.getElementById('bgColor').oninput = e => document.documentElement.style.setProperty('--bg', e.target.value);
-document.getElementById('fontSize').oninput = e => {
-  const size = e.target.value + "px";
-  document.documentElement.style.setProperty('--font-size', size);
-  document.getElementById('fontVal').textContent = size;
-};
-document.getElementById('karaokeMode').onchange = e => karaokeMode = e.target.value;
-
-// Inicializa lista de microfones
-loadMicrophones();
 </script>
 </body>
 </html>

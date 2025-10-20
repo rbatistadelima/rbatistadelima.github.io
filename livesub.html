@@ -34,28 +34,30 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-end;
     align-items: center;
     text-align: center;
     padding: 20px;
     width: 100%;
-    transition: background 0.4s ease;
   }
   .line {
     display: inline-block;
-    margin: 5px;
-    padding: 10px 20px;
+    margin: 6px 0;
+    padding: 12px 20px;
     border-radius: 20px;
+    max-width: 90%;
     line-height: 1.4em;
     word-wrap: break-word;
-    max-width: 90%;
-    border: 3px solid #000;
+    color: white;
+    background: rgba(0, 0, 0, 0.6);
+    text-shadow: 
+      -2px -2px 0 #000, 
+      2px -2px 0 #000, 
+      -2px 2px 0 #000, 
+      2px 2px 0 #000;
   }
   .previous {
     opacity: 0.4;
-  }
-  .highlight {
-    color: #ff0;
   }
 </style>
 </head>
@@ -78,13 +80,8 @@
     </select>
     <label>Tamanho:</label>
     <input type="number" id="fontSize" value="2" step="0.2" min="1" max="6">em
-    <label>Borda:</label>
+    <label>Borda Letras:</label>
     <input type="color" id="borderColor" value="#000000">
-    <label>Fundo:</label>
-    <select id="bgMode">
-      <option value="fixed">Fixo</option>
-      <option value="adaptive">Adaptativo</option>
-    </select>
     <label>Duas Linhas:</label>
     <input type="checkbox" id="twoLines" checked>
   </div>
@@ -99,10 +96,53 @@ let recognition;
 let listening = false;
 let previousText = "";
 let currentText = "";
+let lastFinal = "";
+let silenceTimeout;
+
 const toggleBtn = document.getElementById("toggleBtn");
 const output = document.getElementById("output");
 const prevLine = document.querySelector(".previous");
 const currLine = document.querySelector(".current");
+const bgColorSelect = document.getElementById("bgColor");
+
+function applySettings() {
+  const bgColor = bgColorSelect.value;
+  document.body.style.background = bgColor;
+
+  const fontFamily = document.getElementById("fontFamily").value;
+  const fontSize = document.getElementById("fontSize").value;
+  const borderColor = document.getElementById("borderColor").value;
+
+  [prevLine, currLine].forEach(line => {
+    line.style.fontFamily = fontFamily;
+    line.style.fontSize = fontSize + "em";
+    line.style.textShadow = `
+      -2px -2px 0 ${borderColor},
+       2px -2px 0 ${borderColor},
+      -2px  2px 0 ${borderColor},
+       2px  2px 0 ${borderColor}
+    `;
+    line.style.background = bgColor; // fundo sólido igual ao fundo geral
+  });
+}
+
+applySettings();
+
+// Atualiza display
+function updateDisplay() {
+  const upper = document.getElementById("upperCase").checked;
+  const twoLines = document.getElementById("twoLines").checked;
+
+  currLine.textContent = upper ? currentText.toUpperCase() : currentText;
+  if (twoLines) {
+    prevLine.textContent = upper ? previousText.toUpperCase() : previousText;
+    prevLine.style.display = "block";
+  } else {
+    prevLine.style.display = "none";
+  }
+
+  applySettings();
+}
 
 if ('webkitSpeechRecognition' in window) {
   recognition = new webkitSpeechRecognition();
@@ -115,53 +155,44 @@ if ('webkitSpeechRecognition' in window) {
     for (let i = event.resultIndex; i < event.results.length; ++i) {
       const txt = event.results[i][0].transcript.trim();
       if (event.results[i].isFinal) {
-        previousText = currentText;
-        currentText = txt;
+        if (txt && txt !== lastFinal) {
+          previousText = currentText;
+          currentText = txt;
+          lastFinal = txt;
+          updateDisplay();
+        }
       } else {
         interim = txt;
       }
     }
-    updateDisplay((currentText + " " + interim).trim());
+    if (interim) {
+      currLine.textContent = interim;
+    }
+    resetSilenceTimer();
   };
 
-  recognition.onerror = (e) => currLine.textContent = "❌ Erro: " + e.error;
-  recognition.onend = () => { if (listening) recognition.start(); };
+  recognition.onerror = (e) => {
+    if (["no-speech", "aborted", "audio-capture"].includes(e.error)) return;
+    currLine.textContent = "⚠️ Erro: " + e.error;
+  };
+
+  recognition.onend = () => {
+    if (listening) recognition.start(); // recomeça automaticamente
+  };
 } else {
   currLine.textContent = "❌ Navegador não suporta SpeechRecognition.";
 }
 
-function updateDisplay(text) {
-  const upper = document.getElementById("upperCase").checked;
-  const twoLines = document.getElementById("twoLines").checked;
-  const bgMode = document.getElementById("bgMode").value;
-  const fontSize = document.getElementById("fontSize").value;
-  const fontFamily = document.getElementById("fontFamily").value;
-  const borderColor = document.getElementById("borderColor").value;
-
-  const bgColor = document.getElementById("bgColor").value;
-  document.body.style.background = bgColor;
-
-  if (upper) text = text.toUpperCase();
-  currLine.textContent = text;
-  currLine.style.fontSize = fontSize + "em";
-  currLine.style.fontFamily = fontFamily;
-  currLine.style.borderColor = borderColor;
-  currLine.style.borderRadius = "25px";
-
-  if (twoLines) {
-    prevLine.textContent = previousText ? (upper ? previousText.toUpperCase() : previousText) : "";
-    prevLine.style.display = "block";
-    prevLine.style.fontFamily = fontFamily;
-    prevLine.style.borderColor = borderColor;
-  } else {
-    prevLine.style.display = "none";
-  }
-
-  if (bgMode === "adaptive") {
-    output.style.background = `linear-gradient(90deg, ${bgColor}, ${borderColor})`;
-  } else {
-    output.style.background = bgColor;
-  }
+function resetSilenceTimer() {
+  clearTimeout(silenceTimeout);
+  silenceTimeout = setTimeout(() => {
+    // após silêncio → nova linha
+    if (currentText && currentText !== lastFinal) {
+      previousText = currentText;
+      currentText = "";
+      updateDisplay();
+    }
+  }, 4000); // pausa = 4s
 }
 
 toggleBtn.onclick = async () => {
@@ -182,6 +213,10 @@ toggleBtn.onclick = async () => {
     currLine.textContent = "⏸️ Parado";
   }
 };
+
+// Atualiza aparência ao mudar opções
+document.querySelectorAll("#controls input, #controls select")
+  .forEach(el => el.addEventListener("input", applySettings));
 </script>
 </body>
 </html>

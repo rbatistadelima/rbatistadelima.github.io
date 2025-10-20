@@ -57,6 +57,7 @@ select#fontFamily option { font-size: 1.2em; }
                 2px -2px 0 #000,
                -2px 2px 0 #000,
                 2px 2px 0 #000;
+  transition: opacity 0.5s;
 }
 .previous { opacity: 0.5; }
 .jrpg-mode .line {
@@ -65,7 +66,6 @@ select#fontFamily option { font-size: 1.2em; }
   border-radius: 5px;
 }
 </style>
-<!-- Google Fonts + Pixel -->
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Roboto+Mono&family=Courier+Prime&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -110,6 +110,7 @@ let previousText="";
 let currentText="";
 let interimText="";
 let selectedMicId=null;
+let fadeTimers=[];
 
 const toggleBtn=document.getElementById("toggleBtn");
 const micSelect=document.getElementById("micSelect");
@@ -117,6 +118,7 @@ const prevLine=document.querySelector(".previous");
 const currLine=document.querySelector(".current");
 const jrpgCheckbox=document.getElementById("jrpgMode");
 const outputDiv=document.getElementById("output");
+const bgColorSelect=document.getElementById("bgColor");
 
 async function loadMicrophones(){
   const devices=await navigator.mediaDevices.enumerateDevices();
@@ -133,7 +135,7 @@ async function loadMicrophones(){
 navigator.mediaDevices.getUserMedia({audio:true}).then(loadMicrophones).catch(()=>{currLine.textContent="⚠️ Permita o uso do microfone";});
 
 function applySettings(){
-  const bgColor=document.getElementById("bgColor").value;
+  const bgColor=bgColorSelect.value;
   const fontFamily=document.getElementById("fontFamily").value;
   const fontSize=document.getElementById("fontSize").value;
   let borderWidth=document.getElementById("borderWidth").value;
@@ -146,7 +148,8 @@ function applySettings(){
                           ${borderWidth}px -${borderWidth}px 0 #000,
                          -${borderWidth}px ${borderWidth}px 0 #000,
                           ${borderWidth}px ${borderWidth}px 0 #000`;
-    line.style.background=bgColor==="00ff00"?"#00ff00":"rgba(0,0,0,0.8)";
+    line.style.background=bgColor==="#00ff00"?"#00ff00":"rgba(0,0,0,0.8)";
+    line.style.opacity=1;
   });
   if(jrpgCheckbox.checked) outputDiv.classList.add("jrpg-mode");
   else outputDiv.classList.remove("jrpg-mode");
@@ -161,15 +164,30 @@ function splitLine(txt){
   return parts;
 }
 
+function clearFadeTimers(){
+  fadeTimers.forEach(t=>clearTimeout(t));
+  fadeTimers=[];
+}
+
 function updateDisplay(isFinal=false){
+  clearFadeTimers();
   const lines=isFinal?splitLine(currentText):splitLine(interimText);
   if(lines.length>1){
     previousText=lines.slice(0,lines.length-1).join("\n");
     currentText=lines[lines.length-1];
   }
-  currLine.textContent=currentText;
+  // Se a linha anterior faz parte da mesma frase, não apagar
   prevLine.textContent=previousText;
+  currLine.textContent=currentText;
   applySettings();
+  if(isFinal){
+    fadeTimers.push(setTimeout(()=>{
+      currLine.style.opacity=0;
+      prevLine.style.opacity=0;
+      previousText="";
+      currentText="";
+    },5000));
+  }
 }
 
 if('webkitSpeechRecognition' in window){
@@ -177,6 +195,7 @@ if('webkitSpeechRecognition' in window){
   recognition.lang='pt-BR';
   recognition.continuous=true;
   recognition.interimResults=true;
+
   recognition.onresult=(event)=>{
     let interim="";
     for(let i=event.resultIndex;i<event.results.length;i++){

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎤 Legenda ao Vivo HD</title>
+<title>🎤 Legenda Ao Vivo HD</title>
 <style>
 body {
   margin: 0;
@@ -47,25 +47,25 @@ select#fontFamily option {
 }
 .line {
   display: inline-block;
-  margin: 6px 0;
+  margin: 2px 0; /* menor distância entre linhas */
   padding: 12px 25px;
   border-radius: 25px;
   max-width: 90%;
-  line-height: 1.4em;
+  line-height: 1.2em;
   word-wrap: break-word;
   color: white;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.7); /* fundo escuro sólido */
   text-shadow: 
     -2px -2px 0 #000,
      2px -2px 0 #000,
     -2px 2px 0 #000,
-     2px 2px 0 #000;
+     2px 2px 0 #000; /* borda das letras */
 }
 .previous {
   opacity: 0.5;
 }
 </style>
-<!-- Import Google Fonts -->
+<!-- Google Fonts -->
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@600&family=Oswald:wght@600&family=Roboto:wght@500&family=Lato&family=Raleway&family=PT+Sans&family=Nunito&family=Open+Sans&family=Ubuntu&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -124,53 +124,47 @@ const currLine = document.querySelector(".current");
 async function loadMicrophones() {
   const devices = await navigator.mediaDevices.enumerateDevices();
   micSelect.innerHTML = "";
-  devices.filter(d => d.kind === "audioinput").forEach((device, i) => {
-    const opt = document.createElement("option");
-    // Primeira parte em negrito
-    const labelParts = device.label.split(" ");
-    if(labelParts.length > 1){
-      opt.innerHTML = `<b>${labelParts[0]}</b> ${labelParts.slice(1).join(" ")}`;
-    } else {
-      opt.innerHTML = device.label;
-    }
-    opt.value = device.deviceId;
+  devices.filter(d => d.kind === "audioinput").forEach((device,i)=>{
+    const opt=document.createElement("option");
+    const parts=device.label.split(" ");
+    if(parts.length>1){
+      opt.innerHTML=`<b>${parts[0]}</b> ${parts.slice(1).join(" ")}`;
+    } else opt.innerHTML=device.label;
+    opt.value=device.deviceId;
     micSelect.appendChild(opt);
   });
 }
 navigator.mediaDevices.getUserMedia({audio:true}).then(loadMicrophones).catch(()=>{currLine.textContent="⚠️ Permita o uso do microfone";});
 
-function applySettings() {
-  const bgColor = document.getElementById("bgColor").value;
-  const fontFamily = document.getElementById("fontFamily").value;
-  const fontSize = document.getElementById("fontSize").value;
-  const borderWidth = document.getElementById("borderWidth").value;
+function applySettings(){
+  const bgColor=document.getElementById("bgColor").value;
+  const fontFamily=document.getElementById("fontFamily").value;
+  const fontSize=document.getElementById("fontSize").value;
+  const borderWidth=document.getElementById("borderWidth").value;
 
-  document.body.style.background = bgColor;
+  document.body.style.background=bgColor;
   [prevLine,currLine].forEach(line=>{
-    line.style.fontFamily = fontFamily;
-    line.style.fontSize = fontSize + "em";
-    line.style.textShadow = `
+    line.style.fontFamily=fontFamily;
+    line.style.fontSize=fontSize+"em";
+    line.style.textShadow=`
       -${borderWidth}px -${borderWidth}px 0 #000,
        ${borderWidth}px -${borderWidth}px 0 #000,
       -${borderWidth}px ${borderWidth}px 0 #000,
        ${borderWidth}px ${borderWidth}px 0 #000
     `;
-    line.style.background = "rgba(0,0,0,0.7)";
+    line.style.background="rgba(0,0,0,0.7)";
   });
 }
 applySettings();
 
 function updateDisplay(isFinal=false){
-  const textToShow = isFinal ? currentText.toUpperCase() : interimText.toLowerCase();
-  currLine.textContent = textToShow;
-
-  // Mantém histórico parcial da linha anterior
-  if(previousText) prevLine.textContent = previousText.toUpperCase();
+  currLine.textContent=isFinal?currentText:interimText;
+  if(previousText) prevLine.textContent=previousText;
   applySettings();
 }
 
 if('webkitSpeechRecognition' in window){
-  recognition = new webkitSpeechRecognition();
+  recognition=new webkitSpeechRecognition();
   recognition.lang='pt-BR';
   recognition.continuous=true;
   recognition.interimResults=true;
@@ -180,21 +174,11 @@ if('webkitSpeechRecognition' in window){
     for(let i=event.resultIndex;i<event.results.length;i++){
       const txt=event.results[i][0].transcript.trim();
       if(event.results[i].isFinal){
-        // quebra se maior que 22 caracteres
-        if(txt.length>22){
-          previousText=currentText;
-          currentText=txt.slice(0,22);
-          prevLine.textContent=currentText.toUpperCase();
-          currentText=txt.slice(22);
-        } else {
-          previousText=currentText;
-          currentText=txt;
-        }
+        previousText=currentText;
+        currentText=txt;
         interimText="";
         updateDisplay(true);
-      } else {
-        interim=txt;
-      }
+      } else interim=txt;
     }
     if(interim){
       interimText=interim;
@@ -206,16 +190,15 @@ if('webkitSpeechRecognition' in window){
     if(["no-speech","aborted","audio-capture"].includes(e.error)) return;
     currLine.textContent="⚠️ Erro: "+e.error;
   };
+
   recognition.onend=()=>{if(listening) recognition.start();}
 } else {currLine.textContent="❌ Navegador não suporta SpeechRecognition";}
 
-toggleBtn.onclick=async ()=>{
+async function toggleListening(){
   if(!listening){
     try{
       selectedMicId=micSelect.value;
-      await navigator.mediaDevices.getUserMedia({
-        audio:{deviceId:selectedMicId?{exact:selectedMicId}:undefined}
-      });
+      await navigator.mediaDevices.getUserMedia({audio:{deviceId:selectedMicId?{exact:selectedMicId}:undefined}});
       recognition.start();
       listening=true;
       toggleBtn.textContent="⏹️ Parar";
@@ -229,10 +212,12 @@ toggleBtn.onclick=async ()=>{
     toggleBtn.textContent="🎧 Clique para Iniciar";
     currLine.textContent="⏸️ Parado";
   }
-};
+}
 
-document.querySelectorAll("#controls input, #controls select")
-.forEach(el=>el.addEventListener("input",applySettings));
+toggleBtn.onclick=toggleListening;
+currLine.onclick=toggleListening; // clicando em Parado também inicia
+
+document.querySelectorAll("#controls input,#controls select").forEach(el=>el.addEventListener("input",applySettings));
 </script>
 </body>
 </html>

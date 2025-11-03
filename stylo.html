@@ -2,135 +2,107 @@
 <html lang="en">
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Stylophone</title>
+<title>Stylophone 1968 Replica</title>
 <style>
   html, body {
     margin: 0;
     height: 100%;
+    background: #111;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     overflow: hidden;
-    background: radial-gradient(circle at 50% 20%, #222 0%, #000 100%);
     touch-action: none;
-    font-family: monospace;
   }
 
   .stylophone {
     position: relative;
+    width: 95vw;
+    max-width: 700px;
+    height: 160px;
+    background: linear-gradient(145deg, #222 0%, #000 100%);
+    border-radius: 10px;
+    border: 3px solid #555;
+    box-shadow: inset 0 0 15px #000, 0 4px 10px #000;
     display: flex;
     justify-content: center;
-    align-items: flex-end;
-    height: 100%;
+    align-items: center;
   }
 
-  .keys {
+  .grid {
     display: flex;
-    position: relative;
-    width: 95%;
-    height: 70%;
-    max-width: 600px;
-    border: 2px solid #666;
-    border-radius: 6px;
-    background: #333;
-    box-shadow: inset 0 0 10px #000;
+    width: 90%;
+    height: 60%;
+    background: linear-gradient(180deg, #bbb, #777);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: inset 0 0 8px #000a;
   }
 
-  .key {
+  .pad {
     flex: 1;
-    border-left: 1px solid #555;
-    border-right: 1px solid #111;
-    background: linear-gradient(to bottom, #eee 0%, #ccc 100%);
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
-    font-size: 0.9em;
-    color: #000;
+    border-left: 1px solid #111;
+    border-right: 1px solid #333;
+    background: linear-gradient(180deg, #ccc 0%, #888 100%);
     position: relative;
-    z-index: 1;
+    transition: background 0.05s;
   }
 
-  .key.black {
+  .pad.active {
+    background: linear-gradient(180deg, #0f0, #090);
+  }
+
+  .pad::after {
+    content: "";
     position: absolute;
-    width: 6%;
-    height: 50%;
-    top: 0;
-    background: linear-gradient(to bottom, #111 0%, #444 100%);
-    border: 1px solid #000;
-    border-radius: 0 0 4px 4px;
-    color: #fff;
-    z-index: 2;
-  }
-
-  .key.active {
-    background: #0f0 !important;
-    color: #000;
+    left: 0;
+    right: 0;
+    bottom: 2px;
+    height: 2px;
+    background: #333;
   }
 
   .stylus {
     position: absolute;
     width: 8px;
     height: 80px;
-    background: linear-gradient(#aaa, #666);
+    background: linear-gradient(#ccc, #777);
     border-radius: 4px;
     box-shadow: 0 0 6px #000;
     transform-origin: bottom center;
-    transition: transform 0.05s;
     pointer-events: none;
+    transition: transform 0.05s;
   }
 </style>
 </head>
 <body>
 
 <div class="stylophone">
-  <div class="keys"></div>
+  <div class="grid"></div>
   <div class="stylus"></div>
 </div>
 
 <script>
 const ctx = new (window.AudioContext || window.webkitAudioContext)();
-let osc = null, gain = null;
+let osc = null, gain = null, currentPad = null;
 
-const notes = [
-  { name: 'C4', freq: 261.63 },
-  { name: 'D4', freq: 293.66 },
-  { name: 'E4', freq: 329.63 },
-  { name: 'F4', freq: 349.23 },
-  { name: 'G4', freq: 392.00 },
-  { name: 'A4', freq: 440.00 },
-  { name: 'B4', freq: 493.88 },
-  { name: 'C5', freq: 523.25 }
-];
-
-// Relative positions of black keys (between white)
-const blackKeys = [
-  { pos: 0.7, name: 'C#4', freq: 277.18 },
-  { pos: 1.7, name: 'D#4', freq: 311.13 },
-  { pos: 3.7, name: 'F#4', freq: 369.99 },
-  { pos: 4.7, name: 'G#4', freq: 415.30 },
-  { pos: 5.7, name: 'A#4', freq: 466.16 },
-];
-
-const keysContainer = document.querySelector('.keys');
+const grid = document.querySelector('.grid');
 const stylus = document.querySelector('.stylus');
 
-// create white keys
-notes.forEach((n) => {
-  const k = document.createElement('div');
-  k.className = 'key white';
-  k.textContent = n.name;
-  k.dataset.freq = n.freq;
-  keysContainer.appendChild(k);
-});
+// 20 keys, C3 (130.81 Hz) to E4 (329.63 Hz)
+const freqs = [
+  130.81, 138.59, 146.83, 155.56, 164.81,
+  174.61, 185.00, 196.00, 207.65, 220.00,
+  233.08, 246.94, 261.63, 277.18, 293.66,
+  311.13, 329.63, 349.23, 369.99, 392.00
+];
 
-// create black keys
-blackKeys.forEach((b) => {
-  const k = document.createElement('div');
-  k.className = 'key black';
-  k.textContent = b.name.replace('#','♯');
-  k.style.left = `${(b.pos / notes.length) * 100}%`;
-  k.dataset.freq = b.freq;
-  keysContainer.appendChild(k);
+freqs.forEach(f => {
+  const p = document.createElement('div');
+  p.className = 'pad';
+  p.dataset.freq = f;
+  grid.appendChild(p);
 });
-
-let currentKey = null;
 
 function startSound(freq) {
   stopSound();
@@ -154,33 +126,28 @@ function stopSound() {
   }
 }
 
-function keyFromEvent(e) {
-  const touch = e.touches ? e.touches[0] : e;
-  const el = document.elementFromPoint(touch.clientX, touch.clientY);
-  return el && el.classList.contains('key') ? el : null;
+function padFromEvent(e) {
+  const t = e.touches ? e.touches[0] : e;
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  return el && el.classList.contains('pad') ? el : null;
 }
 
 function handleMove(e) {
-  const key = keyFromEvent(e);
-  if (key && key !== currentKey) {
-    if (currentKey) currentKey.classList.remove('active');
-    currentKey = key;
-    key.classList.add('active');
-    startSound(parseFloat(key.dataset.freq));
+  const pad = padFromEvent(e);
+  if (pad && pad !== currentPad) {
+    if (currentPad) currentPad.classList.remove('active');
+    currentPad = pad;
+    pad.classList.add('active');
+    startSound(parseFloat(pad.dataset.freq));
   }
-  if (e.touches) {
-    const t = e.touches[0];
-    stylus.style.left = t.clientX - 4 + 'px';
-    stylus.style.top = t.clientY - 70 + 'px';
-  } else {
-    stylus.style.left = e.clientX - 4 + 'px';
-    stylus.style.top = e.clientY - 70 + 'px';
-  }
+  const t = e.touches ? e.touches[0] : e;
+  stylus.style.left = t.clientX - 4 + 'px';
+  stylus.style.top = t.clientY - 70 + 'px';
 }
 
 function handleEnd() {
-  if (currentKey) currentKey.classList.remove('active');
-  currentKey = null;
+  if (currentPad) currentPad.classList.remove('active');
+  currentPad = null;
   stopSound();
 }
 
@@ -191,5 +158,6 @@ document.addEventListener('mousedown', handleMove);
 document.addEventListener('mousemove', e => { if (e.buttons) handleMove(e); });
 document.addEventListener('mouseup', handleEnd);
 </script>
+
 </body>
 </html>

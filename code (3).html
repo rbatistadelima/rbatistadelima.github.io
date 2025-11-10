@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ID Photo Face Aligner (Working)</title>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<style>
+body { font-family: sans-serif; text-align: center; background: #f6f6f6; margin: 20px; }
+#dropzone {
+  border: 3px dashed #aaa; padding: 40px; border-radius: 20px;
+  background: #fff; margin-bottom: 20px;
+}
+#gallery canvas {
+  margin: 5px; border-radius: 10px; box-shadow: 0 0 5px rgba(0,0,0,0.2);
+}
+button { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
+#status { font-weight: bold; margin: 10px; }
+</style>
+</head>
+<body ondrop="handleDrop(event)" ondragover="event.preventDefault()">
+<h1>🪪 ID Photo Face Aligner</h1>
+<div id="status">Loading models...</div>
+<div id="dropzone">Drop portraits here</div>
+<button onclick="downloadAll()">⬇️ Download All as ZIP</button>
+<div id="gallery"></div>
+
+<script>
+let zip = new JSZip();
+let modelsLoaded = false;
+
+async function loadModels() {
+  const modelURL = "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/";
+  try {
+    await faceapi.nets.tinyFaceDetector.loadFromUri(modelURL);
+    await faceapi.nets.faceLandmark68TinyNet.loadFromUri(modelURL);
+    modelsLoaded = true;
+    document.getElementById("status").textContent = "✅ Models loaded. Drop your images below.";
+  } catch (err) {
+    document.getElementById("status").textContent = "⚠️ Error loading models. Try opening this file using Chrome or Edge.";
+    console.error(err);
+  }
+}
+loadModels();
+
+async function handleDrop(e) {
+  e.preventDefault();
+  if (!modelsLoaded) {
+    document.getElementById("status").textContent = "⚠️ Models not loaded yet.";
+    return;
+  }
+
+  const files = e.dataTransfer.files;
+  const gallery = document.getElementById("gallery");
+  gallery.innerHTML = "";
+  zip = new JSZip();
+  document.getElementById("status").textContent = `Aligning ${files.length} face(s)...`;
+
+  let processed = 0;
+  for (const file of files) {
+    const img = await loadImage(file);
+    const detection = await faceapi
+      .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks(true);
+
+    if (!detection) {
+      const msg = document.createElement("div");
+      msg.textContent = `❌ No face detected in ${file.name}`;
+      gallery.appendChild(msg);
+      continue;
+    }
+
+    const aligned = await alignAsIDPhoto(img, detection);
+    gallery.appendChild(aligned.canvas);
+    const blob = await new Promise((r) => aligned.canvas.toBlob(r, "image/jpeg"));
+    zip.file(`${file.name.replace(/\.[^/.]+$/, "")}_id.jpg`, blob);
+
+    processed++;
+    document.getElementById("status").textContent = `Aligned ${processed}/${files.length} face(s)...`;
+  }
+
+  document.getElementById("status").textContent = `✅ Done! ${processed} aligned.`;
+}
+
+function loadImage(file) {
+  return new Promise((res) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function alignAsIDPhoto(img, det) {
+  const landmarks = det.landmarks;
+  const leftEye = landmarks.getLeftEye();
+  const rightEye = landmarks.getRightEye();
+  const jaw = landmarks.getJawOutline();
+
+  const eyeCenterX = (leftEye[0].x + rightEye[3].x) / 2;
+  const eyeCenterY = (leftEye[0].y + rightEye[3].y) / 2;
+  const chinY = jaw[8].y;
+  const headTopY = Math.min(...landmarks.positions.map(p => p.y));
+  const dx = rightEye[3].x - leftEye[0].x;
+  const dy = rightEye[3].y - leftEye[0].y;
+  const angle = Math.atan2(dy, dx);
+  const faceHeight = chinY - headTopY;
+  const desiredFaceHeight = 420;
+  const scale = desiredFaceHeight / faceHeight;
+
+  const width = 480, height = 640;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = width; canvas.height = height;
+
+  ctx.translate(width / 2, height * 0.6); // eyes at 60% height
+  ctx.rotate(-angle);
+  ctx.scale(scale, scale);
+  ctx.drawImage(img, -eyeCenterX, -eyeCenterY);
+
+  return { canvas };
+}
+
+async function downloadAll() {
+  if (!Object.keys(zip.files).length) {
+    alert("No aligned images yet!");
+    return;
+  }
+  const blob = await zip.generateAsync({ type: "blob" });
+  saveAs(blob, "id_faces.zip");
+}
+</script>
+</body>
+</html>

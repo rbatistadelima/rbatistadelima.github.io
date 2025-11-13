@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Face Detection Example</title>
+  <title>Face Detection Working Example</title>
   <style>
     body {
       margin: 0;
@@ -26,6 +26,7 @@
       width: 640px;
       height: 480px;
       border-radius: 12px;
+      object-fit: cover;
     }
     #label {
       position: absolute;
@@ -46,8 +47,8 @@
     <div id="label">Loading face model...</div>
   </div>
 
-  <!-- face-api.js CDN -->
-  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+  <!-- face-api.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2"></script>
 
   <script>
     const video = document.getElementById('video');
@@ -55,11 +56,18 @@
     const label = document.getElementById('label');
     const ctx = canvas.getContext('2d');
 
-    // Load models first
+    // Load models from a working GitHub source
+    const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/';
+
     Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/models'),
-      faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/models'),
-    ]).then(startVideo);
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+    ])
+    .then(startVideo)
+    .catch(err => {
+      label.textContent = 'Error loading models';
+      console.error(err);
+    });
 
     async function startVideo() {
       try {
@@ -68,6 +76,7 @@
         label.textContent = 'Detecting faces...';
       } catch (err) {
         label.textContent = 'Camera error: ' + err.message;
+        console.error(err);
       }
     }
 
@@ -76,10 +85,12 @@
       canvas.height = video.videoHeight;
 
       async function detect() {
-        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+        const detections = await faceapi
+          .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
           .withFaceLandmarks();
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
         if (detections.length === 0) {
           label.textContent = 'No face detected';
         } else {
@@ -90,13 +101,12 @@
             ctx.lineWidth = 2;
             ctx.strokeRect(box.x, box.y, box.width, box.height);
 
-            const points = det.landmarks.positions;
-            for (const pt of points) {
+            det.landmarks.positions.forEach(pt => {
               ctx.beginPath();
               ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
               ctx.fillStyle = '#0f0';
               ctx.fill();
-            }
+            });
           });
         }
 

@@ -1,45 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Face Expression Detection Wireframe</title>
+  <meta charset="UTF-8">
+  <title>Face Detection Example</title>
   <style>
     body {
       margin: 0;
-      height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
+      height: 100vh;
       background: #000;
       color: #0f0;
       font-family: sans-serif;
     }
-    #app {
+    #container {
       position: relative;
       width: 640px;
       height: 480px;
-      border: 2px dashed #0f0;
+    }
+    video, canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 640px;
+      height: 480px;
       border-radius: 12px;
-      overflow: hidden;
-      background: #000;
-    }
-    video {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1); /* mirror webcam */
-      background: #000;
-    }
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
     }
     #label {
       position: absolute;
@@ -49,65 +35,75 @@
       background: rgba(0, 0, 0, 0.6);
       padding: 8px 16px;
       border-radius: 8px;
-      color: #0f0;
-      font-size: 18px;
       font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <div id="app">
+  <div id="container">
     <video id="video" autoplay muted playsinline></video>
     <canvas id="overlay"></canvas>
-    <div id="label">Detecting...</div>
+    <div id="label">Loading face model...</div>
   </div>
+
+  <!-- face-api.js CDN -->
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
 
   <script>
     const video = document.getElementById('video');
     const canvas = document.getElementById('overlay');
-    const ctx = canvas.getContext('2d');
     const label = document.getElementById('label');
+    const ctx = canvas.getContext('2d');
 
-    // Request webcam access
-    async function startCamera() {
+    // Load models first
+    Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/models'),
+      faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/models'),
+    ]).then(startVideo);
+
+    async function startVideo() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
         video.srcObject = stream;
+        label.textContent = 'Detecting faces...';
       } catch (err) {
-        label.textContent = 'Camera access denied';
-        console.error('Camera error:', err);
+        label.textContent = 'Camera error: ' + err.message;
       }
     }
 
-    function drawWireframe() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const w = canvas.width, h = canvas.height;
-
-      // Demo bounding box + landmarks
-      ctx.strokeStyle = '#0f0';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(w/2 - 100, h/2 - 120, 200, 240);
-      const points = [
-        [w/2 - 40, h/2 - 50], [w/2 + 40, h/2 - 50],
-        [w/2, h/2], [w/2 - 50, h/2 + 60], [w/2 + 50, h/2 + 60]
-      ];
-      for (const [x, y] of points) {
-        ctx.beginPath();
-        ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#0f0';
-        ctx.fill();
-      }
-
-      requestAnimationFrame(drawWireframe);
-    }
-
-    video.addEventListener('loadedmetadata', () => {
+    video.addEventListener('play', () => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      drawWireframe();
-    });
 
-    startCamera();
+      async function detect() {
+        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks();
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (detections.length === 0) {
+          label.textContent = 'No face detected';
+        } else {
+          label.textContent = `Faces detected: ${detections.length}`;
+          detections.forEach(det => {
+            const box = det.detection.box;
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+            const points = det.landmarks.positions;
+            for (const pt of points) {
+              ctx.beginPath();
+              ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
+              ctx.fillStyle = '#0f0';
+              ctx.fill();
+            }
+          });
+        }
+
+        requestAnimationFrame(detect);
+      }
+      detect();
+    });
   </script>
 </body>
 </html>

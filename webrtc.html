@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Legacy WebRTC Room</title>
+<style>
+  :root {
+    --bg: #101114;
+    --panel: #181a20;
+    --panel2: #20232b;
+    --text: #f4f4f5;
+    --muted: #a1a1aa;
+    --line: #30333d;
+    --accent: #7dd3fc;
+    --danger: #fb7185;
+    --ok: #86efac;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: radial-gradient(circle at top, #1b2130 0, var(--bg) 50%);
+    color: var(--text);
+  }
+
+  header {
+    padding: 22px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(16,17,20,.82);
+  }
+
+  h1 {
+    margin: 0 0 6px;
+    font-size: 24px;
+  }
+
+  .sub {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  main {
+    display: grid;
+    grid-template-columns: 1.25fr .75fr;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: rgba(24,26,32,.95);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow: 0 14px 40px rgba(0,0,0,.22);
+  }
+
+  .video-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  @media (max-width: 700px) {
+    .video-grid { grid-template-columns: 1fr; }
+  }
+
+  .video-box {
+    position: relative;
+    background: #050507;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+    min-height: 240px;
+  }
+
+  video {
+    width: 100%;
+    height: 100%;
+    min-height: 240px;
+    object-fit: cover;
+    background: #050507;
+    display: block;
+  }
+
+  .label {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    padding: 5px 9px;
+    background: rgba(0,0,0,.55);
+    border-radius: 999px;
+    font-size: 12px;
+    color: white;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  button, select, input, textarea {
+    font: inherit;
+  }
+
+  button {
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: var(--panel2);
+    color: var(--text);
+    cursor: pointer;
+    border: 1px solid var(--line);
+  }
+
+  button.primary {
+    background: #075985;
+    border-color: #0ea5e9;
+  }
+
+  button.danger {
+    background: #7f1d1d;
+    border-color: #ef4444;
+  }
+
+  button:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+  }
+
+  label {
+    display: block;
+    margin: 12px 0 6px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  select, input, textarea {
+    width: 100%;
+    background: #0d0f14;
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  textarea {
+    min-height: 130px;
+    resize: vertical;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 12px;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .status {
+    margin-top: 12px;
+    padding: 10px;
+    background: #0d0f14;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    color: var(--muted);
+    font-size: 13px;
+    min-height: 38px;
+  }
+
+  .ok { color: var(--ok); }
+  .bad { color: var(--danger); }
+  .tiny { font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .section-title { margin: 0 0 8px; font-size: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Legacy WebRTC Room</h1>
+  <p class="sub">A small VDO.ninja-style peer-to-peer camera room with manual signaling and older Chrome fallbacks.</p>
+</header>
+
+<main>
+  <section class="card">
+    <div class="video-grid">
+      <div class="video-box">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <div class="label">Local</div>
+      </div>
+      <div class="video-box">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <div class="label">Remote</div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button id="startBtn" class="primary">Start camera</button>
+      <button id="muteAudioBtn" disabled>Mute mic</button>
+      <button id="muteVideoBtn" disabled>Hide camera</button>
+      <button id="hangupBtn" class="danger" disabled>Hang up</button>
+    </div>
+
+    <div class="status" id="status">Ready.</div>
+  </section>
+
+  <aside class="card">
+    <h2 class="section-title">Connection</h2>
+
+    <div class="row">
+      <div>
+        <label for="videoQuality">Video quality</label>
+        <select id="videoQuality">
+          <option value="low">Low 320x240</option>
+          <option value="medium" selected>Medium 640x360</option>
+          <option value="high">High 1280x720</option>
+        </select>
+      </div>
+      <div>
+        <label for="roomMode">Mode</label>
+        <select id="roomMode">
+          <option value="host">Host / create offer</option>
+          <option value="guest">Guest / answer offer</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button id="createOfferBtn" disabled>Create offer</button>
+      <button id="createAnswerBtn" disabled>Create answer</button>
+      <button id="setRemoteBtn" disabled>Set remote text</button>
+    </div>
+
+    <label for="localSdp">Your text: copy and send this to the other person</label>
+    <textarea id="localSdp" readonly placeholder="Offer or answer appears here..."></textarea>
+    <button id="copyBtn">Copy your text</button>
+
+    <label for="remoteSdp">Remote text: paste what the other person sent</label>
+    <textarea id="remoteSdp" placeholder="Paste offer or answer here..."></textarea>
+
+    <p class="tiny">
+      How to use: Host clicks Start camera → Create offer → sends text to Guest. Guest pastes it → Set remote text → Create answer → sends answer back. Host pastes answer → Set remote text.
+    </p>
+    <p class="tiny">
+      Notes: This uses WebRTC. It can support older Chrome builds that still have WebRTC, but very old Chrome versions without RTCPeerConnection or secure getUserMedia will not work. For internet connections behind strict NAT, a TURN server may be needed.
+    </p>
+  </aside>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var localVideo = document.getElementById('localVideo');
+  var remoteVideo = document.getElementById('remoteVideo');
+  var startBtn = document.getElementById('startBtn');
+  var muteAudioBtn = document.getElementById('muteAudioBtn');
+  var muteVideoBtn = document.getElementById('muteVideoBtn');
+  var hangupBtn = document.getElementById('hangupBtn');
+  var createOfferBtn = document.getElementById('createOfferBtn');
+  var createAnswerBtn = document.getElementById('createAnswerBtn');
+  var setRemoteBtn = document.getElementById('setRemoteBtn');
+  var copyBtn = document.getElementById('copyBtn');
+  var localSdp = document.getElementById('localSdp');
+  var remoteSdp = document.getElementById('remoteSdp');
+  var statusBox = document.getElementById('status');
+  var videoQuality = document.getElementById('videoQuality');
+
+  var localStream = null;
+  var remoteStream = null;
+  var pc = null;
+  var audioMuted = false;
+  var videoMuted = false;
+
+  var RTCPeer = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+  var RTCSession = window.RTCSessionDescription || window.mozRTCSessionDescription;
+  var RTCIce = window.RTCIceCandidate || window.mozRTCIceCandidate;
+
+  function log(message, isBad) {
+    statusBox.innerHTML = (isBad ? '<span class="bad">' : '<span>') + escapeHtml(message) + '</span>';
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"]/g, function (s) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[s];
+    });
+  }
+
+  function attachStream(video, stream) {
+    if ('srcObject' in video) {
+      video.srcObject = stream;
+    } else if (window.URL && window.URL.createObjectURL) {
+      video.src = window.URL.createObjectURL(stream);
+    } else {
+      video.src = stream;
+    }
+
+    var playPromise = video.play && video.play();
+    if (playPromise && playPromise.catch) {
+      playPromise.catch(function () {});
+    }
+  }
+
+  function getQualityConstraints() {
+    var q = videoQuality.value;
+    var size = {
+      low: { width: 320, height: 240 },
+      medium: { width: 640, height: 360 },
+      high: { width: 1280, height: 720 }
+    }[q] || { width: 640, height: 360 };
+
+    // Old Chrome likes mandatory constraints. New Chrome likes ideal constraints.
+    return {
+      audio: true,
+      video: {
+        width: { ideal: size.width },
+        height: { ideal: size.height },
+        mandatory: {
+          maxWidth: size.width,
+          maxHeight: size.height
+        },
+        optional: [
+          { maxFrameRate: 30 }
+        ]
+      }
+    };
+  }
+
+  function getUserMediaCompat(constraints, success, fail) {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia(constraints).then(success).catch(function () {
+        // Retry with very old-style constraints if modern constraints fail.
+        navigator.mediaDevices.getUserMedia({ audio: true, video: true }).then(success).catch(fail);
+      });
+      return;
+    }
+
+    var oldGetUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+    if (!oldGetUserMedia) {
+      fail(new Error('getUserMedia is not available in this browser.'));
+      return;
+    }
+
+    oldGetUserMedia.call(navigator, constraints, success, function () {
+      oldGetUserMedia.call(navigator, { audio: true, video: true }, success, fail);
+    });
+  }
+
+  function createPeer() {
+    if (!RTCPeer) {
+      log('RTCPeerConnection is not available. This Chrome version is too old for WebRTC.', true);
+      return null;
+    }
+
+    var config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { url: 'stun:stun.l.google.com:19302' } // legacy Chrome format
+      ]
+    };
+
+    var constraints = {
+      optional: [
+        { DtlsSrtpKeyAgreement: true },
+        { RtpDataChannels: true }
+      ]
+    };
+
+    var peer;
+    try {
+      peer = new RTCPeer(config, constraints);
+    } catch (e) {
+      peer = new RTCPeer(config);
+    }
+
+    peer.onicecandidate = function (event) {
+      if (!event.candidate) {
+        exportLocalDescription();
+        log('ICE gathering complete. Copy your text and send it.');
+      }
+    };
+
+    peer.oniceconnectionstatechange = function () {
+      log('ICE state: ' + peer.iceConnectionState);
+    };
+
+    peer.onconnectionstatechange = function () {
+      if (peer.connectionState) log('Connection state: ' + peer.connectionState);
+    };
+
+    peer.ontrack = function (event) {
+      if (event.streams && event.streams[0]) {
+        remoteStream = event.streams[0];
+        attachStream(remoteVideo, remoteStream);
+        log('Remote stream connected.');
+      }
+    };
+
+    peer.onaddstream = function (event) {
+      remoteStream = event.stream;
+      attachStream(remoteVideo, remoteStream);
+      log('Remote stream connected.');
+    };
+
+    if (localStream) {
+      if (peer.addTrack && localStream.getTracks) {
+        var tracks = localStream.getTracks();
+        for (var i = 0; i < tracks.length; i++) {
+          peer.addTrack(tracks[i], localStream);
+        }
+      } else if (peer.addStream) {
+        peer.addStream(localStream);
+      }
+    }
+
+    return peer;
+  }
+
+  function ensurePeer() {
+    if (!pc) pc = createPeer();
+    return pc;
+  }
+
+  function oldPromise(method, ctx, arg, success, fail) {
+    try {
+      var result = method.call(ctx, arg);
+      if (result && result.then) {
+        result.then(success).catch(fail);
+      }
+    } catch (e) {
+      try {
+        method.call(ctx, arg, success, fail);
+      } catch (err) {
+        fail(err);
+      }
+    }
+  }
+
+  function setLocalDescriptionCompat(desc, done) {
+    if (!pc) return;
+    try {
+      var p = pc.setLocalDescription(desc);
+      if (p && p.then) p.then(done).catch(function (e) { log(e.message || e, true); });
+      else done();
+    } catch (e) {
+      pc.setLocalDescription(desc, done, function (err) { log(err.message || err, true); });
+    }
+  }
+
+  function setRemoteDescriptionCompat(desc, done) {
+    if (!pc) return;
+    try {
+      var p = pc.setRemoteDescription(desc);
+      if (p && p.then) p.then(done).catch(function (e) { log(e.message || e, true); });
+      else done();
+    } catch (e) {
+      pc.setRemoteDescription(desc, done, function (err) { log(err.message || err, true); });
+    }
+  }
+
+  function createOfferCompat() {
+    if (!ensurePeer()) return;
+    log('Creating offer...');
+
+    var options = {
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: true,
+      mandatory: {
+        OfferToReceiveAudio: true,
+        OfferToReceiveVideo: true
+      }
+    };
+
+    try {
+      var p = pc.createOffer(options);
+      if (p && p.then) {
+        p.then(function (desc) {
+          setLocalDescriptionCompat(desc, function () {
+            exportLocalDescription();
+            log('Offer created. Wait for ICE to finish, then copy your text.');
+          });
+        }).catch(function (e) { log(e.message || e, true); });
+      } else {
+        // Some old builds enter here rarely.
+        pc.createOffer(function (desc) {
+          setLocalDescriptionCompat(desc, function () {
+            exportLocalDescription();
+            log('Offer created. Wait for ICE to finish, then copy your text.');
+          });
+        }, function (e) { log(e.message || e, true); }, options);
+      }
+    } catch (e) {
+      pc.createOffer(function (desc) {
+        setLocalDescriptionCompat(desc, function () {
+          exportLocalDescription();
+          log('Offer created. Wait for ICE to finish, then copy your text.');
+        });
+      }, function (err) { log(err.message || err, true); }, options);
+    }
+  }
+
+  function createAnswerCompat() {
+    if (!ensurePeer()) return;
+    if (!pc.remoteDescription) {
+      log('Paste and set the host offer first.', true);
+      return;
+    }
+
+    log('Creating answer...');
+
+    try {
+      var p = pc.createAnswer();
+      if (p && p.then) {
+        p.then(function (desc) {
+          setLocalDescriptionCompat(desc, function () {
+            exportLocalDescription();
+            log('Answer created. Wait for ICE to finish, then copy your text.');
+          });
+        }).catch(function (e) { log(e.message || e, true); });
+      } else {
+        pc.createAnswer(function (desc) {
+          setLocalDescriptionCompat(desc, function () {
+            exportLocalDescription();
+            log('Answer created. Wait for ICE to finish, then copy your text.');
+          });
+        }, function (e) { log(e.message || e, true); });
+      }
+    } catch (e) {
+      pc.createAnswer(function (desc) {
+        setLocalDescriptionCompat(desc, function () {
+          exportLocalDescription();
+          log('Answer created. Wait for ICE to finish, then copy your text.');
+        });
+      }, function (err) { log(err.message || err, true); });
+    }
+  }
+
+  function exportLocalDescription() {
+    if (!pc || !pc.localDescription) return;
+    var payload = {
+      type: pc.localDescription.type,
+      sdp: pc.localDescription.sdp
+    };
+    localSdp.value = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  }
+
+  function importDescription(text) {
+    var raw = text.trim();
+    if (!raw) throw new Error('Remote text is empty.');
+
+    try {
+      return JSON.parse(decodeURIComponent(escape(atob(raw))));
+    } catch (e) {
+      // Also accept raw JSON for easier debugging.
+      return JSON.parse(raw);
+    }
+  }
+
+  function setRemoteText() {
+    if (!ensurePeer()) return;
+
+    try {
+      var data = importDescription(remoteSdp.value);
+      var desc = RTCSession ? new RTCSession(data) : data;
+      setRemoteDescriptionCompat(desc, function () {
+        log('Remote ' + data.type + ' set.');
+      });
+    } catch (e) {
+      log(e.message || e, true);
+    }
+  }
+
+  function stopTracks(stream) {
+    if (!stream) return;
+    if (stream.getTracks) {
+      var tracks = stream.getTracks();
+      for (var i = 0; i < tracks.length; i++) tracks[i].stop();
+    } else if (stream.stop) {
+      stream.stop();
+    }
+  }
+
+  function hangup() {
+    if (pc) {
+      try { pc.close(); } catch (e) {}
+      pc = null;
+    }
+    stopTracks(localStream);
+    localStream = null;
+    remoteStream = null;
+    localVideo.srcObject = null;
+    remoteVideo.srcObject = null;
+    localVideo.src = '';
+    remoteVideo.src = '';
+    localSdp.value = '';
+    remoteSdp.value = '';
+    startBtn.disabled = false;
+    createOfferBtn.disabled = true;
+    createAnswerBtn.disabled = true;
+    setRemoteBtn.disabled = true;
+    muteAudioBtn.disabled = true;
+    muteVideoBtn.disabled = true;
+    hangupBtn.disabled = true;
+    audioMuted = false;
+    videoMuted = false;
+    muteAudioBtn.textContent = 'Mute mic';
+    muteVideoBtn.textContent = 'Hide camera';
+    log('Disconnected.');
+  }
+
+  startBtn.onclick = function () {
+    log('Requesting camera and microphone...');
+    getUserMediaCompat(getQualityConstraints(), function (stream) {
+      localStream = stream;
+      attachStream(localVideo, stream);
+      startBtn.disabled = true;
+      createOfferBtn.disabled = false;
+      createAnswerBtn.disabled = false;
+      setRemoteBtn.disabled = false;
+      muteAudioBtn.disabled = false;
+      muteVideoBtn.disabled = false;
+      hangupBtn.disabled = false;
+      log('Camera ready. Create an offer or paste a remote offer.');
+    }, function (err) {
+      log('Could not access camera/mic: ' + (err.message || err), true);
+    });
+  };
+
+  createOfferBtn.onclick = createOfferCompat;
+  createAnswerBtn.onclick = createAnswerCompat;
+  setRemoteBtn.onclick = setRemoteText;
+  hangupBtn.onclick = hangup;
+
+  muteAudioBtn.onclick = function () {
+    if (!localStream || !localStream.getAudioTracks) return;
+    audioMuted = !audioMuted;
+    var tracks = localStream.getAudioTracks();
+    for (var i = 0; i < tracks.length; i++) tracks[i].enabled = !audioMuted;
+    muteAudioBtn.textContent = audioMuted ? 'Unmute mic' : 'Mute mic';
+  };
+
+  muteVideoBtn.onclick = function () {
+    if (!localStream || !localStream.getVideoTracks) return;
+    videoMuted = !videoMuted;
+    var tracks = localStream.getVideoTracks();
+    for (var i = 0; i < tracks.length; i++) tracks[i].enabled = !videoMuted;
+    muteVideoBtn.textContent = videoMuted ? 'Show camera' : 'Hide camera';
+  };
+
+  copyBtn.onclick = function () {
+    localSdp.select();
+    try {
+      document.execCommand('copy');
+      log('Copied your text.');
+    } catch (e) {
+      log('Copy failed. Select and copy manually.', true);
+    }
+  };
+
+  if (!RTCPeer) {
+    log('This browser does not expose RTCPeerConnection. Try a newer Chrome, Chromium, Firefox, or Edge.', true);
+    startBtn.disabled = true;
+  } else if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    log('Camera access usually requires HTTPS or localhost. Open this file locally or serve it over HTTPS.');
+  }
+})();
+</script>
+</body>
+</html>

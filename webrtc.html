@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Legacy WebRTC Room</title>
+<title>Legacy Auto WebRTC Room</title>
 <style>
   :root {
     --bg: #101114;
@@ -22,26 +22,18 @@
   body {
     margin: 0;
     font-family: Arial, Helvetica, sans-serif;
-    background: radial-gradient(circle at top, #1b2130 0, var(--bg) 50%);
+    background: radial-gradient(circle at top, #1b2130 0, var(--bg) 52%);
     color: var(--text);
   }
 
   header {
     padding: 22px;
     border-bottom: 1px solid var(--line);
-    background: rgba(16,17,20,.82);
+    background: rgba(16,17,20,.86);
   }
 
-  h1 {
-    margin: 0 0 6px;
-    font-size: 24px;
-  }
-
-  .sub {
-    margin: 0;
-    color: var(--muted);
-    font-size: 14px;
-  }
+  h1 { margin: 0 0 6px; font-size: 24px; }
+  .sub { margin: 0; color: var(--muted); font-size: 14px; }
 
   main {
     display: grid;
@@ -50,12 +42,10 @@
     padding: 16px;
   }
 
-  @media (max-width: 900px) {
-    main { grid-template-columns: 1fr; }
-  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
 
   .card {
-    background: rgba(24,26,32,.95);
+    background: rgba(24,26,32,.96);
     border: 1px solid var(--line);
     border-radius: 18px;
     padding: 14px;
@@ -68,9 +58,7 @@
     gap: 12px;
   }
 
-  @media (max-width: 700px) {
-    .video-grid { grid-template-columns: 1fr; }
-  }
+  @media (max-width: 700px) { .video-grid { grid-template-columns: 1fr; } }
 
   .video-box {
     position: relative;
@@ -108,9 +96,7 @@
     margin-top: 12px;
   }
 
-  button, select, input, textarea {
-    font: inherit;
-  }
+  button, select, input, textarea { font: inherit; }
 
   button {
     border: 0;
@@ -122,20 +108,9 @@
     border: 1px solid var(--line);
   }
 
-  button.primary {
-    background: #075985;
-    border-color: #0ea5e9;
-  }
-
-  button.danger {
-    background: #7f1d1d;
-    border-color: #ef4444;
-  }
-
-  button:disabled {
-    opacity: .45;
-    cursor: not-allowed;
-  }
+  button.primary { background: #075985; border-color: #0ea5e9; }
+  button.danger { background: #7f1d1d; border-color: #ef4444; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
 
   label {
     display: block;
@@ -154,7 +129,7 @@
   }
 
   textarea {
-    min-height: 130px;
+    min-height: 92px;
     resize: vertical;
     font-family: Consolas, Monaco, monospace;
     font-size: 12px;
@@ -175,18 +150,20 @@
     color: var(--muted);
     font-size: 13px;
     min-height: 38px;
+    line-height: 1.4;
   }
 
   .ok { color: var(--ok); }
   .bad { color: var(--danger); }
   .tiny { font-size: 12px; color: var(--muted); line-height: 1.45; }
   .section-title { margin: 0 0 8px; font-size: 16px; }
+  .codebox { font-family: Consolas, Monaco, monospace; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Legacy WebRTC Room</h1>
-  <p class="sub">A small VDO.ninja-style peer-to-peer camera room with manual signaling and older Chrome fallbacks.</p>
+  <h1>Legacy Auto WebRTC Room</h1>
+  <p class="sub">VDO.ninja-style peer-to-peer camera room with auto signaling for same-browser tabs or WebSocket passcode rooms.</p>
 </header>
 
 <main>
@@ -203,19 +180,29 @@
     </div>
 
     <div class="toolbar">
-      <button id="startBtn" class="primary">Start camera</button>
+      <button id="startBtn" class="primary">Start / join room</button>
       <button id="muteAudioBtn" disabled>Mute mic</button>
       <button id="muteVideoBtn" disabled>Hide camera</button>
       <button id="hangupBtn" class="danger" disabled>Hang up</button>
     </div>
 
-    <div class="status" id="status">Ready.</div>
+    <div class="status" id="status">Ready. Use the same room code in another tab or page.</div>
   </section>
 
   <aside class="card">
-    <h2 class="section-title">Connection</h2>
+    <h2 class="section-title">Auto connection</h2>
+
+    <label for="roomCode">Short passcode / room code</label>
+    <input id="roomCode" value="1234" maxlength="24" class="codebox" />
 
     <div class="row">
+      <div>
+        <label for="signalMode">Signal mode</label>
+        <select id="signalMode">
+          <option value="local" selected>Same Chrome tabs</option>
+          <option value="websocket">WebSocket server</option>
+        </select>
+      </div>
       <div>
         <label for="videoQuality">Video quality</label>
         <select id="videoQuality">
@@ -224,34 +211,61 @@
           <option value="high">High 1280x720</option>
         </select>
       </div>
-      <div>
-        <label for="roomMode">Mode</label>
-        <select id="roomMode">
-          <option value="host">Host / create offer</option>
-          <option value="guest">Guest / answer offer</option>
-        </select>
-      </div>
     </div>
 
-    <div class="toolbar">
-      <button id="createOfferBtn" disabled>Create offer</button>
-      <button id="createAnswerBtn" disabled>Create answer</button>
-      <button id="setRemoteBtn" disabled>Set remote text</button>
-    </div>
-
-    <label for="localSdp">Your text: copy and send this to the other person</label>
-    <textarea id="localSdp" readonly placeholder="Offer or answer appears here..."></textarea>
-    <button id="copyBtn">Copy your text</button>
-
-    <label for="remoteSdp">Remote text: paste what the other person sent</label>
-    <textarea id="remoteSdp" placeholder="Paste offer or answer here..."></textarea>
+    <label for="wsUrl">WebSocket signaling URL</label>
+    <input id="wsUrl" value="ws://localhost:8080" class="codebox" />
 
     <p class="tiny">
-      How to use: Host clicks Start camera → Create offer → sends text to Guest. Guest pastes it → Set remote text → Create answer → sends answer back. Host pastes answer → Set remote text.
+      Same Chrome tabs mode: open this same HTML twice on the same Chromebook/browser, use the same room code, then click Start / join room in both tabs.
     </p>
     <p class="tiny">
-      Notes: This uses WebRTC. It can support older Chrome builds that still have WebRTC, but very old Chrome versions without RTCPeerConnection or secure getUserMedia will not work. For internet connections behind strict NAT, a TURN server may be needed.
+      WebSocket mode: use the same room code on different devices. You need the small signaling server shown below running somewhere reachable.
     </p>
+
+    <label for="serverCode">Minimal Node.js signaling server</label>
+    <textarea id="serverCode" readonly spellcheck="false">// server.js
+// npm install ws
+// node server.js
+var WebSocketServer = require('ws').Server;
+var wss = new WebSocketServer({ port: 8080 });
+var rooms = {};
+
+wss.on('connection', function(ws) {
+  var room = null;
+
+  ws.on('message', function(msg) {
+    var data;
+    try { data = JSON.parse(msg); } catch(e) { return; }
+
+    if (data.type === 'join') {
+      room = String(data.room || 'default');
+      rooms[room] = rooms[room] || [];
+      rooms[room].push(ws);
+      ws.send(JSON.stringify({ type: 'joined', count: rooms[room].length }));
+      broadcast(room, ws, { type: 'peer-joined' });
+      return;
+    }
+
+    if (room) broadcast(room, ws, data);
+  });
+
+  ws.on('close', function() {
+    if (!room || !rooms[room]) return;
+    rooms[room] = rooms[room].filter(function(peer) { return peer !== ws; });
+    broadcast(room, ws, { type: 'peer-left' });
+  });
+});
+
+function broadcast(room, sender, data) {
+  if (!rooms[room]) return;
+  var msg = JSON.stringify(data);
+  rooms[room].forEach(function(peer) {
+    if (peer !== sender && peer.readyState === 1) peer.send(msg);
+  });
+}
+
+console.log('Signaling server on ws://localhost:8080');</textarea>
   </aside>
 </main>
 
@@ -265,33 +279,36 @@
   var muteAudioBtn = document.getElementById('muteAudioBtn');
   var muteVideoBtn = document.getElementById('muteVideoBtn');
   var hangupBtn = document.getElementById('hangupBtn');
-  var createOfferBtn = document.getElementById('createOfferBtn');
-  var createAnswerBtn = document.getElementById('createAnswerBtn');
-  var setRemoteBtn = document.getElementById('setRemoteBtn');
-  var copyBtn = document.getElementById('copyBtn');
-  var localSdp = document.getElementById('localSdp');
-  var remoteSdp = document.getElementById('remoteSdp');
   var statusBox = document.getElementById('status');
+  var roomCodeInput = document.getElementById('roomCode');
+  var signalModeInput = document.getElementById('signalMode');
+  var wsUrlInput = document.getElementById('wsUrl');
   var videoQuality = document.getElementById('videoQuality');
 
   var localStream = null;
   var remoteStream = null;
   var pc = null;
+  var signal = null;
+  var joined = false;
+  var isPolite = false;
+  var makingOffer = false;
+  var ignoreOffer = false;
   var audioMuted = false;
   var videoMuted = false;
+  var clientId = String(Math.random()).slice(2) + String(+new Date());
 
   var RTCPeer = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
   var RTCSession = window.RTCSessionDescription || window.mozRTCSessionDescription;
   var RTCIce = window.RTCIceCandidate || window.mozRTCIceCandidate;
 
-  function log(message, isBad) {
-    statusBox.innerHTML = (isBad ? '<span class="bad">' : '<span>') + escapeHtml(message) + '</span>';
-  }
-
   function escapeHtml(str) {
     return String(str).replace(/[&<>"]/g, function (s) {
       return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[s];
     });
+  }
+
+  function log(message, isBad) {
+    statusBox.innerHTML = (isBad ? '<span class="bad">' : '<span>') + escapeHtml(message) + '</span>';
   }
 
   function attachStream(video, stream) {
@@ -304,9 +321,7 @@
     }
 
     var playPromise = video.play && video.play();
-    if (playPromise && playPromise.catch) {
-      playPromise.catch(function () {});
-    }
+    if (playPromise && playPromise.catch) playPromise.catch(function () {});
   }
 
   function getQualityConstraints() {
@@ -317,19 +332,13 @@
       high: { width: 1280, height: 720 }
     }[q] || { width: 640, height: 360 };
 
-    // Old Chrome likes mandatory constraints. New Chrome likes ideal constraints.
     return {
       audio: true,
       video: {
         width: { ideal: size.width },
         height: { ideal: size.height },
-        mandatory: {
-          maxWidth: size.width,
-          maxHeight: size.height
-        },
-        optional: [
-          { maxFrameRate: 30 }
-        ]
+        mandatory: { maxWidth: size.width, maxHeight: size.height },
+        optional: [{ maxFrameRate: 30 }]
       }
     };
   }
@@ -337,7 +346,6 @@
   function getUserMediaCompat(constraints, success, fail) {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia(constraints).then(success).catch(function () {
-        // Retry with very old-style constraints if modern constraints fail.
         navigator.mediaDevices.getUserMedia({ audio: true, video: true }).then(success).catch(fail);
       });
       return;
@@ -363,7 +371,7 @@
     var config = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { url: 'stun:stun.l.google.com:19302' } // legacy Chrome format
+        { url: 'stun:stun.l.google.com:19302' }
       ]
     };
 
@@ -375,17 +383,17 @@
     };
 
     var peer;
-    try {
-      peer = new RTCPeer(config, constraints);
-    } catch (e) {
-      peer = new RTCPeer(config);
-    }
+    try { peer = new RTCPeer(config, constraints); }
+    catch (e) { peer = new RTCPeer(config); }
 
     peer.onicecandidate = function (event) {
-      if (!event.candidate) {
-        exportLocalDescription();
-        log('ICE gathering complete. Copy your text and send it.');
+      if (event.candidate) {
+        sendSignal({ type: 'candidate', candidate: event.candidate });
       }
+    };
+
+    peer.onnegotiationneeded = function () {
+      makeOffer();
     };
 
     peer.oniceconnectionstatechange = function () {
@@ -413,9 +421,7 @@
     if (localStream) {
       if (peer.addTrack && localStream.getTracks) {
         var tracks = localStream.getTracks();
-        for (var i = 0; i < tracks.length; i++) {
-          peer.addTrack(tracks[i], localStream);
-        }
+        for (var i = 0; i < tracks.length; i++) peer.addTrack(tracks[i], localStream);
       } else if (peer.addStream) {
         peer.addStream(localStream);
       }
@@ -429,153 +435,258 @@
     return pc;
   }
 
-  function oldPromise(method, ctx, arg, success, fail) {
-    try {
-      var result = method.call(ctx, arg);
-      if (result && result.then) {
-        result.then(success).catch(fail);
-      }
-    } catch (e) {
-      try {
-        method.call(ctx, arg, success, fail);
-      } catch (err) {
-        fail(err);
-      }
-    }
-  }
-
-  function setLocalDescriptionCompat(desc, done) {
-    if (!pc) return;
+  function setLocalDescription(desc, done, fail) {
     try {
       var p = pc.setLocalDescription(desc);
-      if (p && p.then) p.then(done).catch(function (e) { log(e.message || e, true); });
+      if (p && p.then) p.then(done).catch(fail);
       else done();
     } catch (e) {
-      pc.setLocalDescription(desc, done, function (err) { log(err.message || err, true); });
+      pc.setLocalDescription(desc, done, fail);
     }
   }
 
-  function setRemoteDescriptionCompat(desc, done) {
-    if (!pc) return;
+  function setRemoteDescription(desc, done, fail) {
     try {
       var p = pc.setRemoteDescription(desc);
-      if (p && p.then) p.then(done).catch(function (e) { log(e.message || e, true); });
+      if (p && p.then) p.then(done).catch(fail);
       else done();
     } catch (e) {
-      pc.setRemoteDescription(desc, done, function (err) { log(err.message || err, true); });
+      pc.setRemoteDescription(desc, done, fail);
     }
   }
 
-  function createOfferCompat() {
-    if (!ensurePeer()) return;
-    log('Creating offer...');
-
+  function createOffer(done, fail) {
     var options = {
       offerToReceiveAudio: true,
       offerToReceiveVideo: true,
-      mandatory: {
-        OfferToReceiveAudio: true,
-        OfferToReceiveVideo: true
-      }
+      mandatory: { OfferToReceiveAudio: true, OfferToReceiveVideo: true }
     };
 
     try {
       var p = pc.createOffer(options);
-      if (p && p.then) {
-        p.then(function (desc) {
-          setLocalDescriptionCompat(desc, function () {
-            exportLocalDescription();
-            log('Offer created. Wait for ICE to finish, then copy your text.');
-          });
-        }).catch(function (e) { log(e.message || e, true); });
-      } else {
-        // Some old builds enter here rarely.
-        pc.createOffer(function (desc) {
-          setLocalDescriptionCompat(desc, function () {
-            exportLocalDescription();
-            log('Offer created. Wait for ICE to finish, then copy your text.');
-          });
-        }, function (e) { log(e.message || e, true); }, options);
-      }
+      if (p && p.then) p.then(done).catch(fail);
+      else pc.createOffer(done, fail, options);
     } catch (e) {
-      pc.createOffer(function (desc) {
-        setLocalDescriptionCompat(desc, function () {
-          exportLocalDescription();
-          log('Offer created. Wait for ICE to finish, then copy your text.');
-        });
-      }, function (err) { log(err.message || err, true); }, options);
+      pc.createOffer(done, fail, options);
     }
   }
 
-  function createAnswerCompat() {
+  function createAnswer(done, fail) {
+    try {
+      var p = pc.createAnswer();
+      if (p && p.then) p.then(done).catch(fail);
+      else pc.createAnswer(done, fail);
+    } catch (e) {
+      pc.createAnswer(done, fail);
+    }
+  }
+
+  function addIceCandidate(candidate, done, fail) {
+    try {
+      var ice = RTCIce ? new RTCIce(candidate) : candidate;
+      var p = pc.addIceCandidate(ice);
+      if (p && p.then) p.then(done).catch(fail);
+      else done();
+    } catch (e) {
+      try { pc.addIceCandidate(candidate, done, fail); }
+      catch (err) { fail(err); }
+    }
+  }
+
+  function makeOffer() {
     if (!ensurePeer()) return;
-    if (!pc.remoteDescription) {
-      log('Paste and set the host offer first.', true);
+    if (makingOffer) return;
+
+    makingOffer = true;
+    log('Creating automatic offer...');
+
+    createOffer(function (offer) {
+      setLocalDescription(offer, function () {
+        sendSignal({ type: 'description', description: pc.localDescription });
+        makingOffer = false;
+        log('Offer sent automatically.');
+      }, onError);
+    }, function (err) {
+      makingOffer = false;
+      onError(err);
+    });
+  }
+
+  function handleSignal(data) {
+    if (!data || data.from === clientId) return;
+    if (!ensurePeer()) return;
+
+    if (data.type === 'peer-joined') {
+      isPolite = clientId > (data.from || '');
+      log('Peer found. Connecting automatically...');
+      makeOffer();
       return;
     }
 
-    log('Creating answer...');
+    if (data.type === 'description') {
+      var descData = data.description;
+      var desc = RTCSession ? new RTCSession(descData) : descData;
+      var readyForOffer = !makingOffer && (!pc.signalingState || pc.signalingState === 'stable');
+      var offerCollision = desc.type === 'offer' && !readyForOffer;
 
-    try {
-      var p = pc.createAnswer();
-      if (p && p.then) {
-        p.then(function (desc) {
-          setLocalDescriptionCompat(desc, function () {
-            exportLocalDescription();
-            log('Answer created. Wait for ICE to finish, then copy your text.');
-          });
-        }).catch(function (e) { log(e.message || e, true); });
-      } else {
-        pc.createAnswer(function (desc) {
-          setLocalDescriptionCompat(desc, function () {
-            exportLocalDescription();
-            log('Answer created. Wait for ICE to finish, then copy your text.');
-          });
-        }, function (e) { log(e.message || e, true); });
+      ignoreOffer = !isPolite && offerCollision;
+      if (ignoreOffer) {
+        log('Offer collision ignored.');
+        return;
       }
-    } catch (e) {
-      pc.createAnswer(function (desc) {
-        setLocalDescriptionCompat(desc, function () {
-          exportLocalDescription();
-          log('Answer created. Wait for ICE to finish, then copy your text.');
-        });
-      }, function (err) { log(err.message || err, true); });
+
+      setRemoteDescription(desc, function () {
+        if (desc.type === 'offer') {
+          createAnswer(function (answer) {
+            setLocalDescription(answer, function () {
+              sendSignal({ type: 'description', description: pc.localDescription });
+              log('Answer sent automatically.');
+            }, onError);
+          }, onError);
+        } else {
+          log('Answer received. Connecting...');
+        }
+      }, onError);
+      return;
     }
-  }
 
-  function exportLocalDescription() {
-    if (!pc || !pc.localDescription) return;
-    var payload = {
-      type: pc.localDescription.type,
-      sdp: pc.localDescription.sdp
-    };
-    localSdp.value = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  }
-
-  function importDescription(text) {
-    var raw = text.trim();
-    if (!raw) throw new Error('Remote text is empty.');
-
-    try {
-      return JSON.parse(decodeURIComponent(escape(atob(raw))));
-    } catch (e) {
-      // Also accept raw JSON for easier debugging.
-      return JSON.parse(raw);
-    }
-  }
-
-  function setRemoteText() {
-    if (!ensurePeer()) return;
-
-    try {
-      var data = importDescription(remoteSdp.value);
-      var desc = RTCSession ? new RTCSession(data) : data;
-      setRemoteDescriptionCompat(desc, function () {
-        log('Remote ' + data.type + ' set.');
+    if (data.type === 'candidate' && data.candidate) {
+      if (ignoreOffer) return;
+      addIceCandidate(data.candidate, function () {}, function (err) {
+        // Old browsers sometimes complain about early candidates. Keep running.
+        log('ICE candidate warning: ' + (err.message || err));
       });
-    } catch (e) {
-      log(e.message || e, true);
+      return;
     }
+
+    if (data.type === 'peer-left') {
+      log('Peer left the room.');
+    }
+  }
+
+  function makeLocalSignal(room) {
+    var key = 'legacy-webrtc-room-' + room;
+    var channel = null;
+    var lastSeen = {};
+
+    if (window.BroadcastChannel) {
+      channel = new BroadcastChannel(key);
+      channel.onmessage = function (event) {
+        handleSignal(event.data);
+      };
+    }
+
+    window.addEventListener('storage', function (event) {
+      if (event.key !== key || !event.newValue) return;
+      var data;
+      try { data = JSON.parse(event.newValue); } catch (e) { return; }
+      if (lastSeen[data.id]) return;
+      lastSeen[data.id] = true;
+      handleSignal(data.payload);
+    });
+
+    return {
+      send: function (payload) {
+        payload.from = clientId;
+        if (channel) channel.postMessage(payload);
+        try {
+          localStorage.setItem(key, JSON.stringify({
+            id: clientId + '-' + String(Math.random()).slice(2),
+            payload: payload
+          }));
+        } catch (e) {}
+      },
+      close: function () {
+        if (channel) channel.close();
+      }
+    };
+  }
+
+  function makeWebSocketSignal(room, url) {
+    var ws = new WebSocket(url);
+    var queue = [];
+    var opened = false;
+
+    ws.onopen = function () {
+      opened = true;
+      ws.send(JSON.stringify({ type: 'join', room: room, from: clientId }));
+      while (queue.length) ws.send(JSON.stringify(queue.shift()));
+      log('Connected to signaling server. Waiting for peer...');
+    };
+
+    ws.onmessage = function (event) {
+      var data;
+      try { data = JSON.parse(event.data); } catch (e) { return; }
+      if (data.type === 'joined') {
+        log('Joined room ' + room + '. Devices in room: ' + data.count);
+        return;
+      }
+      handleSignal(data);
+    };
+
+    ws.onerror = function () {
+      log('WebSocket signaling error. Check server URL.', true);
+    };
+
+    ws.onclose = function () {
+      log('WebSocket signaling closed.');
+    };
+
+    return {
+      send: function (payload) {
+        payload.from = clientId;
+        if (opened && ws.readyState === 1) ws.send(JSON.stringify(payload));
+        else queue.push(payload);
+      },
+      close: function () {
+        try { ws.close(); } catch (e) {}
+      }
+    };
+  }
+
+  function sendSignal(payload) {
+    if (signal) signal.send(payload);
+  }
+
+  function joinRoom() {
+    if (joined) return;
+
+    var room = roomCodeInput.value.replace(/[^a-zA-Z0-9_-]/g, '').trim() || '1234';
+    roomCodeInput.value = room;
+
+    if (signalModeInput.value === 'websocket') {
+      signal = makeWebSocketSignal(room, wsUrlInput.value.trim());
+    } else {
+      signal = makeLocalSignal(room);
+      log('Joined local room ' + room + '. Open another tab with same code.');
+      setTimeout(function () {
+        sendSignal({ type: 'peer-joined' });
+      }, 250);
+    }
+
+    joined = true;
+    setTimeout(function () {
+      sendSignal({ type: 'peer-joined' });
+    }, 700);
+  }
+
+  function start() {
+    if (joined) return;
+
+    log('Requesting camera and microphone...');
+    getUserMediaCompat(getQualityConstraints(), function (stream) {
+      localStream = stream;
+      attachStream(localVideo, stream);
+      ensurePeer();
+      joinRoom();
+
+      startBtn.disabled = true;
+      muteAudioBtn.disabled = false;
+      muteVideoBtn.disabled = false;
+      hangupBtn.disabled = false;
+    }, function (err) {
+      log('Could not access camera/mic: ' + (err.message || err), true);
+    });
   }
 
   function stopTracks(stream) {
@@ -589,23 +700,32 @@
   }
 
   function hangup() {
+    sendSignal({ type: 'peer-left' });
+
+    if (signal) {
+      signal.close();
+      signal = null;
+    }
+
     if (pc) {
       try { pc.close(); } catch (e) {}
       pc = null;
     }
+
     stopTracks(localStream);
     localStream = null;
     remoteStream = null;
-    localVideo.srcObject = null;
-    remoteVideo.srcObject = null;
+    joined = false;
+    makingOffer = false;
+    ignoreOffer = false;
+    isPolite = false;
+
+    if ('srcObject' in localVideo) localVideo.srcObject = null;
+    if ('srcObject' in remoteVideo) remoteVideo.srcObject = null;
     localVideo.src = '';
     remoteVideo.src = '';
-    localSdp.value = '';
-    remoteSdp.value = '';
+
     startBtn.disabled = false;
-    createOfferBtn.disabled = true;
-    createAnswerBtn.disabled = true;
-    setRemoteBtn.disabled = true;
     muteAudioBtn.disabled = true;
     muteVideoBtn.disabled = true;
     hangupBtn.disabled = true;
@@ -616,27 +736,11 @@
     log('Disconnected.');
   }
 
-  startBtn.onclick = function () {
-    log('Requesting camera and microphone...');
-    getUserMediaCompat(getQualityConstraints(), function (stream) {
-      localStream = stream;
-      attachStream(localVideo, stream);
-      startBtn.disabled = true;
-      createOfferBtn.disabled = false;
-      createAnswerBtn.disabled = false;
-      setRemoteBtn.disabled = false;
-      muteAudioBtn.disabled = false;
-      muteVideoBtn.disabled = false;
-      hangupBtn.disabled = false;
-      log('Camera ready. Create an offer or paste a remote offer.');
-    }, function (err) {
-      log('Could not access camera/mic: ' + (err.message || err), true);
-    });
-  };
+  function onError(err) {
+    log(err && err.message ? err.message : String(err), true);
+  }
 
-  createOfferBtn.onclick = createOfferCompat;
-  createAnswerBtn.onclick = createAnswerCompat;
-  setRemoteBtn.onclick = setRemoteText;
+  startBtn.onclick = start;
   hangupBtn.onclick = hangup;
 
   muteAudioBtn.onclick = function () {
@@ -655,21 +759,11 @@
     muteVideoBtn.textContent = videoMuted ? 'Show camera' : 'Hide camera';
   };
 
-  copyBtn.onclick = function () {
-    localSdp.select();
-    try {
-      document.execCommand('copy');
-      log('Copied your text.');
-    } catch (e) {
-      log('Copy failed. Select and copy manually.', true);
-    }
-  };
-
   if (!RTCPeer) {
     log('This browser does not expose RTCPeerConnection. Try a newer Chrome, Chromium, Firefox, or Edge.', true);
     startBtn.disabled = true;
-  } else if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-    log('Camera access usually requires HTTPS or localhost. Open this file locally or serve it over HTTPS.');
+  } else if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1' && location.protocol !== 'file:') {
+    log('Camera access usually requires HTTPS, localhost, or a local file.');
   }
 })();
 </script>

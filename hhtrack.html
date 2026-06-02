@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Face + Hand Tracking</title>
+<style>
+body{
+    margin:0;
+    overflow:hidden;
+    background:#111;
+    font-family:Arial,sans-serif;
+}
+canvas{
+    position:absolute;
+    top:0;
+    left:0;
+}
+#info{
+    position:absolute;
+    top:10px;
+    left:10px;
+    color:white;
+    background:rgba(0,0,0,.6);
+    padding:10px;
+    z-index:10;
+    white-space:pre-line;
+}
+</style>
+</head>
+<body>
+
+<div id="info">Loading...</div>
+<canvas id="canvas"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
+
+<script>
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const info = document.getElementById("info");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+window.addEventListener("resize",()=>{
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+
+const video = document.createElement("video");
+video.autoplay = true;
+video.playsInline = true;
+
+function drawPoint(x,y,size,color){
+    ctx.beginPath();
+    ctx.arc(x,y,size,0,Math.PI*2);
+    ctx.fillStyle=color;
+    ctx.fill();
+}
+
+const holistic = new Holistic({
+    locateFile:file =>
+    `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+});
+
+holistic.setOptions({
+    modelComplexity:1,
+    smoothLandmarks:true,
+    minDetectionConfidence:0.5,
+    minTrackingConfidence:0.5
+});
+
+holistic.onResults(results=>{
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    ctx.save();
+
+    ctx.translate(canvas.width,0);
+    ctx.scale(-1,1);
+
+    ctx.drawImage(
+        results.image,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    let text = "";
+
+    // FACE
+    if(results.faceLandmarks){
+
+        for(const p of results.faceLandmarks){
+
+            drawPoint(
+                p.x*canvas.width,
+                p.y*canvas.height,
+                1.5,
+                "#00ff88"
+            );
+        }
+
+        const nose = results.faceLandmarks[1];
+
+        text +=
+        "FACE\n" +
+        "Nose X: " + nose.x.toFixed(3) + "\n" +
+        "Nose Y: " + nose.y.toFixed(3) + "\n\n";
+    }
+
+    // LEFT HAND
+    if(results.leftHandLandmarks){
+
+        for(const p of results.leftHandLandmarks){
+
+            drawPoint(
+                p.x*canvas.width,
+                p.y*canvas.height,
+                5,
+                "#00aaff"
+            );
+        }
+
+        const tip = results.leftHandLandmarks[8];
+
+        text +=
+        "LEFT HAND\n" +
+        "Index X: " + tip.x.toFixed(3) + "\n" +
+        "Index Y: " + tip.y.toFixed(3) + "\n\n";
+    }
+
+    // RIGHT HAND
+    if(results.rightHandLandmarks){
+
+        for(const p of results.rightHandLandmarks){
+
+            drawPoint(
+                p.x*canvas.width,
+                p.y*canvas.height,
+                5,
+                "#ff8800"
+            );
+        }
+
+        const tip = results.rightHandLandmarks[8];
+
+        text +=
+        "RIGHT HAND\n" +
+        "Index X: " + tip.x.toFixed(3) + "\n" +
+        "Index Y: " + tip.y.toFixed(3);
+    }
+
+    info.textContent = text || "No face or hands detected";
+
+    ctx.restore();
+});
+
+navigator.mediaDevices.getUserMedia({
+    video:{
+        width:1280,
+        height:720
+    }
+})
+.then(stream=>{
+
+    video.srcObject = stream;
+
+    const camera = new Camera(video,{
+        onFrame: async ()=>{
+            await holistic.send({image:video});
+        },
+        width:1280,
+        height:720
+    });
+
+    camera.start();
+})
+.catch(err=>{
+    info.textContent = "Camera error: " + err;
+});
+
+</script>
+</body>
+</html>

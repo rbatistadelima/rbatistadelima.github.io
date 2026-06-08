@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ Laboratório TTS — 4 vozes</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<!-- ResponsiveVoice -->
+<script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+
+<style>
+html,body{height:100%;margin:0;background:#0f0f12;color:#fff;font-family:Arial,Helvetica,sans-serif}
+body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+#voiceNames{display:flex;gap:8px;flex-wrap:wrap}
+#voiceNames input{background:#141415;border:1px solid #222;color:#fff;padding:6px 8px;border-radius:6px}
+textarea{width:90%;max-width:980px;height:140px;border-radius:8px;padding:10px;background:#121214;border:0;color:#fff;resize:vertical}
+.karaoke{width:90%;max-width:980px;padding:18px;border-radius:8px;background:#141417;min-height:120px;font-size:1.15rem;white-space:pre-wrap}
+.controls{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:rgba(10,10,10,0.6);padding:8px;border-radius:12px;display:flex;gap:8px;opacity:0;transition:opacity .18s}
+body.show-controls:hover .controls{opacity:1}
+button{background:#222;border:0;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+.name{font-weight:700;margin-right:8px}
+.immersive #texto, .immersive #voiceNames { display:none; }
+</style>
+</head>
+
+<body class="show-controls">
+
+<div id="voiceNames">
+  <label>Daniel: <input id="nameDaniel" value="Daniel"></label>
+  <label>Maria: <input id="nameMaria" value="Maria"></label>
+  <label>Regina: <input id="nameRegina" value="Regina"></label>
+  <label>Ana: <input id="nameAna" value="Ana"></label>
+</div>
+
+<textarea id="texto">
+Daniel: Bom dia, Regina!
+Regina: **Tudo ótimo!** E você?
+Maria: //Parece que vocês dormiram pouco...//
+Ana: Olá pessoal, estou chegando agora!
+Daniel: Bem-vinda, Ana!
+</textarea>
+
+<div class="karaoke" id="karaoke">Legenda aparecerá aqui...</div>
+
+<div class="controls">
+  <button onclick="startScript()">▶ Ler</button>
+  <button onclick="pauseSpeech()">⏸</button>
+  <button onclick="resumeSpeech()">⏯</button>
+  <button onclick="prevLine()">⏮</button>
+  <button onclick="nextLine()">⏭</button>
+  <button onclick="stopAll()">🛑</button>
+  <button onclick="toggleImmersive()">🕶️ Modo Imersivo</button>
+</div>
+
+<script>
+let synth = window.speechSynthesis;
+let voices = [];
+let lines = [];
+let currentIndex = 0;
+let isPaused = false;
+let immersiveMode = false;
+
+const colors = {
+  Daniel:'#ff6b6b',
+  Maria:'#7bed9f',
+  Regina:'#7ea2ff',
+  Ana:'#ffcc66'
+};
+
+function refreshVoices(){
+  voices = synth.getVoices() || [];
+}
+if(typeof speechSynthesis !== 'undefined')
+  speechSynthesis.onvoiceschanged = refreshVoices;
+refreshVoices();
+
+function includesIgnoreCase(a,b){
+  return (a||'').toLowerCase().includes((b||'').toLowerCase());
+}
+
+function findPtVoice(){
+  return voices.find(v => v.lang?.toLowerCase().startsWith('pt')) || voices[0];
+}
+
+/* MARKUP */
+function processarMarcacoes(texto){
+  const regex = /(\*\*[^*]+\*\*|\/\/[^/]+\/\/)/g;
+  let partes=[], last=0, m;
+  while((m=regex.exec(texto))!==null){
+    if(m.index>last) partes.push({t:texto.slice(last,m.index), e:'normal'});
+    const p=m[0];
+    if(p.startsWith('**')) partes.push({t:p.slice(2,-2), e:'bold'});
+    if(p.startsWith('//')) partes.push({t:p.slice(2,-2), e:'slow'});
+    last=regex.lastIndex;
+  }
+  if(last<texto.length) partes.push({t:texto.slice(last), e:'normal'});
+  return partes;
+}
+
+/* GOOGLE TTS (REGINA fallback) */
+function googleTTS(texto, rate=1, volume=1){
+  const url=`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(texto)}&tl=pt-BR&client=tw-ob`;
+  const audio=new Audio(url);
+  audio.playbackRate=rate;
+  audio.volume=volume;
+  return new Promise(r=>{
+    audio.onended=()=>r();
+    audio.onerror=()=>r();
+    audio.play().catch(()=>r());
+  });
+}
+
+/* RESPONSIVEVOICE (ANA) */
+function responsiveVoiceSpeak(texto, rate=1){
+  return new Promise(resolve=>{
+    if(!window.responsiveVoice){
+      resolve();
+      return;
+    }
+    responsiveVoice.speak(texto, "Brazilian Portuguese Female", {
+      rate: rate,
+      pitch: 1,
+      volume: 1,
+      onend: resolve
+    });
+  });
+}
+
+/* SPEAKER ROUTER */
+function getSpeaker(nome){
+  const n=nome.toLowerCase();
+
+  if(n==="ana"){
+    return {type:"rv", who:"Ana"};
+  }
+
+  if(n==="regina"){
+    return {type:"google", who:"Regina"};
+  }
+
+  if(n==="maria"){
+    return {type:"synth", voice:voices.find(v=>includesIgnoreCase(v.name,"Maria"))||findPtVoice(), who:"Maria"};
+  }
+
+  if(n==="daniel"){
+    return {type:"synth", voice:voices.find(v=>includesIgnoreCase(v.name,"Daniel"))||findPtVoice(), who:"Daniel"};
+  }
+
+  return {type:"synth", voice:findPtVoice(), who:"fallback"};
+}
+
+/* SPEAK */
+async function speak(nome, partes){
+  const spec=getSpeaker(nome);
+
+  for(const p of partes){
+    if(isPaused) await waitPaused();
+
+    let rate=1.2;
+    let text=p.t.trim();
+
+    if(p.e==="bold") rate*=1.4;
+    if(p.e==="slow") rate*=0.6;
+
+    if(spec.type==="synth"){
+      const u=new SpeechSynthesisUtterance(text);
+      u.voice=spec.voice;
+      u.lang="pt-BR";
+      u.rate=rate;
+
+      synth.speak(u);
+      await new Promise(r=>{
+        u.onend=()=>r();
+      });
+    }
+
+    else if(spec.type==="google"){
+      await googleTTS(text, rate, 1);
+    }
+
+    else if(spec.type==="rv"){
+      await responsiveVoiceSpeak(text, rate);
+    }
+  }
+}
+
+/* UI */
+async function lerLinha(i){
+  const linha=lines[i];
+  const match=linha.match(/^([^:]+):\s*(.+)$/);
+  const box=document.getElementById("karaoke");
+
+  if(!match){
+    box.textContent=linha;
+    await googleTTS(linha);
+    return;
+  }
+
+  const nome=match[1];
+  const frase=match[2];
+  const partes=processarMarcacoes(frase);
+
+  let html=`<span class="name" style="color:${colors[nome]||'#fff'}">${nome}:</span> ${frase}`;
+  box.innerHTML=html;
+
+  await speak(nome, partes);
+}
+
+/* FLOW */
+function waitPaused(){
+  return new Promise(r=>{
+    const t=setInterval(()=>{
+      if(!isPaused){ clearInterval(t); r(); }
+    },100);
+  });
+}
+
+async function startScript(){
+  refreshVoices();
+  lines=document.getElementById("texto").value.split("\n").filter(l=>l.trim());
+  currentIndex=0;
+  isPaused=false;
+
+  for(currentIndex=0; currentIndex<lines.length; currentIndex++){
+    await lerLinha(currentIndex);
+  }
+}
+
+function pauseSpeech(){ isPaused=true; synth.pause(); }
+function resumeSpeech(){ isPaused=false; synth.resume(); }
+function stopAll(){ synth.cancel(); isPaused=false; }
+
+async function nextLine(){
+  synth.cancel();
+  if(currentIndex<lines.length-1){
+    currentIndex++;
+    await lerLinha(currentIndex);
+  }
+}
+
+async function prevLine(){
+  synth.cancel();
+  if(currentIndex>0){
+    currentIndex--;
+    await lerLinha(currentIndex);
+  }
+}
+
+function toggleImmersive(){
+  immersiveMode=!immersiveMode;
+  document.body.classList.toggle("immersive", immersiveMode);
+}
+
+document.addEventListener("keydown",e=>{
+  if(e.code==="Space"){ e.preventDefault(); isPaused?resumeSpeech():pauseSpeech(); }
+  if(e.key==="ArrowRight") nextLine();
+  if(e.key==="ArrowLeft") prevLine();
+});
+
+setTimeout(refreshVoices,500);
+</script>
+
+</body>
+</html>

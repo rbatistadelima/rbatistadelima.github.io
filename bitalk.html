@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animalese Chiptune Synthesizer</title>
+    <style>
+        :root {
+            --bg-color: #1a1c23;
+            --panel-bg: #252836;
+            --accent-green: #5cdb95;
+            --accent-yellow: #fce38a;
+            --accent-pink: #ff758f;
+            --accent-blue: #38bdf8;
+            --text-main: #edf5e1;
+            --text-dim: #8892b0;
+            --border-color: #373b4e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: var(--panel-bg);
+            border: 4px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .header {
+            grid-column: span 2;
+            text-align: center;
+            border-bottom: 2px dashed var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .header h1 {
+            color: var(--accent-green);
+            font-size: 1.8rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .header p {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
+
+        /* Display Box */
+        .stage-section {
+            grid-column: span 2;
+            background: #0f1117;
+            border: 3px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .visualizer-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 100px;
+            background: #050608;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            position: relative;
+        }
+
+        canvas#avatarCanvas {
+            width: 80px;
+            height: 80px;
+            image-rendering: pixelated;
+        }
+
+        canvas#scopeCanvas {
+            flex-grow: 1;
+            height: 80px;
+            margin-left: 15px;
+        }
+
+        .dialogue-box {
+            background: #2a2d3d;
+            border: 2px solid var(--accent-yellow);
+            border-radius: 6px;
+            padding: 12px;
+            min-height: 70px;
+            font-size: 1.1rem;
+            line-height: 1.4;
+            color: #fff;
+            position: relative;
+            word-break: break-word;
+        }
+
+        .dialogue-box::after {
+            content: '▼';
+            position: absolute;
+            right: 12px;
+            bottom: 8px;
+            font-size: 0.8rem;
+            color: var(--accent-yellow);
+            animation: bounce 0.6s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateY(0); }
+            to { transform: translateY(-4px); }
+        }
+
+        /* Inputs & Controls */
+        .input-section {
+            grid-column: span 2;
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            background: #111319;
+            border: 2px solid var(--border-color);
+            color: var(--accent-green);
+            padding: 12px;
+            font-size: 1rem;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-green);
+        }
+
+        button.btn {
+            background: var(--accent-green);
+            color: #111;
+            border: none;
+            padding: 0 20px;
+            font-weight: bold;
+            font-size: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+        }
+
+        button.btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        button.btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Control Panels */
+        .panel {
+            background: #1e212b;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .panel-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--accent-blue);
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 6px;
+            margin-bottom: 4px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .control-group label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .control-group label span {
+            color: var(--accent-yellow);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent-green);
+            cursor: pointer;
+        }
+
+        select {
+            background: #111319;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+
+        .btn-preset {
+            background: #2a2d3d;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 8px 4px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .btn-preset:hover {
+            border-color: var(--accent-pink);
+            color: var(--accent-pink);
+        }
+
+        @media (max-width: 650px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .header, .stage-section, .input-section {
+                grid-column: span 1;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Animalese Chiptune Synth</h1>
+        <p>WebAudio API Powered Text-To-Chiptune Speech Generator</p>
+    </div>
+
+    <!-- Stage / Output Area -->
+    <div class="stage-section">
+        <div class="visualizer-container">
+            <canvas id="avatarCanvas" width="80" height="80"></canvas>
+            <canvas id="scopeCanvas" width="300" height="80"></canvas>
+        </div>
+        <div class="dialogue-box" id="dialogueBox">Click Speak or press Enter to generate speech!</div>
+    </div>
+
+    <!-- Main Input Controls -->
+    <div class="input-section">
+        <input type="text" id="textInput" value="Hello there! Welcome to the chiptune synth." placeholder="Type something to speak..." maxlength="120">
+        <button class="btn" id="speakBtn">SPEAK</button>
+    </div>
+
+    <!-- Sound Controls -->
+    <div class="panel">
+        <div class="panel-title">Sound Engine</div>
+
+        <div class="control-group">
+            <label>Waveform</label>
+            <select id="waveform">
+                <option value="square">Square (Classic NES)</option>
+                <option value="sawtooth">Sawtooth (Buzzy Gameboy)</option>
+                <option value="triangle">Triangle (Soft Warm)</option>
+                <option value="sine">Sine (Pure Tone)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Base Pitch <span id="pitchVal">1.0x</span></label>
+            <input type="range" id="pitch" min="0.4" max="2.5" step="0.05" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <label>Speech Speed <span id="speedVal">80ms</span></label>
+            <input type="range" id="speed" min="30" max="200" step="5" value="80">
+        </div>
+
+        <div class="control-group">
+            <label>Bitcrush Distortion <span id="crushVal">Off</span></label>
+            <input type="range" id="bitcrush" min="0" max="8" step="1" value="0">
+        </div>
+    </div>
+
+    <!-- Personality Controls -->
+    <div class="panel">
+        <div class="panel-title">Personality & Modifiers</div>
+
+        <div class="control-group">
+            <label>Presets</label>
+            <div class="preset-grid">
+                <button class="btn-preset" data-preset="peppy">Peppy</button>
+                <button class="btn-preset" data-preset="lazy">Lazy</button>
+                <button class="btn-preset" data-preset="grumpy">Grumpy</button>
+                <button class="btn-preset" data-preset="smug">Smug</button>
+                <button class="btn-preset" data-preset="robot">Robot</button>
+                <button class="btn-preset" data-preset="alien">Alien</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Pitch Variance (Inflection) <span id="varianceVal">0.3</span></label>
+            <input type="range" id="pitchVariance" min="0" max="1" step="0.05" value="0.3">
+        </div>
+
+        <div class="control-group">
+            <label>Vibrato Depth <span id="vibratoVal">0.0</span></label>
+            <input type="range" id="vibrato" min="0" max="1" step="0.05" value="0.0">
+        </div>
+
+        <div class="control-group">
+            <label>Staccato / Cutoff <span id="staccatoVal">70%</span></label>
+            <input type="range" id="staccato" min="0.2" max="1.0" step="0.05" value="0.7">
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Audio Context Setup ---
+    let audioCtx = null;
+    let mainGain = null;
+    let analyser = null;
+
+    function initAudio() {
+        if (!audioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            mainGain = audioCtx.createGain();
+            mainGain.gain.value = 0.2; // Master volume control
+
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+
+            mainGain.connect(analyser);
+            analyser.connect(audioCtx.destination);
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    // --- Pitch Mapping Helper (Alphabet -> Frequencies) ---
+    // Base frequency multiplier map relative to A4 (440Hz)
+    const charPitchMap = {};
+    const alphabet = "abcdefghijklmnopqrstuvwxyz";
+    for (let i = 0; i < alphabet.length; i++) {
+        // Map letters smoothly across roughly an octave
+        charPitchMap[alphabet[i]] = Math.pow(2, (i - 13) / 24); 
+    }
+
+    // --- UI Element References ---
+    const textInput = document.getElementById('textInput');
+    const speakBtn = document.getElementById('speakBtn');
+    const dialogueBox = document.getElementById('dialogueBox');
+    
+    const waveformInput = document.getElementById('waveform');
+    const pitchInput = document.getElementById('pitch');
+    const speedInput = document.getElementById('speed');
+    const bitcrushInput = document.getElementById('bitcrush');
+    const pitchVarianceInput = document.getElementById('pitchVariance');
+    const vibratoInput = document.getElementById('vibrato');
+    const staccatoInput = document.getElementById('staccato');
+
+    // Val Labels
+    const pitchVal = document.getElementById('pitchVal');
+    const speedVal = document.getElementById('speedVal');
+    const crushVal = document.getElementById('crushVal');
+    const varianceVal = document.getElementById('varianceVal');
+    const vibratoVal = document.getElementById('vibratoVal');
+    const staccatoVal = document.getElementById('staccatoVal');
+
+    // Sync Sliders to Labels
+    pitchInput.oninput = () => pitchVal.innerText = `${pitchInput.value}x`;
+    speedInput.oninput = () => speedVal.innerText = `${speedInput.value}ms`;
+    bitcrushInput.oninput = () => crushVal.innerText = bitcrushInput.value == 0 ? 'Off' : `${bitcrushInput.value} Bit`;
+    pitchVarianceInput.oninput = () => varianceVal.innerText = pitchVarianceInput.value;
+    vibratoInput.oninput = () => vibratoVal.innerText = vibratoInput.value;
+    staccatoInput.oninput = () => staccatoVal.innerText = `${Math.round(staccatoInput.value * 100)}%`;
+
+    // --- Presets Engine ---
+    const presets = {
+        peppy:  { wave: 'square', pitch: 1.6, speed: 60, crush: 0, variance: 0.6, vibrato: 0.2, staccato: 0.8 },
+        lazy:   { wave: 'triangle', pitch: 0.7, speed: 120, crush: 0, variance: 0.2, vibrato: 0.1, staccato: 0.9 },
+        grumpy: { wave: 'sawtooth', pitch: 0.5, speed: 90, crush: 3, variance: 0.1, vibrato: 0.0, staccato: 0.5 },
+        smug:   { wave: 'sine', pitch: 1.1, speed: 85, crush: 0, variance: 0.4, vibrato: 0.5, staccato: 0.7 },
+        robot:  { wave: 'square', pitch: 0.9, speed: 70, crush: 6, variance: 0.0, vibrato: 0.0, staccato: 0.4 },
+        alien:  { wave: 'sawtooth', pitch: 2.1, speed: 40, crush: 4, variance: 0.9, vibrato: 0.8, staccato: 0.6 }
+    };
+
+    document.querySelectorAll('.btn-preset').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const p = presets[e.target.dataset.preset];
+            if (!p) return;
+            waveformInput.value = p.wave;
+            pitchInput.value = p.pitch; pitchVal.innerText = `${p.pitch}x`;
+            speedInput.value = p.speed; speedVal.innerText = `${p.speed}ms`;
+            bitcrushInput.value = p.crush; crushVal.innerText = p.crush == 0 ? 'Off' : `${p.crush} Bit`;
+            pitchVarianceInput.value = p.variance; varianceVal.innerText = p.variance;
+            vibratoInput.value = p.vibrato; vibratoVal.innerText = p.vibrato;
+            staccatoInput.value = p.staccato; staccatoVal.innerText = `${Math.round(p.staccato * 100)}%`;
+        });
+    });
+
+    // --- Synthesizer Execution ---
+    let isSpeaking = false;
+
+    function playTone(freq, duration, type, crushBits, vibratoDepth) {
+        if (!audioCtx) return;
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const noteGain = audioCtx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+
+        // Apply Vibrato via LFO if set
+        if (vibratoDepth > 0) {
+            const lfo = audioCtx.createOscillator();
+            const lfoGain = audioCtx.createGain();
+            lfo.frequency.value = 15; // Fast chiptune vibrato rate
+            lfoGain.gain.value = freq * 0.1 * vibratoDepth;
+            lfo.connect(osc.frequency);
+            lfo.start(now);
+            lfo.stop(now + duration);
+        }
+
+        // Envelope Generator
+        noteGain.gain.setValueAtTime(0.001, now);
+        noteGain.gain.linearRampToValueAtTime(1, now + 0.005); // Attack
+        noteGain.gain.exponentialRampToValueAtTime(0.0001, now + duration); // Decay
+
+        // Bitcrusher Node Simulation via WaveShaper (if active)
+        let lastNode = osc;
+        if (crushBits > 0) {
+            const waveShaper = audioCtx.createWaveShaper();
+            const step = Math.pow(2, 8 - crushBits);
+            const curve = new Float32Array(256);
+            for (let i = 0; i < 256; i++) {
+                let x = (i / 128) - 1;
+                curve[i] = Math.round(x * step) / step;
+            }
+            waveShaper.curve = curve;
+            osc.connect(waveShaper);
+            lastNode = waveShaper;
+        }
+
+        lastNode.connect(noteGain);
+        noteGain.connect(mainGain);
+
+        osc.start(now);
+        osc.stop(now + duration);
+    }
+
+    async function speakText() {
+        initAudio();
+        if (isSpeaking) return;
+
+        const text = textInput.value.trim();
+        if (!text) return;
+
+        isSpeaking = true;
+        dialogueBox.innerText = "";
+        
+        const basePitch = parseFloat(pitchInput.value) * 440; // Base Frequency around A4
+        const charDuration = parseInt(speedInput.value) / 1000;
+        const staccatoFactor = parseFloat(staccatoInput.value);
+        const toneDuration = charDuration * staccatoFactor;
+        const variance = parseFloat(pitchVarianceInput.value);
+        const wave = waveformInput.value;
+        const crush = parseInt(bitcrushInput.value);
+        const vibrato = parseFloat(vibratoInput.value);
+
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i].toLowerCase();
+            dialogueBox.innerText += text[i];
+
+            // Render mouth opening on avatar frame
+            triggerMouthMovement();
+
+            if (/[a-z]/.test(char)) {
+                // Pitch calculation: base letter pitch + randomized variance offset
+                const charMult = charPitchMap[char] || 1.0;
+                const randomOffset = (Math.random() - 0.5) * variance;
+                const freq = basePitch * (charMult + randomOffset);
+
+                playTone(freq, toneDuration, wave, crush, vibrato);
+            } else if (/[0-9]/.test(char)) {
+                // Number pitches
+                const freq = basePitch * (0.8 + (parseInt(char) * 0.1));
+                playTone(freq, toneDuration, wave, crush, vibrato);
+            } else if (['?', '!', '.'].includes(char)) {
+                // Pause slightly on punctuation
+                await new Promise(r => setTimeout(r, charDuration * 1000 * 2));
+            }
+
+            // Wait for next character tick
+            await new Promise(r => setTimeout(r, charDuration * 1000));
+        }
+
+        isSpeaking = false;
+    }
+
+    speakBtn.addEventListener('click', speakText);
+    textInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') speakText();
+    });
+
+    // --- Avatar Canvas Animation ---
+    const avatarCanvas = document.getElementById('avatarCanvas');
+    const aCtx = avatarCanvas.getContext('2d');
+    let mouthOpen = false;
+
+    function drawAvatar() {
+        aCtx.clearRect(0, 0, 80, 80);
+
+        // Head (Pixelated Cat/Animal Face)
+        aCtx.fillStyle = '#5cdb95';
+        aCtx.fillRect(16, 20, 48, 48); // Main head frame
+        
+        // Ears
+        aCtx.fillRect(12, 12, 16, 16);
+        aCtx.fillRect(52, 12, 16, 16);
+        aCtx.fillStyle = '#ff758f';
+        aCtx.fillRect(16, 16, 8, 8);
+        aCtx.fillRect(56, 16, 8, 8);
+
+        // Eyes
+        aCtx.fillStyle = '#111319';
+        aCtx.fillRect(24, 32, 8, 12);
+        aCtx.fillRect(48, 32, 8, 12);
+        
+        // Eye highlights
+        aCtx.fillStyle = '#ffffff';
+        aCtx.fillRect(24, 32, 4, 4);
+        aCtx.fillRect(48, 32, 4, 4);
+
+        // Nose
+        aCtx.fillStyle = '#ff758f';
+        aCtx.fillRect(38, 46, 4, 4);
+
+        // Mouth (Toggles open/close based on speech)
+        aCtx.fillStyle = '#111319';
+        if (mouthOpen) {
+            aCtx.fillRect(34, 52, 12, 10);
+            aCtx.fillStyle = '#ff758f';
+            aCtx.fillRect(36, 58, 8, 4); // Tongue
+        } else {
+            aCtx.fillRect(34, 52, 12, 3);
+        }
+    }
+
+    function triggerMouthMovement() {
+        mouthOpen = true;
+        drawAvatar();
+        setTimeout(() => {
+            mouthOpen = false;
+            drawAvatar();
+        }, parseInt(speedInput.value) * 0.7);
+    }
+
+    drawAvatar();
+
+    // --- Oscilloscope Visualizer ---
+    const scopeCanvas = document.getElementById('scopeCanvas');
+    const sCtx = scopeCanvas.getContext('2d');
+
+    function drawScope() {
+        requestAnimationFrame(drawScope);
+
+        sCtx.fillStyle = '#050608';
+        sCtx.fillRect(0, 0, scopeCanvas.width, scopeCanvas.height);
+
+        if (!analyser) return;
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteTimeDomainData(dataArray);
+
+        sCtx.lineWidth = 2;
+        sCtx.strokeStyle = '#5cdb95';
+        sCtx.beginPath();
+
+        const sliceWidth = scopeCanvas.width * 1.0 / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = v * scopeCanvas.height / 2;
+
+            if (i === 0) {
+                sCtx.moveTo(x, y);
+            } else {
+                sCtx.lineTo(x, y);
+            }
+
+            x += sliceWidth;
+        }
+
+        sCtx.lineTo(scopeCanvas.width, scopeCanvas.height / 2);
+        sCtx.stroke();
+    }
+
+    drawScope();
+</script>
+</body>
+</html>

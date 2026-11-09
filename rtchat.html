@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anonymous WebRTC Chat</title>
-    <!-- PeerJS Library -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- MQTT Library for Signaling over WebSockets -->
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -132,10 +132,10 @@
 <div id="chat-container">
     <div id="status-bar">
         <div>
-            <div id="status-text">Initializing...</div>
+            <div id="status-text">Connecting to network...</div>
             <div id="identity-display">You: Loading...</div>
         </div>
-        <button id="next-btn" onclick="findNextPartner()" disabled>Next Stranger</button>
+        <button id="next-btn" onclick="nextStranger()" disabled>Next Stranger</button>
     </div>
     <div id="messages"></div>
     <div id="input-container">
@@ -145,7 +145,7 @@
 </div>
 
 <script>
-    // 1. Composite Animal Name Generator
+    // 1. Unique Composite Animal Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -158,11 +158,14 @@
 
     const myName = generateCompositeName();
     document.getElementById('identity-display').textContent = `You: ${myName}`;
+    const myId = 'user_' + Math.random().toString(36).substring(2, 9);
 
-    let peer = null;
-    let conn = null;
+    let mqttClient = null;
+    let pc = null;
+    let dataChannel = null;
+    let targetId = null;
     let isConnected = false;
-    let searchAttempt = 0;
+    let searchInterval = null;
 
     const statusText = document.getElementById('status-text');
     const messagesContainer = document.getElementById('messages');
@@ -170,119 +173,177 @@
     const sendBtn = document.getElementById('send-btn');
     const nextBtn = document.getElementById('next-btn');
 
-    // PeerJS configuration with public STUN servers for network/mobile traversal
-    const peerOptions = {
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' }
-            ]
-        }
+    const rtcConfig = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
     };
 
-    function initPeer() {
-        if (peer) {
-            try { peer.destroy(); } catch(e) {}
-        }
+    const TOPIC_GLOBAL = 'github-pages-webrtc-chat-v1/global';
+    const TOPIC_SIGNAL = 'github-pages-webrtc-chat-v1/signal/' + myId;
 
-        isConnected = false;
-        statusText.textContent = 'Connecting to network...';
-        nextBtn.disabled = true;
-
-        // Generate a rolling lobby token so users opening at staggered times still intersect
-        const timeWindow = Math.floor(Date.now() / 15000); // 15-second rotation window
-        const randomToken = Math.random().toString(36).substring(2, 6);
-        const myPeerId = `gh-chat-${timeWindow}-${randomToken}`;
-
-        peer = new Peer(myPeerId, peerOptions);
-
-        peer.on('open', (id) => {
-            statusText.textContent = 'Searching for partner...';
-            nextBtn.disabled = false;
-            searchForPeers(timeWindow);
+    function initSignaling() {
+        statusText.textContent = 'Connecting to signaling broker...';
+        
+        // Connect to public MQTT WebSocket broker
+        mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+            clientId: 'mqtt_' + myId,
+            clean: true
         });
 
-        peer.on('connection', (incomingConn) => {
-            if (isConnected) {
-                incomingConn.close();
-                return;
+        mqttClient.on('connect', () => {
+            statusText.textContent = 'Connected to network. Searching...';
+            mqttClient.subscribe(TOPIC_SIGNAL, (err) => {
+                if (!err) startMatchmaking();
+            });
+        });
+
+        mqttClient.on('message', async (topic, payload) => {
+            try {
+                const msg = JSON.parse(payload.toString());
+                if (msg.sender === myId || isConnected) return;
+
+                // Matchmaking broadcast received
+                if (topic === TOPIC_GLOBAL && msg.type === 'search' && !targetId) {
+                    targetId = msg.sender;
+                    if (searchInterval) clearInterval(searchInterval);
+
+                    // Deterministic rule: higher ID is the caller (offerer)
+                    if (myId > targetId) {
+                        statusText.textContent = 'Connecting to stranger...';
+                        startCall();
+                    } else {
+                        statusText.textContent = 'Waiting for stranger to connect...';
+                        mqttClient.publish(TOPIC_SIGNAL, JSON.stringify({ type: 'ack', sender: myId, target: targetId }));
+                    }
+                }
+
+                // Personal signal received
+                if (topic === TOPIC_SIGNAL) {
+                    if (msg.type === 'ack' && !targetId) {
+                        targetId = msg.sender;
+                        if (searchInterval) clearInterval(searchInterval);
+                        statusText.textContent = 'Connecting to stranger...';
+                        startCall();
+                    }
+
+                    if (!pc) createPeerConnection();
+
+                    if (msg.type === 'offer') {
+                        targetId = msg.sender;
+                        if (searchInterval) clearInterval(searchInterval);
+                        await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        mqttClient.publish('github-pages-webrtc-chat-v1/signal/' + targetId, JSON.stringify({ type: 'answer', answer, sender: myId }));
+                    } else if (msg.type === 'answer') {
+                        await pc.setRemoteDescription(new RTCSessionDescription(msg.answer));
+                    } else if (msg.type === 'candidate' && msg.candidate) {
+                        try {
+                            await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+                        } catch (e) {
+                            console.error('ICE candidate error', e);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error(e);
             }
-            setupConnection(incomingConn);
         });
 
-        peer.on('error', (err) => {
-            console.error("Peer error:", err);
-            setTimeout(findNextPartner, 2000);
+        mqttClient.on('error', (err) => {
+            console.error('MQTT error:', err);
+            statusText.textContent = 'Signaling error. Retrying...';
         });
     }
 
-    function searchForPeers(timeWindow) {
+    function startMatchmaking() {
         if (isConnected) return;
+        cleanupConnection();
+        statusText.textContent = 'Searching for partner...';
+        nextBtn.disabled = false;
 
-        searchAttempt++;
-        // Try connecting to a peer in the current or previous time window slot
-        const targetWindow = searchAttempt % 2 === 0 ? timeWindow - 1 : timeWindow;
-        const targetId = `gh-chat-${targetWindow}-`;
+        mqttClient.subscribe(TOPIC_GLOBAL);
+        broadcastSearch();
 
-        // Since PeerJS doesn't list all active room IDs directly without a custom server,
-        // we probe a generated sequence or wait as a host node.
-        if (searchAttempt > 4) {
-            statusText.textContent = 'Waiting for someone to join...';
-            return; // Switch to listening mode
-        }
-
-        const guessedPeerId = targetId + Math.random().toString(36).substring(2, 6);
-        const outboundConn = peer.connect(guessedPeerId, { reliable: true });
-
-        let opened = false;
-        outboundConn.on('open', () => {
-            opened = true;
-            setupConnection(outboundConn);
-        });
-
-        setTimeout(() => {
-            if (!opened && !isConnected) {
-                searchForPeers(timeWindow);
+        if (searchInterval) clearInterval(searchInterval);
+        searchInterval = setInterval(() => {
+            if (!isConnected && !targetId) {
+                broadcastSearch();
             }
-        }, 1500);
+        }, 2000);
     }
 
-    function setupConnection(connection) {
-        if (isConnected) {
-            connection.close();
-            return;
+    function broadcastSearch() {
+        if (mqttClient && mqttClient.connected && !isConnected && !targetId) {
+            mqttClient.publish(TOPIC_GLOBAL, JSON.stringify({ type: 'search', sender: myId }));
         }
-        isConnected = true;
-        conn = connection;
+    }
 
-        statusText.textContent = 'Connected!';
-        appendSystemMessage('Connected to a stranger.');
-        toggleInputs(true);
+    function createPeerConnection() {
+        if (pc) return;
+        pc = new RTCPeerConnection(rtcConfig);
 
-        // Send name immediately upon connection
-        conn.send({ type: 'name', name: myName });
-
-        conn.on('data', (data) => {
-            if (typeof data === 'object' && data.type === 'name') {
-                appendSystemMessage(`You are chatting with: ${data.name}`);
-            } else if (typeof data === 'string') {
-                appendMessage(data, 'received');
+        pc.onicecandidate = (event) => {
+            if (event.candidate && targetId) {
+                mqttClient.publish('github-pages-webrtc-chat-v1/signal/' + targetId, JSON.stringify({ type: 'candidate', candidate: event.candidate, sender: myId }));
             }
-        });
+        };
 
-        conn.on('close', () => {
-            handleDisconnect();
-        });
+        pc.ondatachannel = (event) => {
+            dataChannel = event.channel;
+            setupDataChannel();
+        };
+    }
 
-        conn.on('error', () => {
+    async function startCall() {
+        if (searchInterval) clearInterval(searchInterval);
+        createPeerConnection();
+        dataChannel = pc.createDataChannel('chat');
+        setupDataChannel();
+
+        try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            mqttClient.publish('github-pages-webrtc-chat-v1/signal/' + targetId, JSON.stringify({ type: 'offer', offer, sender: myId }));
+        } catch (err) {
+            console.error('Offer error:', err);
+        }
+    }
+
+    function setupDataChannel() {
+        dataChannel.onopen = () => {
+            if (searchInterval) clearInterval(searchInterval);
+            isConnected = true;
+            statusText.textContent = 'Connected!';
+            appendSystemMessage('Connected to a stranger.');
+            toggleInputs(true);
+            
+            // Exchange names
+            dataChannel.send(JSON.stringify({ type: 'name', name: myName }));
+        };
+
+        dataChannel.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'name') {
+                    appendSystemMessage(`You are chatting with: ${data.name}`);
+                }
+            } catch {
+                appendMessage(event.data, 'received');
+            }
+        };
+
+        dataChannel.onclose = () => {
             handleDisconnect();
-        });
+        };
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (text && conn && conn.open) {
-            conn.send(text);
+        if (text && dataChannel && dataChannel.readyState === 'open') {
+            dataChannel.send(text);
             appendMessage(text, 'sent');
             messageInput.value = '';
         }
@@ -298,20 +359,20 @@
         appendSystemMessage('Stranger disconnected.');
         cleanupConnection();
         statusText.textContent = 'Searching for next partner...';
-        setTimeout(initPeer, 1500);
+        setTimeout(startMatchmaking, 1500);
     }
 
-    function findNextPartner() {
+    function nextStranger() {
         cleanupConnection();
-        initPeer();
+        startMatchmaking();
     }
 
     function cleanupConnection() {
         isConnected = false;
-        if (conn) {
-            try { conn.close(); } catch(e){}
-            conn = null;
-        }
+        targetId = null;
+        if (searchInterval) clearInterval(searchInterval);
+        if (dataChannel) { dataChannel.close(); dataChannel = null; }
+        if (pc) { pc.close(); pc = null; }
         toggleInputs(false);
     }
 
@@ -338,7 +399,7 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    window.onload = initPeer;
+    window.onload = initSignaling;
 </script>
 
 </body>

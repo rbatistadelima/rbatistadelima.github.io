@@ -18,21 +18,64 @@
             overflow: hidden;
             background-color: #f7f9fc;
         }
-        #chat-container {
+        #app-wrapper {
+            display: flex;
             width: 100%;
             height: 100%;
-            max-width: 480px;
+            max-width: 900px;
             margin: 0 auto;
             background: #ffffff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        /* Sidebar Panels */
+        .sidebar {
+            width: 200px;
+            background: #f8fafc;
+            border-right: 1px solid #e2e8f0;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            font-size: 12px;
+            color: #475569;
+        }
+        .sidebar.right {
+            border-right: none;
+            border-left: 1px solid #e2e8f0;
+        }
+        .sidebar h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+        .sidebar ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .sidebar li {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            word-break: break-all;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        /* Main Chat Container */
+        #chat-container {
+            flex: 1;
+            height: 100%;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-        }
-        @media (min-width: 481px) {
-            #chat-container {
-                height: 100vh;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            }
         }
         #status-bar {
             padding: 10px 14px;
@@ -82,16 +125,6 @@
             display: flex;
             flex-direction: column;
             gap: 2px;
-        }
-        .message.system {
-            align-self: center;
-            background-color: #e5e7eb;
-            color: #4b5563;
-            font-size: 11px;
-            border-radius: 6px;
-            text-align: center;
-            max-width: 90%;
-            padding: 4px 8px;
         }
         .message.sent {
             align-self: flex-end;
@@ -154,27 +187,53 @@
             background-color: #4f46e5;
             color: white;
         }
+        /* Mobile responsive collapse for sidebars */
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+        }
     </style>
 </head>
 <body>
 
-<div id="chat-container">
-    <div id="status-bar">
-        <div class="status-row">
-            <span id="status-text">Connecting...</span>
-            <div id="identity-display">You: Loading...</div>
+<div id="app-wrapper">
+    <!-- Left Sidebar: Services Working -->
+    <div class="sidebar">
+        <h3>Services Working</h3>
+        <ul>
+            <li><span class="status-dot"></span> PeerJS Signaling</li>
+            <li><span class="status-dot"></span> WebRTC P2P Mesh</li>
+            <li><span class="status-dot"></span> STUN Server</li>
+            <li><span class="status-dot"></span> Local Storage Cache</li>
+        </ul>
+    </div>
+
+    <!-- Main Chat Window -->
+    <div id="chat-container">
+        <div id="status-bar">
+            <div class="status-row">
+                <span id="status-text">Connecting...</span>
+                <div id="identity-display">You: Loading...</div>
+            </div>
+            <div class="status-row" id="room-controls">
+                <span>Room: <strong id="room-display">...</strong></span>
+                <button onclick="newRoom()">New Room</button>
+            </div>
         </div>
-        <div class="status-row" id="room-controls">
-            <span>Room: <strong id="room-display">...</strong></span>
-            <button onclick="newRoom()">New Room</button>
+        
+        <div id="messages"></div>
+        
+        <div id="input-container">
+            <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)" autocomplete="off">
+            <button id="send-btn" onclick="sendMessage()">Send</button>
         </div>
     </div>
-    
-    <div id="messages"></div>
-    
-    <div id="input-container">
-        <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)" autocomplete="off">
-        <button id="send-btn" onclick="sendMessage()">Send</button>
+
+    <!-- Right Sidebar: Connected Clients -->
+    <div class="sidebar right">
+        <h3>Connected Clients</h3>
+        <ul id="client-list">
+            <li id="self-client-item"><span class="status-dot"></span> <span id="self-client-name">You (Loading)</span></li>
+        </ul>
     </div>
 </div>
 
@@ -193,13 +252,11 @@
     const myName = generateCompositeName();
     const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 8);
     document.getElementById('identity-display').textContent = `You: ${myName}`;
+    document.getElementById('self-client-name').textContent = `${myName} (You)`;
 
-    // Unique session token combined with timestamp to ensure zero ID collisions on reload
-    const sessionSalt = Math.random().toString(36).substring(2, 6) + Date.now().toString(36).slice(-3);
-    
     let peer = null;
     let isHub = false;
-    const activeConnections = new Map();
+    const activeConnections = new Map(); // peerId -> { conn, name }
     const processedMessageIds = new Set();
     let reconnectTimer = null;
 
@@ -207,6 +264,7 @@
     const roomDisplay = document.getElementById('room-display');
     const messagesContainer = document.getElementById('messages');
     const messageInput = document.getElementById('message-input');
+    const clientListEl = document.getElementById('client-list');
 
     const rtcConfig = {
         config: {
@@ -256,6 +314,18 @@
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
+    function updateClientListUI() {
+        // Keep self entry
+        clientListEl.innerHTML = `<li id="self-client-item"><span class="status-dot"></span> <span>${myName} (You)</span></li>`;
+        
+        // Add connected peers
+        activeConnections.forEach(({ name }) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="status-dot"></span> <span>${name || 'Peer'}</span>`;
+            clientListEl.appendChild(li);
+        });
+    }
+
     function initPeer() {
         loadChatHistory();
         statusText.textContent = 'Connecting to room...';
@@ -266,7 +336,6 @@
             try { peer.destroy(); } catch(e) {}
         }
 
-        // Try to claim the Hub ID first
         peer = new Peer(hubId, rtcConfig);
 
         const initTimeout = setTimeout(() => {
@@ -279,7 +348,7 @@
         peer.on('open', () => {
             clearTimeout(initTimeout);
             isHub = true;
-            statusText.textContent = 'Room active (Hub ready). Waiting for peers...';
+            statusText.textContent = 'Room active (Hub ready).';
             setupPeerListeners();
         });
 
@@ -300,12 +369,14 @@
             try { peer.destroy(); } catch(e) {}
         }
 
-        const clientId = `${roomName.replace('room_', '')}_${sessionSalt}`;
+        const randomSuffix = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 6);
+        const clientId = `${roomName.replace('room_', '')}_${randomSuffix}`;
+        
         peer = new Peer(clientId, rtcConfig);
 
         peer.on('open', () => {
             isHub = false;
-            statusText.textContent = 'Connected to room. Joining...';
+            statusText.textContent = 'Connected to room.';
             setupPeerListeners();
             const hubConn = peer.connect(hubId, { reliable: true });
             setupConnection(hubConn);
@@ -348,8 +419,8 @@
         connection.on('open', () => {
             activeConnections.set(remoteId, { conn: connection, name: "Peer" });
             statusText.textContent = `Connected peers: ${activeConnections.size}`;
-            appendSystemMessage(`Participant joined.`);
             connection.send({ type: 'profile', id: myUniqueId, name: myName });
+            updateClientListUI();
         });
 
         connection.on('data', (data) => {
@@ -360,7 +431,7 @@
                         if (p) {
                             p.name = data.name;
                             p.uid = data.id;
-                            appendSystemMessage(`${data.name} entered.`);
+                            updateClientListUI();
                         }
                         return;
                     }
@@ -436,12 +507,9 @@
     }
 
     function handleDisconnect(remoteId) {
-        const p = activeConnections.get(remoteId);
-        const name = p ? p.name : "Peer";
         activeConnections.delete(remoteId);
-
-        appendSystemMessage(`${name} left.`);
         statusText.textContent = activeConnections.size > 0 ? `Connected peers: ${activeConnections.size}` : 'Waiting for peers...';
+        updateClientListUI();
     }
 
     function newRoom() {
@@ -452,29 +520,17 @@
     function appendMessageToDOM(sender, text, time, type) {
         const div = document.createElement('div');
         div.className = `message ${type}`;
-        if (type === 'system') {
-            div.textContent = text;
-        } else {
-            div.innerHTML = `
-                <div class="msg-header">
-                    <span>${sender}</span>
-                    <span class="msg-time">${time}</span>
-                </div>
-                <div>${text}</div>
-            `;
-        }
+        div.innerHTML = `
+            <div class="msg-header">
+                <span>${sender}</span>
+                <span class="msg-time">${time}</span>
+            </div>
+            <div>${text}</div>
+        `;
         messagesContainer.appendChild(div);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    function appendSystemMessage(text) {
-        const time = getTimeString();
-        const sysId = 'sys_' + Math.random();
-        appendMessageToDOM('System', text, time, 'system');
-        saveMessageToStorage(sysId, 'System', text, time, 'system');
-    }
-
-    // Force clean teardown when closing or reloading incognito windows
     window.addEventListener('beforeunload', () => {
         if (peer) {
             try { peer.destroy(); } catch(e) {}

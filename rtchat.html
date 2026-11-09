@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonymous WebRTC Chat</title>
+    <title>Anonymous Group WebRTC Chat</title>
     <!-- PeerJS Library -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
@@ -40,7 +40,7 @@
             font-weight: 600;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
         }
         .status-row {
             display: flex;
@@ -58,18 +58,6 @@
             gap: 6px;
             font-size: 12px;
             align-items: center;
-        }
-        #manual-connect-box {
-            display: flex;
-            gap: 6px;
-            margin-top: 4px;
-        }
-        #partner-id-input {
-            flex: 1;
-            padding: 4px 8px;
-            border-radius: 4px;
-            border: none;
-            font-size: 12px;
         }
         #messages {
             flex: 1;
@@ -160,10 +148,6 @@
             background-color: #4f46e5;
             color: white;
         }
-        #send-btn:disabled {
-            background-color: #9ca3af;
-            cursor: not-allowed;
-        }
     </style>
 </head>
 <body>
@@ -171,22 +155,18 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Initializing...</span>
+            <span id="status-text">Connecting...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
-            <span>Your ID: <strong id="my-peer-id" style="user-select: all; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px;">...</strong></span>
-            <button onclick="copyMyId()">Copy ID</button>
-        </div>
-        <div id="manual-connect-box">
-            <input type="text" id="partner-id-input" placeholder="Paste friend's ID here...">
-            <button onclick="connectToManualId()">Connect</button>
+            <span>Room: <strong id="room-display">...</strong></span>
+            <button onclick="newRoom()">New Room</button>
         </div>
     </div>
     <div id="messages"></div>
     <div id="input-container">
-        <input type="text" id="message-input" placeholder="Type a message..." disabled onkeypress="handleKeyPress(event)">
-        <button id="send-btn" onclick="sendMessage()" disabled>Send</button>
+        <input type="text" id="message-input" placeholder="Type a message and press Enter..." onkeypress="handleKeyPress(event)" autofocus>
+        <button id="send-btn" onclick="sendMessage()">Send</button>
     </div>
 </div>
 
@@ -203,18 +183,19 @@
     }
 
     const myName = generateCompositeName();
-    let strangerName = "Stranger";
     document.getElementById('identity-display').textContent = `You: ${myName}`;
 
+    // Short ID generation (4 random alphanumeric characters)
+    const shortId = Math.random().toString(36).substring(2, 6);
+    
     let peer = null;
-    let conn = null;
-    let isConnected = false;
+    let isHub = false;
+    const activeConnections = new Map(); // peerId -> { conn, name }
 
     const statusText = document.getElementById('status-text');
-    const myPeerIdDisplay = document.getElementById('my-peer-id');
+    const roomDisplay = document.getElementById('room-display');
     const messagesContainer = document.getElementById('messages');
     const messageInput = document.getElementById('message-input');
-    const sendBtn = document.getElementById('send-btn');
 
     const rtcConfig = {
         config: {
@@ -225,8 +206,20 @@
         }
     };
 
+    function getRoom() {
+        let hash = window.location.hash.substring(1);
+        if (!hash.startsWith('room_')) {
+            hash = 'room_' + Math.random().toString(36).substring(2, 8);
+            window.location.hash = hash;
+        }
+        return hash;
+    }
+
+    const roomName = getRoom();
+    roomDisplay.textContent = roomName;
+
     function loadChatHistory() {
-        const saved = localStorage.getItem('webrtc_chat_history');
+        const saved = localStorage.getItem('webrtc_' + roomName + '_history');
         if (saved) {
             try {
                 JSON.parse(saved).forEach(item => appendMessageToDOM(item.sender, item.text, item.time, item.type));
@@ -236,11 +229,12 @@
 
     function saveMessageToStorage(sender, text, time, type) {
         try {
-            const saved = localStorage.getItem('webrtc_chat_history');
+            const key = 'webrtc_' + roomName + '_history';
+            const saved = localStorage.getItem(key);
             const history = saved ? JSON.parse(saved) : [];
             history.push({ sender, text, time, type });
-            if (history.length > 100) history.shift();
-            localStorage.setItem('webrtc_chat_history', JSON.stringify(history));
+            if (history.length > 150) history.shift();
+            localStorage.setItem(key, JSON.stringify(history));
         } catch(e) {}
     }
 
@@ -249,112 +243,157 @@
     }
 
     function initPeer() {
-        statusText.textContent = 'Connecting to signaling network...';
+        loadChatHistory();
+        statusText.textContent = 'Connecting to room...';
 
-        // Unique ID for this specific tab instance
-        const customId = 'chat_' + Math.random().toString(36).substring(2, 8);
-        peer = new Peer(customId, rtcConfig);
+        // Try to claim the Hub ID for this room: e.g. "room_jqdhre_hub"
+        const hubId = `${roomName}_hub`;
+        peer = new Peer(hubId, rtcConfig);
 
-        peer.on('open', (id) => {
-            myPeerIdDisplay.textContent = id;
-            statusText.textContent = 'Ready. Waiting for connection...';
-        });
-
-        peer.on('connection', (incomingConn) => {
-            if (isConnected) {
-                incomingConn.close();
-                return;
-            }
-            statusText.textContent = 'Incoming connection...';
-            setupConnection(incomingConn);
+        peer.on('open', () => {
+            isHub = true;
+            statusText.textContent = 'Room created (Hub active). Waiting for peers...';
+            setupPeerListeners();
         });
 
         peer.on('error', (err) => {
-            console.error("PeerJS error:", err);
-            statusText.textContent = 'Network error: ' + err.type;
+            if (err.type === 'unavailable-id') {
+                // Hub already exists! Join as a client with a short ID: e.g. "jqdhre_ab12"
+                peer.destroy();
+                const clientId = `${roomName.replace('room_', '')}_${shortId}`;
+                peer = new Peer(clientId, rtcConfig);
+
+                peer.on('open', () => {
+                    isHub = false;
+                    statusText.textContent = 'Connected to room. Joining...';
+                    setupPeerListeners();
+                    // Automatically connect to the room Hub
+                    const hubConn = peer.connect(hubId, { reliable: true });
+                    setupConnection(hubConn);
+                });
+
+                peer.on('error', (e) => {
+                    statusText.textContent = 'Connection error: ' + e.type;
+                });
+            } else {
+                statusText.textContent = 'Error: ' + err.type;
+            }
         });
     }
 
-    function connectToManualId() {
-        const targetId = document.getElementById('partner-id-input').value.trim();
-        if (!targetId) {
-            alert('Please enter a valid Peer ID');
-            return;
-        }
-        if (isConnected) {
-            alert('Already connected!');
-            return;
-        }
+    function setupPeerListeners() {
+        peer.on('connection', (incomingConn) => {
+            setupConnection(incomingConn);
 
-        statusText.textContent = 'Connecting to ' + targetId + '...';
-        const outbound = peer.connect(targetId, { reliable: true });
-        setupConnection(outbound);
-    }
-
-    function copyMyId() {
-        const idText = myPeerIdDisplay.textContent;
-        navigator.clipboard.writeText(idText).then(() => {
-            alert('Your Peer ID copied to clipboard! Send it to your friend.');
+            // If we are the Hub, broadcast the new peer list to everyone so they form a full mesh
+            if (isHub) {
+                setTimeout(() => {
+                    const peerList = Array.from(activeConnections.keys());
+                    activeConnections.forEach(({ conn }) => {
+                        if (conn && conn.open) {
+                            conn.send({ type: 'peer_list', peers: peerList });
+                        }
+                    });
+                }, 500);
+            }
         });
     }
 
     function setupConnection(connection) {
-        conn = connection;
+        const remoteId = connection.peer;
 
-        conn.on('open', () => {
-            isConnected = true;
-            statusText.textContent = 'Connected!';
-            appendSystemMessage('Connected to a stranger.');
-            toggleInputs(true);
-            conn.send({ type: 'tab_name', name: myName });
+        connection.on('open', () => {
+            activeConnections.set(remoteId, { conn: connection, name: "Peer" });
+            statusText.textContent = `Connected peers: ${activeConnections.size}`;
+            appendSystemMessage(`Participant joined.`);
+
+            // Send our name
+            connection.send({ type: 'name', name: myName });
         });
 
-        conn.on('data', (data) => {
+        connection.on('data', (data) => {
             try {
-                if (typeof data === 'object' && data.type === 'tab_name') {
-                    strangerName = data.name;
-                    appendSystemMessage(`You are chatting with: ${strangerName}`);
-                    return;
+                if (typeof data === 'object') {
+                    if (data.type === 'name') {
+                        const p = activeConnections.get(remoteId);
+                        if (p) {
+                            p.name = data.name;
+                            appendSystemMessage(`${data.name} entered.`);
+                        }
+                        return;
+                    }
+                    if (data.type === 'peer_list' && !isHub) {
+                        // Clients connect to any new peers announced by the Hub to maintain mesh
+                        data.peers.forEach(peerId => {
+                            if (peerId !== peer.id && !activeConnections.has(peerId)) {
+                                const newConn = peer.connect(peerId, { reliable: true });
+                                setupConnection(newConn);
+                            }
+                        });
+                        return;
+                    }
                 }
             } catch(e) {}
 
+            // Broadcast text message to other connected nodes if we are hub, or process incoming text
+            const p = activeConnections.get(remoteId);
+            const senderName = p ? p.name : "Peer";
             const time = getTimeString();
-            appendMessageToDOM(strangerName, data, time, 'received');
-            saveMessageToStorage(strangerName, data, time, 'received');
+
+            appendMessageToDOM(senderName, data, time, 'received');
+            saveMessageToStorage(senderName, data, time, 'received');
+
+            // If we are hub, relay text message to all other connected peers
+            if (isHub) {
+                activeConnections.forEach((val, id) => {
+                    if (id !== remoteId && val.conn && val.conn.open) {
+                        val.conn.send(data);
+                    }
+                });
+            }
         });
 
-        conn.on('close', () => handleDisconnect());
-        conn.on('error', () => handleDisconnect());
+        connection.on('close', () => handleDisconnect(remoteId));
+        connection.on('error', () => handleDisconnect(remoteId));
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (text && conn && conn.open) {
-            conn.send(text);
+        if (text && activeConnections.size > 0) {
+            activeConnections.forEach(({ conn }) => {
+                if (conn && conn.open) {
+                    conn.send(text);
+                }
+            });
+
             const time = getTimeString();
             appendMessageToDOM(myName, text, time, 'sent');
             saveMessageToStorage(myName, text, time, 'sent');
             messageInput.value = '';
+            messageInput.focus();
+        } else if (activeConnections.size === 0) {
+            alert('Waiting for someone else to join the room...');
         }
     }
 
     function handleKeyPress(e) {
-        if (e.key === 'Enter') sendMessage();
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
     }
 
-    function handleDisconnect() {
-        if (!isConnected) return;
-        isConnected = false;
-        appendSystemMessage('Stranger disconnected.');
-        if (conn) { try { conn.close(); } catch(e){} conn = null; }
-        toggleInputs(false);
-        statusText.textContent = 'Disconnected. Waiting...';
+    function handleDisconnect(remoteId) {
+        const p = activeConnections.get(remoteId);
+        const name = p ? p.name : "Peer";
+        activeConnections.delete(remoteId);
+
+        appendSystemMessage(`${name} left.`);
+        statusText.textContent = activeConnections.size > 0 ? `Connected peers: ${activeConnections.size}` : 'Waiting for peers...';
     }
 
-    function toggleInputs(enabled) {
-        messageInput.disabled = !enabled;
-        sendBtn.disabled = !enabled;
-        if (enabled) messageInput.focus();
+    function newRoom() {
+        window.location.hash = 'room_' + Math.random().toString(36).substring(2, 8);
+        location.reload();
     }
 
     function appendMessageToDOM(sender, text, time, type) {

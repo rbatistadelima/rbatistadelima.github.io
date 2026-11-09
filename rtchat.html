@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anonymous WebRTC Chat</title>
-    <!-- ScaleDrone Signaling SDK -->
-    <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
+    <!-- PeerJS Library -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -39,6 +39,11 @@
             font-size: 14px;
             font-weight: 600;
             display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .status-row {
+            display: flex;
             justify-content: space-between;
             align-items: center;
         }
@@ -47,8 +52,19 @@
             background: rgba(255,255,255,0.2);
             padding: 4px 8px;
             border-radius: 4px;
-            margin-top: 4px;
-            display: inline-block;
+        }
+        #room-controls {
+            display: flex;
+            gap: 6px;
+            font-size: 12px;
+            align-items: center;
+        }
+        #room-input {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: none;
+            font-size: 12px;
+            width: 100px;
         }
         #messages {
             flex: 1;
@@ -123,24 +139,25 @@
             border-color: #4f46e5;
         }
         button {
-            padding: 10px 16px;
-            background-color: #4f46e5;
-            color: white;
+            padding: 6px 12px;
+            background-color: #ffffff;
+            color: #4f46e5;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 14px;
+            font-size: 12px;
         }
-        button:disabled {
+        button:hover {
+            background-color: #f3f4f6;
+        }
+        #send-btn {
+            background-color: #4f46e5;
+            color: white;
+        }
+        #send-btn:disabled {
             background-color: #9ca3af;
             cursor: not-allowed;
-        }
-        #next-btn {
-            background-color: #e0e7ff;
-            color: #4f46e5;
-            padding: 6px 10px;
-            font-size: 12px;
         }
     </style>
 </head>
@@ -148,11 +165,14 @@
 
 <div id="chat-container">
     <div id="status-bar">
-        <div>
-            <div id="status-text">Connecting...</div>
+        <div class="status-row">
+            <span id="status-text">Initializing...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
-        <button id="next-btn" onclick="findNextPartner()" disabled>Next Stranger</button>
+        <div class="status-row" id="room-controls">
+            <span>Room: <strong id="current-room-display">...</strong></span>
+            <button onclick="createCustomRoom()">New Room</button>
+        </div>
     </div>
     <div id="messages"></div>
     <div id="input-container">
@@ -162,9 +182,7 @@
 </div>
 
 <script>
-    const CHANNEL_ID = 'yiS12C5iAgNWIWgm';
-
-    // 1. Composite Name Generator
+    // 1. Composite Animal Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -179,26 +197,26 @@
     let strangerName = "Stranger";
     document.getElementById('identity-display').textContent = `You: ${myName}`;
 
-    let drone = null;
-    let room = null;
-    let pc = null;
-    let dataChannel = null;
+    let peer = null;
+    let conn = null;
     let isConnected = false;
-    let isConnecting = false;
 
     const statusText = document.getElementById('status-text');
     const messagesContainer = document.getElementById('messages');
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
-    const nextBtn = document.getElementById('next-btn');
+    const roomDisplay = document.getElementById('current-room-display');
 
     const rtcConfig = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
-        ]
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+        }
     };
 
+    // --- LocalStorage History Handling ---
     function loadChatHistory() {
         const saved = localStorage.getItem('webrtc_chat_history');
         if (saved) {
@@ -222,106 +240,77 @@
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    function initSignaling() {
-        if (isConnected || isConnecting) return;
-        isConnecting = true;
-        statusText.textContent = 'Connecting to signaling network...';
+    // --- Room / Peer Connection Setup ---
+    function getRoomFromHash() {
+        let hash = window.location.hash.substring(1);
+        if (!hash) {
+            hash = 'room_' + Math.random().toString(36).substring(2, 8);
+            window.location.hash = hash;
+        }
+        return hash;
+    }
 
-        drone = new ScaleDrone(CHANNEL_ID);
+    function initChat() {
+        const roomId = getRoomFromHash();
+        roomDisplay.textContent = roomId;
+        statusText.textContent = 'Connecting...';
 
-        drone.on('open', (error) => {
-            if (error) {
-                isConnecting = false;
-                setTimeout(initSignaling, 3000);
+        // Use PeerJS with a fixed room ID prefix so both users target the same node name
+        const myPeerId = `${roomId}_${Math.random().toString(36).substring(2, 6)}`;
+        peer = new Peer(myPeerId, rtcConfig);
+
+        peer.on('open', () => {
+            statusText.textContent = 'Ready. Looking for peer...';
+            // Try connecting to the partner in the same room slot
+            tryConnectingToPartner(roomId);
+        });
+
+        peer.on('connection', (incomingConn) => {
+            if (isConnected) {
+                incomingConn.close();
                 return;
             }
-
-            room = drone.subscribe('observable-stable-chat-room');
-
-            room.on('open', (error) => {
-                if (error) return;
-                statusText.textContent = 'Searching for partner...';
-                nextBtn.disabled = false;
-            });
-
-            room.on('members', (members) => {
-                if (isConnected || members.length < 2) {
-                    if (!isConnected) statusText.textContent = 'Waiting for stranger to join...';
-                    return;
-                }
-
-                // Sort members by ID and pick the first one as the persistent offerer
-                members.sort((a, b) => a.id.localeCompare(b.id));
-                const isOfferer = members[0].id === drone.clientId;
-
-                if (!pc) {
-                    startWebRTC(isOfferer);
-                }
-            });
+            setupConnection(incomingConn);
         });
 
-        drone.on('error', () => {
-            isConnecting = false;
-            setTimeout(initSignaling, 3000);
+        peer.on('error', (err) => {
+            console.error(err);
+            statusText.textContent = 'Waiting for peer...';
         });
     }
 
-    function startWebRTC(isOfferer) {
+    function tryConnectingToPartner(roomId) {
         if (isConnected) return;
-        statusText.textContent = 'Connecting to stranger...';
-        pc = new RTCPeerConnection(rtcConfig);
-
-        pc.onicecandidate = (event) => {
-            if (event.candidate && drone && drone.clientId) {
-                drone.publish({ room: 'observable-stable-chat-room', message: { candidate: event.candidate } });
-            }
-        };
-
-        if (isOfferer) {
-            dataChannel = pc.createDataChannel('chat');
-            setupDataChannel();
-            pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
-                drone.publish({ room: 'observable-stable-chat-room', message: { sdp: pc.localDescription } });
-            });
-        } else {
-            pc.ondatachannel = (event) => {
-                dataChannel = event.channel;
-                setupDataChannel();
-            };
-        }
-
-        room.on('data', async (message, member) => {
-            if (!member || member.id === drone.clientId || isConnected) return;
-
-            if (message.sdp) {
-                await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-                if (pc.remoteDescription.type === 'offer') {
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-                    drone.publish({ room: 'observable-stable-chat-room', message: { sdp: pc.localDescription } });
-                }
-            } else if (message.candidate) {
-                try {
-                    await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-                } catch(e) {}
+        // Search for other peers registered under this room prefix
+        peer.listAllPeers((peers) => {
+            if (isConnected) return;
+            const partnerId = peers.find(id => id.startsWith(roomId) && id !== peer.id);
+            if (partnerId) {
+                statusText.textContent = 'Connecting...';
+                const outbound = peer.connect(partnerId, { reliable: true });
+                setupConnection(outbound);
+            } else {
+                setTimeout(() => tryConnectingToPartner(roomId), 2000);
             }
         });
     }
 
-    function setupDataChannel() {
-        dataChannel.onopen = () => {
-            isConnected = true;
-            isConnecting = false;
-            statusText.textContent = 'Connected!';
-            appendSystemMessage('Connected to a stranger.');
-            toggleInputs(true);
-            dataChannel.send(JSON.stringify({ type: 'name', name: myName }));
-        };
+    function setupConnection(connection) {
+        if (isConnected) return;
+        isConnected = true;
+        conn = connection;
 
-        dataChannel.onmessage = (event) => {
+        statusText.textContent = 'Connected!';
+        appendSystemMessage('Connected to a stranger.');
+        toggleInputs(true);
+
+        conn.on('open', () => {
+            conn.send({ type: 'name', name: myName });
+        });
+
+        conn.on('data', (data) => {
             try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'name') {
+                if (typeof data === 'object' && data.type === 'name') {
                     strangerName = data.name;
                     appendSystemMessage(`You are chatting with: ${strangerName}`);
                     return;
@@ -329,18 +318,18 @@
             } catch(e) {}
 
             const time = getTimeString();
-            appendMessageToDOM(strangerName, event.data, time, 'received');
-            saveMessageToStorage(strangerName, event.data, time, 'received');
-        };
+            appendMessageToDOM(strangerName, data, time, 'received');
+            saveMessageToStorage(strangerName, data, time, 'received');
+        });
 
-        dataChannel.onclose = () => handleDisconnect();
-        dataChannel.onerror = () => handleDisconnect();
+        conn.on('close', () => handleDisconnect());
+        conn.on('error', () => handleDisconnect());
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (text && dataChannel && dataChannel.readyState === 'open') {
-            dataChannel.send(text);
+        if (text && conn && conn.open) {
+            conn.send(text);
             const time = getTimeString();
             appendMessageToDOM(myName, text, time, 'sent');
             saveMessageToStorage(myName, text, time, 'sent');
@@ -353,33 +342,24 @@
     }
 
     function handleDisconnect() {
-        if (!isConnected && !isConnecting) return;
+        if (!isConnected) return;
         isConnected = false;
-        isConnecting = false;
         appendSystemMessage('Stranger disconnected.');
-        cleanupConnection();
-        statusText.textContent = 'Searching for next partner...';
-        setTimeout(initSignaling, 2000);
-    }
-
-    function findNextPartner() {
-        cleanupConnection();
-        initSignaling();
-    }
-
-    function cleanupConnection() {
-        isConnected = false;
-        isConnecting = false;
-        if (dataChannel) { try { dataChannel.close(); } catch(e){} dataChannel = null; }
-        if (pc) { try { pc.close(); } catch(e){} pc = null; }
-        if (drone) { try { drone.close(); } catch(e){} drone = null; }
+        if (conn) { try { conn.close(); } catch(e){} conn = null; }
         toggleInputs(false);
+        statusText.textContent = 'Disconnected. Searching...';
+        setTimeout(() => tryConnectingToPartner(getRoomFromHash()), 2000);
+    }
+
+    function createCustomRoom() {
+        const newRoom = 'room_' + Math.random().toString(36).substring(2, 8);
+        window.location.hash = newRoom;
+        location.reload();
     }
 
     function toggleInputs(enabled) {
         messageInput.disabled = !enabled;
         sendBtn.disabled = !enabled;
-        nextBtn.disabled = false;
         if (enabled) messageInput.focus();
     }
 
@@ -409,7 +389,7 @@
 
     window.onload = () => {
         loadChatHistory();
-        initSignaling();
+        initChat();
     };
 </script>
 

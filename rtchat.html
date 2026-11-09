@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetplayJS Text Chat</title>
-    <!-- Load NetplayJS from unpkg CDN -->
-    <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
+    <title>Anonymous WebRTC Chat</title>
     <style>
         * {
             box-sizing: border-box;
@@ -132,10 +130,10 @@
 <div id="chat-container">
     <div id="status-bar">
         <div>
-            <div id="status-text">Connecting to NetplayJS...</div>
-            <div id="identity-display">You: Generating...</div>
+            <div id="status-text">Initializing...</div>
+            <div id="identity-display">You: Loading...</div>
         </div>
-        <button id="next-btn" onclick="nextStranger()" disabled>Next Stranger</button>
+        <button id="next-btn" onclick="findNextPartner()" disabled>Next Stranger</button>
     </div>
     <div id="messages"></div>
     <div id="input-container">
@@ -145,7 +143,7 @@
 </div>
 
 <script>
-    // 1. Composite Animal Name Generator
+    // 1. Unique Composite Animal Name Generation
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -158,6 +156,14 @@
 
     const myName = generateCompositeName();
     document.getElementById('identity-display').textContent = `You: ${myName}`;
+    const myId = 'user_' + Math.random().toString(36).substring(2, 9);
+
+    let ws = null;
+    let pc = null;
+    let dataChannel = null;
+    let targetPeerId = null;
+    let isConnected = false;
+    let searchTimeout = null;
 
     const statusText = document.getElementById('status-text');
     const messagesContainer = document.getElementById('messages');
@@ -165,72 +171,189 @@
     const sendBtn = document.getElementById('send-btn');
     const nextBtn = document.getElementById('next-btn');
 
-    let netplayConn = null;
+    const rtcConfig = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
+    };
 
-    // NetplayJS Matchmaking Connection Setup
-    function initNetplay() {
-        statusText.textContent = "Searching for peer...";
-        
-        // NetplayJS PeerConnection handles public WebRTC room matching and signaling automatically
-        netplayConn = new netplay.PeerConnection({
-            gameID: "auto-text-chat-room",
-            isHost: Math.random() > 0.5
-        });
+    function initSignaling() {
+        statusText.textContent = 'Connecting to network...';
+        ws = new WebSocket('wss://socketsbay.com/wss/v2/2/demo/');
 
-        netplayConn.on("open", () => {
-            statusText.textContent = "Connected!";
-            appendSystemMessage("Connected to a stranger via NetplayJS WebRTC.");
+        ws.onopen = () => {
+            startSearching();
+        };
+
+        ws.onmessage = async (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.sender === myId) return;
+
+                // Matchmaking handshake
+                if (msg.type === 'find-partner' && !isConnected && !targetPeerId) {
+                    if (myId > msg.sender) { // Master / Caller determination
+                        targetPeerId = msg.sender;
+                        if (searchTimeout) clearTimeout(searchTimeout);
+                        statusText.textContent = 'Connecting to stranger...';
+                        startCall();
+                    }
+                }
+
+                // WebRTC Signaling data exchange
+                if (msg.target === myId) {
+                    if (!pc) createPeerConnection();
+
+                    if (msg.type === 'offer') {
+                        if (searchTimeout) clearTimeout(searchTimeout);
+                        await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        ws.send(JSON.stringify({ type: 'answer', answer, target: msg.sender, sender: myId }));
+                    } else if (msg.type === 'answer') {
+                        await pc.setRemoteDescription(new RTCSessionDescription(msg.answer));
+                    } else if (msg.type === 'candidate' && msg.candidate) {
+                        try {
+                            await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+                        } catch (e) {
+                            console.error('ICE candidate error', e);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        ws.onerror = () => {
+            statusText.textContent = 'Signaling error. Reconnecting...';
+        };
+
+        ws.onclose = () => {
+            setTimeout(initSignaling, 3000);
+        };
+    }
+
+    function startSearching() {
+        if (isConnected) return;
+        cleanupConnection();
+        statusText.textContent = 'Searching for partner...';
+        nextBtn.disabled = false;
+
+        // Broadcast presence
+        broadcastPresence();
+
+        // Fallback: If no partner found in 4 seconds, become the host room waiting node
+        if (searchTimeout) clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            if (!isConnected) {
+                statusText.textContent = 'Waiting for stranger to join...';
+            }
+        }, 4000);
+    }
+
+    function broadcastPresence() {
+        if (ws && ws.readyState === WebSocket.OPEN && !isConnected) {
+            ws.send(JSON.stringify({ type: 'find-partner', sender: myId }));
+        }
+    }
+
+    // Ping search interval if unmatched
+    setInterval(() => {
+        if (!isConnected && !targetPeerId) broadcastPresence();
+    }, 2500);
+
+    function createPeerConnection() {
+        pc = new RTCPeerConnection(rtcConfig);
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate && targetPeerId) {
+                ws.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, target: targetPeerId, sender: myId }));
+            }
+        };
+
+        pc.ondatachannel = (event) => {
+            dataChannel = event.channel;
+            setupDataChannel();
+        };
+    }
+
+    async function startCall() {
+        createPeerConnection();
+        dataChannel = pc.createDataChannel('chat');
+        setupDataChannel();
+
+        try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            ws.send(JSON.stringify({ type: 'offer', offer, target: targetPeerId, sender: myId }));
+        } catch (err) {
+            console.error('Offer generation error', err);
+        }
+    }
+
+    function setupDataChannel() {
+        dataChannel.onopen = () => {
+            isConnected = true;
+            statusText.textContent = 'Connected!';
+            appendSystemMessage('Connected to a stranger.');
             toggleInputs(true);
             
-            // Transmit composite name to partner upon connection
-            netplayConn.send({ type: "name", name: myName });
-        });
+            // Send composite name immediately
+            dataChannel.send(JSON.stringify({ type: 'name', name: myName }));
+        };
 
-        netplayConn.on("data", (data) => {
-            if (typeof data === "object" && data.type === "name") {
-                appendSystemMessage(`Stranger's Name: ${data.name}`);
-            } else if (typeof data === "string") {
-                appendMessage(data, "received");
+        dataChannel.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'name') {
+                    appendSystemMessage(`You are chatting with: ${data.name}`);
+                }
+            } catch {
+                appendMessage(event.data, 'received');
             }
-        });
+        };
 
-        netplayConn.on("close", () => {
-            appendSystemMessage("Stranger has disconnected.");
-            statusText.textContent = "Disconnected.";
-            toggleInputs(false);
-            // Auto search for new partner after 2 seconds
-            setTimeout(nextStranger, 2000);
-        });
-
-        netplayConn.on("error", (err) => {
-            console.error("NetplayJS Error:", err);
-            statusText.textContent = "Connection error. Retrying...";
-            setTimeout(nextStranger, 3000);
-        });
+        dataChannel.onclose = () => {
+            handleDisconnect();
+        };
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (text && netplayConn) {
-            netplayConn.send(text);
-            appendMessage(text, "sent");
-            messageInput.value = "";
+        if (text && dataChannel && dataChannel.readyState === 'open') {
+            dataChannel.send(text);
+            appendMessage(text, 'sent');
+            messageInput.value = '';
         }
     }
 
-    function handleKeyPress(event) {
-        if (event.key === "Enter") {
-            sendMessage();
-        }
+    function handleKeyPress(e) {
+        if (e.key === 'Enter') sendMessage();
     }
 
-    function nextStranger() {
-        if (netplayConn) {
-            try { netplayConn.close(); } catch(e){}
-            netplayConn = null;
-        }
+    function handleDisconnect() {
+        if (!isConnected) return;
+        isConnected = false;
+        appendSystemMessage('Stranger disconnected.');
+        cleanupConnection();
+        statusText.textContent = 'Searching for next partner...';
+        setTimeout(startSearching, 1500);
+    }
+
+    function findNextPartner() {
+        cleanupConnection();
+        startSearching();
+    }
+
+    function cleanupConnection() {
+        isConnected = false;
+        targetPeerId = null;
+        if (searchTimeout) clearTimeout(searchTimeout);
+        if (dataChannel) { dataChannel.close(); dataChannel = null; }
+        if (pc) { pc.close(); pc = null; }
         toggleInputs(false);
-        initNetplay();
     }
 
     function toggleInputs(enabled) {
@@ -256,8 +379,7 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    // Initialize application when DOM and scripts are ready
-    window.onload = initNetplay;
+    window.onload = initSignaling;
 </script>
 
 </body>

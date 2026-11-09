@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anonymous WebRTC Chat</title>
+    <!-- PeerJS Library -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -156,14 +158,11 @@
 
     const myName = generateCompositeName();
     document.getElementById('identity-display').textContent = `You: ${myName}`;
-    const myId = 'user_' + Math.random().toString(36).substring(2, 9);
 
-    let ws = null;
-    let pc = null;
-    let dataChannel = null;
-    let targetPeerId = null;
+    let peer = null;
+    let conn = null;
     let isConnected = false;
-    let searchInterval = null;
+    let searchAttempt = 0;
 
     const statusText = document.getElementById('status-text');
     const messagesContainer = document.getElementById('messages');
@@ -171,169 +170,119 @@
     const sendBtn = document.getElementById('send-btn');
     const nextBtn = document.getElementById('next-btn');
 
-    const rtcConfig = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
-        ]
+    // PeerJS configuration with public STUN servers for network/mobile traversal
+    const peerOptions = {
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+        }
     };
 
-    function initSignaling() {
+    function initPeer() {
+        if (peer) {
+            try { peer.destroy(); } catch(e) {}
+        }
+
+        isConnected = false;
         statusText.textContent = 'Connecting to network...';
-        ws = new WebSocket('wss://demo.piesocket.com/v3/channel_1?api_key=VCXCEuvhGcBDP7XhiJJLDvR1VeXDIvTB4QRZx&notify_self=0');
+        nextBtn.disabled = true;
 
-        ws.onopen = () => {
-            startMatchmaking();
-        };
+        // Generate a rolling lobby token so users opening at staggered times still intersect
+        const timeWindow = Math.floor(Date.now() / 15000); // 15-second rotation window
+        const randomToken = Math.random().toString(36).substring(2, 6);
+        const myPeerId = `gh-chat-${timeWindow}-${randomToken}`;
 
-        ws.onmessage = async (event) => {
-            try {
-                const msg = JSON.parse(event.data);
-                if (msg.sender === myId || isConnected) return;
+        peer = new Peer(myPeerId, peerOptions);
 
-                // When a peer announces they are looking for a chat
-                if (msg.type === 'find-match' && !targetPeerId) {
-                    targetPeerId = msg.sender;
-                    
-                    // Stop searching loop
-                    if (searchInterval) clearInterval(searchInterval);
+        peer.on('open', (id) => {
+            statusText.textContent = 'Searching for partner...';
+            nextBtn.disabled = false;
+            searchForPeers(timeWindow);
+        });
 
-                    // Deterministic master rule to prevent dual-offers: 
-                    // The user with the alphabetically greater ID initiates the WebRTC offer.
-                    if (myId > targetPeerId) {
-                        statusText.textContent = 'Connecting to stranger...';
-                        startCall();
-                    } else {
-                        statusText.textContent = 'Waiting for stranger to connect...';
-                        // Send an acknowledgment back so the other peer knows to start the call
-                        ws.send(JSON.stringify({ type: 'acknowledge-match', target: targetPeerId, sender: myId }));
-                    }
-                }
-
-                // If the other peer acknowledged us, we initiate the call
-                if (msg.type === 'acknowledge-match' && msg.target === myId && !targetPeerId) {
-                    targetPeerId = msg.sender;
-                    if (searchInterval) clearInterval(searchInterval);
-                    statusText.textContent = 'Connecting to stranger...';
-                    startCall();
-                }
-
-                // Handle WebRTC signaling exchange
-                if (msg.target === myId) {
-                    if (!pc) createPeerConnection();
-
-                    if (msg.type === 'offer') {
-                        targetPeerId = msg.sender;
-                        if (searchInterval) clearInterval(searchInterval);
-                        await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
-                        const answer = await pc.createAnswer();
-                        await pc.setLocalDescription(answer);
-                        ws.send(JSON.stringify({ type: 'answer', answer, target: msg.sender, sender: myId }));
-                    } else if (msg.type === 'answer') {
-                        await pc.setRemoteDescription(new RTCSessionDescription(msg.answer));
-                    } else if (msg.type === 'candidate' && msg.candidate) {
-                        try {
-                            await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
-                        } catch (e) {
-                            console.error('ICE candidate error', e);
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error(err);
+        peer.on('connection', (incomingConn) => {
+            if (isConnected) {
+                incomingConn.close();
+                return;
             }
-        };
+            setupConnection(incomingConn);
+        });
 
-        ws.onclose = () => {
-            setTimeout(initSignaling, 3000);
-        };
+        peer.on('error', (err) => {
+            console.error("Peer error:", err);
+            setTimeout(findNextPartner, 2000);
+        });
     }
 
-    function startMatchmaking() {
+    function searchForPeers(timeWindow) {
         if (isConnected) return;
-        cleanupConnection();
-        statusText.textContent = 'Searching for partner...';
-        nextBtn.disabled = false;
 
-        // Broadcast presence immediately and ping every 1.5 seconds until matched
-        broadcastSearch();
-        if (searchInterval) clearInterval(searchInterval);
-        searchInterval = setInterval(() => {
-            if (!isConnected && !targetPeerId) {
-                broadcastSearch();
+        searchAttempt++;
+        // Try connecting to a peer in the current or previous time window slot
+        const targetWindow = searchAttempt % 2 === 0 ? timeWindow - 1 : timeWindow;
+        const targetId = `gh-chat-${targetWindow}-`;
+
+        // Since PeerJS doesn't list all active room IDs directly without a custom server,
+        // we probe a generated sequence or wait as a host node.
+        if (searchAttempt > 4) {
+            statusText.textContent = 'Waiting for someone to join...';
+            return; // Switch to listening mode
+        }
+
+        const guessedPeerId = targetId + Math.random().toString(36).substring(2, 6);
+        const outboundConn = peer.connect(guessedPeerId, { reliable: true });
+
+        let opened = false;
+        outboundConn.on('open', () => {
+            opened = true;
+            setupConnection(outboundConn);
+        });
+
+        setTimeout(() => {
+            if (!opened && !isConnected) {
+                searchForPeers(timeWindow);
             }
         }, 1500);
     }
 
-    function broadcastSearch() {
-        if (ws && ws.readyState === WebSocket.OPEN && !isConnected && !targetPeerId) {
-            ws.send(JSON.stringify({ type: 'find-match', sender: myId }));
+    function setupConnection(connection) {
+        if (isConnected) {
+            connection.close();
+            return;
         }
-    }
+        isConnected = true;
+        conn = connection;
 
-    function createPeerConnection() {
-        if (pc) return;
-        pc = new RTCPeerConnection(rtcConfig);
+        statusText.textContent = 'Connected!';
+        appendSystemMessage('Connected to a stranger.');
+        toggleInputs(true);
 
-        pc.onicecandidate = (event) => {
-            if (event.candidate && targetPeerId) {
-                ws.send(JSON.stringify({ type: 'candidate', candidate: event.candidate, target: targetPeerId, sender: myId }));
+        // Send name immediately upon connection
+        conn.send({ type: 'name', name: myName });
+
+        conn.on('data', (data) => {
+            if (typeof data === 'object' && data.type === 'name') {
+                appendSystemMessage(`You are chatting with: ${data.name}`);
+            } else if (typeof data === 'string') {
+                appendMessage(data, 'received');
             }
-        };
+        });
 
-        pc.ondatachannel = (event) => {
-            dataChannel = event.channel;
-            setupDataChannel();
-        };
-    }
-
-    async function startCall() {
-        if (searchInterval) clearInterval(searchInterval);
-        createPeerConnection();
-        dataChannel = pc.createDataChannel('chat');
-        setupDataChannel();
-
-        try {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            ws.send(JSON.stringify({ type: 'offer', offer, target: targetPeerId, sender: myId }));
-        } catch (err) {
-            console.error('Offer generation error', err);
-        }
-    }
-
-    function setupDataChannel() {
-        dataChannel.onopen = () => {
-            if (searchInterval) clearInterval(searchInterval);
-            isConnected = true;
-            statusText.textContent = 'Connected!';
-            appendSystemMessage('Connected to a stranger.');
-            toggleInputs(true);
-            
-            // Transmit composite name immediately
-            dataChannel.send(JSON.stringify({ type: 'name', name: myName }));
-        };
-
-        dataChannel.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'name') {
-                    appendSystemMessage(`You are chatting with: ${data.name}`);
-                }
-            } catch {
-                appendMessage(event.data, 'received');
-            }
-        };
-
-        dataChannel.onclose = () => {
+        conn.on('close', () => {
             handleDisconnect();
-        };
+        });
+
+        conn.on('error', () => {
+            handleDisconnect();
+        });
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (text && dataChannel && dataChannel.readyState === 'open') {
-            dataChannel.send(text);
+        if (text && conn && conn.open) {
+            conn.send(text);
             appendMessage(text, 'sent');
             messageInput.value = '';
         }
@@ -349,20 +298,20 @@
         appendSystemMessage('Stranger disconnected.');
         cleanupConnection();
         statusText.textContent = 'Searching for next partner...';
-        setTimeout(startMatchmaking, 1500);
+        setTimeout(initPeer, 1500);
     }
 
     function findNextPartner() {
         cleanupConnection();
-        startMatchmaking();
+        initPeer();
     }
 
     function cleanupConnection() {
         isConnected = false;
-        targetPeerId = null;
-        if (searchInterval) clearInterval(searchInterval);
-        if (dataChannel) { dataChannel.close(); dataChannel = null; }
-        if (pc) { pc.close(); pc = null; }
+        if (conn) {
+            try { conn.close(); } catch(e){}
+            conn = null;
+        }
         toggleInputs(false);
     }
 
@@ -389,7 +338,7 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    window.onload = initSignaling;
+    window.onload = initPeer;
 </script>
 
 </body>

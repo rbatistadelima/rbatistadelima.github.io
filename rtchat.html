@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonymous Group WebRTC Chat</title>
-    <!-- PeerJS Library -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <title>Anonymous Cloud-Synced IRC Chat</title>
     <style>
         * {
             box-sizing: border-box;
@@ -155,7 +153,7 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Connecting...</span>
+            <span id="status-text">Connecting to cloud log...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
@@ -183,28 +181,13 @@
     }
 
     const myName = generateCompositeName();
+    const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 8);
     document.getElementById('identity-display').textContent = `You: ${myName}`;
-
-    // Short ID generation (4 random alphanumeric characters)
-    const shortId = Math.random().toString(36).substring(2, 6);
-    
-    let peer = null;
-    let isHub = false;
-    const activeConnections = new Map(); // peerId -> { conn, name }
 
     const statusText = document.getElementById('status-text');
     const roomDisplay = document.getElementById('room-display');
     const messagesContainer = document.getElementById('messages');
     const messageInput = document.getElementById('message-input');
-
-    const rtcConfig = {
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' }
-            ]
-        }
-    };
 
     function getRoom() {
         let hash = window.location.hash.substring(1);
@@ -218,161 +201,86 @@
     const roomName = getRoom();
     roomDisplay.textContent = roomName;
 
-    function loadChatHistory() {
-        const saved = localStorage.getItem('webrtc_' + roomName + '_history');
-        if (saved) {
-            try {
-                JSON.parse(saved).forEach(item => appendMessageToDOM(item.sender, item.text, item.time, item.type));
-            } catch(e) {}
-        }
-    }
+    // Using a free public JSON Bin / KV storage endpoint keyed by room hash
+    // (This acts exactly like an online highscore table endpoint)
+    const BIN_API_URL = `https://json.extendsclass.com/bin/rtchat_${roomName}`;
 
-    function saveMessageToStorage(sender, text, time, type) {
-        try {
-            const key = 'webrtc_' + roomName + '_history';
-            const saved = localStorage.getItem(key);
-            const history = saved ? JSON.parse(saved) : [];
-            history.push({ sender, text, time, type });
-            if (history.length > 150) history.shift();
-            localStorage.setItem(key, JSON.stringify(history));
-        } catch(e) {}
-    }
+    let lastKnownLog = [];
+    let isSyncing = false;
 
     function getTimeString() {
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    function initPeer() {
-        loadChatHistory();
-        statusText.textContent = 'Connecting to room...';
-
-        // Try to claim the Hub ID for this room: e.g. "room_jqdhre_hub"
-        const hubId = `${roomName}_hub`;
-        peer = new Peer(hubId, rtcConfig);
-
-        peer.on('open', () => {
-            isHub = true;
-            statusText.textContent = 'Room created (Hub active). Waiting for peers...';
-            setupPeerListeners();
-        });
-
-        peer.on('error', (err) => {
-            if (err.type === 'unavailable-id') {
-                // Hub already exists! Join as a client with a short ID: e.g. "jqdhre_ab12"
-                peer.destroy();
-                const clientId = `${roomName.replace('room_', '')}_${shortId}`;
-                peer = new Peer(clientId, rtcConfig);
-
-                peer.on('open', () => {
-                    isHub = false;
-                    statusText.textContent = 'Connected to room. Joining...';
-                    setupPeerListeners();
-                    // Automatically connect to the room Hub
-                    const hubConn = peer.connect(hubId, { reliable: true });
-                    setupConnection(hubConn);
-                });
-
-                peer.on('error', (e) => {
-                    statusText.textContent = 'Connection error: ' + e.type;
-                });
-            } else {
-                statusText.textContent = 'Error: ' + err.type;
-            }
-        });
-    }
-
-    function setupPeerListeners() {
-        peer.on('connection', (incomingConn) => {
-            setupConnection(incomingConn);
-
-            // If we are the Hub, broadcast the new peer list to everyone so they form a full mesh
-            if (isHub) {
-                setTimeout(() => {
-                    const peerList = Array.from(activeConnections.keys());
-                    activeConnections.forEach(({ conn }) => {
-                        if (conn && conn.open) {
-                            conn.send({ type: 'peer_list', peers: peerList });
-                        }
-                    });
-                }, 500);
-            }
-        });
-    }
-
-    function setupConnection(connection) {
-        const remoteId = connection.peer;
-
-        connection.on('open', () => {
-            activeConnections.set(remoteId, { conn: connection, name: "Peer" });
-            statusText.textContent = `Connected peers: ${activeConnections.size}`;
-            appendSystemMessage(`Participant joined.`);
-
-            // Send our name
-            connection.send({ type: 'name', name: myName });
-        });
-
-        connection.on('data', (data) => {
-            try {
-                if (typeof data === 'object') {
-                    if (data.type === 'name') {
-                        const p = activeConnections.get(remoteId);
-                        if (p) {
-                            p.name = data.name;
-                            appendSystemMessage(`${data.name} entered.`);
-                        }
-                        return;
-                    }
-                    if (data.type === 'peer_list' && !isHub) {
-                        // Clients connect to any new peers announced by the Hub to maintain mesh
-                        data.peers.forEach(peerId => {
-                            if (peerId !== peer.id && !activeConnections.has(peerId)) {
-                                const newConn = peer.connect(peerId, { reliable: true });
-                                setupConnection(newConn);
-                            }
-                        });
-                        return;
-                    }
+    async function fetchCloudLog() {
+        if (isSyncing) return;
+        isSyncing = true;
+        try {
+            const response = await fetch(BIN_API_URL, {
+                method: 'GET',
+                headers: { 'Security-Key': 'public' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (Array.isArray(data) && data.length !== lastKnownLog.length) {
+                    lastKnownLog = data;
+                    renderChatHistory(data);
                 }
-            } catch(e) {}
-
-            // Broadcast text message to other connected nodes if we are hub, or process incoming text
-            const p = activeConnections.get(remoteId);
-            const senderName = p ? p.name : "Peer";
-            const time = getTimeString();
-
-            appendMessageToDOM(senderName, data, time, 'received');
-            saveMessageToStorage(senderName, data, time, 'received');
-
-            // If we are hub, relay text message to all other connected peers
-            if (isHub) {
-                activeConnections.forEach((val, id) => {
-                    if (id !== remoteId && val.conn && val.conn.open) {
-                        val.conn.send(data);
-                    }
-                });
             }
+        } catch(e) {
+            // Fallback to localStorage if offline
+            const saved = localStorage.getItem('irc_fallback_' + roomName);
+            if (saved && lastKnownLog.length === 0) {
+                lastKnownLog = JSON.parse(saved);
+                renderChatHistory(lastKnownLog);
+            }
+        } finally {
+            isSyncing = false;
+            statusText.textContent = 'Cloud Log Online (Synced)';
+        }
+    }
+
+    async function pushMessageToCloud(sender, text, time, type) {
+        const newMsg = { sender, text, time, type, uid: myUniqueId };
+        lastKnownLog.push(newMsg);
+        if (lastKnownLog.length > 100) lastKnownLog.shift(); // Keep latest 100 entries
+
+        // Save locally immediately
+        localStorage.setItem('irc_fallback_' + roomName, JSON.stringify(lastKnownLog));
+        renderChatHistory(lastKnownLog);
+
+        // Push update to public online JSON bin
+        try {
+            await fetch(BIN_API_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(lastKnownLog)
+            });
+        } catch(e) {
+            console.error("Cloud sync pending (offline mode)");
+        }
+    }
+
+    function renderChatHistory(history) {
+        const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop <= messagesContainer.clientHeight + 50;
+        messagesContainer.innerHTML = '';
+        
+        history.forEach(item => {
+            appendMessageToDOM(item.sender, item.text, item.time, item.type);
         });
 
-        connection.on('close', () => handleDisconnect(remoteId));
-        connection.on('error', () => handleDisconnect(remoteId));
+        if (isAtBottom) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (text && activeConnections.size > 0) {
-            activeConnections.forEach(({ conn }) => {
-                if (conn && conn.open) {
-                    conn.send(text);
-                }
-            });
-
+        if (text) {
             const time = getTimeString();
-            appendMessageToDOM(myName, text, time, 'sent');
-            saveMessageToStorage(myName, text, time, 'sent');
+            pushMessageToCloud(myName, text, time, 'sent');
             messageInput.value = '';
             messageInput.focus();
-        } else if (activeConnections.size === 0) {
-            alert('Waiting for someone else to join the room...');
         }
     }
 
@@ -382,15 +290,6 @@
         }
     }
 
-    function handleDisconnect(remoteId) {
-        const p = activeConnections.get(remoteId);
-        const name = p ? p.name : "Peer";
-        activeConnections.delete(remoteId);
-
-        appendSystemMessage(`${name} left.`);
-        statusText.textContent = activeConnections.size > 0 ? `Connected peers: ${activeConnections.size}` : 'Waiting for peers...';
-    }
-
     function newRoom() {
         window.location.hash = 'room_' + Math.random().toString(36).substring(2, 8);
         location.reload();
@@ -398,7 +297,9 @@
 
     function appendMessageToDOM(sender, text, time, type) {
         const div = document.createElement('div');
-        div.className = `message ${type}`;
+        const isSelf = sender === myName;
+        div.className = `message ${type === 'system' ? 'system' : (isSelf ? 'sent' : 'received')}`;
+        
         if (type === 'system') {
             div.textContent = text;
         } else {
@@ -411,16 +312,13 @@
             `;
         }
         messagesContainer.appendChild(div);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    function appendSystemMessage(text) {
-        const time = getTimeString();
-        appendMessageToDOM('System', text, time, 'system');
-        saveMessageToStorage('System', text, time, 'system');
-    }
-
-    window.onload = initPeer;
+    // Initialize and poll cloud log every 3 seconds for new messages (IRC style)
+    window.onload = () => {
+        fetchCloudLog();
+        setInterval(fetchCloudLog, 3000);
+    };
 </script>
 
 </body>

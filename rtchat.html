@@ -143,7 +143,7 @@
 </div>
 
 <script>
-    // 1. Unique Composite Animal Name Generation
+    // 1. Composite Animal Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -163,7 +163,7 @@
     let dataChannel = null;
     let targetPeerId = null;
     let isConnected = false;
-    let searchTimeout = null;
+    let searchInterval = null;
 
     const statusText = document.getElementById('status-text');
     const messagesContainer = document.getElementById('messages');
@@ -180,33 +180,51 @@
 
     function initSignaling() {
         statusText.textContent = 'Connecting to network...';
-        
-        // Using a reliable public WebSocket signaling endpoint
         ws = new WebSocket('wss://demo.piesocket.com/v3/channel_1?api_key=VCXCEuvhGcBDP7XhiJJLDvR1VeXDIvTB4QRZx&notify_self=0');
 
         ws.onopen = () => {
-            startSearching();
+            startMatchmaking();
         };
 
         ws.onmessage = async (event) => {
             try {
                 const msg = JSON.parse(event.data);
-                if (msg.sender === myId) return;
+                if (msg.sender === myId || isConnected) return;
 
-                if (msg.type === 'find-partner' && !isConnected && !targetPeerId) {
-                    if (myId > msg.sender) { 
-                        targetPeerId = msg.sender;
-                        if (searchTimeout) clearTimeout(searchTimeout);
+                // When a peer announces they are looking for a chat
+                if (msg.type === 'find-match' && !targetPeerId) {
+                    targetPeerId = msg.sender;
+                    
+                    // Stop searching loop
+                    if (searchInterval) clearInterval(searchInterval);
+
+                    // Deterministic master rule to prevent dual-offers: 
+                    // The user with the alphabetically greater ID initiates the WebRTC offer.
+                    if (myId > targetPeerId) {
                         statusText.textContent = 'Connecting to stranger...';
                         startCall();
+                    } else {
+                        statusText.textContent = 'Waiting for stranger to connect...';
+                        // Send an acknowledgment back so the other peer knows to start the call
+                        ws.send(JSON.stringify({ type: 'acknowledge-match', target: targetPeerId, sender: myId }));
                     }
                 }
 
+                // If the other peer acknowledged us, we initiate the call
+                if (msg.type === 'acknowledge-match' && msg.target === myId && !targetPeerId) {
+                    targetPeerId = msg.sender;
+                    if (searchInterval) clearInterval(searchInterval);
+                    statusText.textContent = 'Connecting to stranger...';
+                    startCall();
+                }
+
+                // Handle WebRTC signaling exchange
                 if (msg.target === myId) {
                     if (!pc) createPeerConnection();
 
                     if (msg.type === 'offer') {
-                        if (searchTimeout) clearTimeout(searchTimeout);
+                        targetPeerId = msg.sender;
+                        if (searchInterval) clearInterval(searchInterval);
                         await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
                         const answer = await pc.createAnswer();
                         await pc.setLocalDescription(answer);
@@ -226,42 +244,35 @@
             }
         };
 
-        ws.onerror = () => {
-            statusText.textContent = 'Signaling connection error. Retrying...';
-        };
-
         ws.onclose = () => {
             setTimeout(initSignaling, 3000);
         };
     }
 
-    function startSearching() {
+    function startMatchmaking() {
         if (isConnected) return;
         cleanupConnection();
         statusText.textContent = 'Searching for partner...';
         nextBtn.disabled = false;
 
-        broadcastPresence();
-
-        if (searchTimeout) clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-            if (!isConnected) {
-                statusText.textContent = 'Waiting for stranger to join...';
+        // Broadcast presence immediately and ping every 1.5 seconds until matched
+        broadcastSearch();
+        if (searchInterval) clearInterval(searchInterval);
+        searchInterval = setInterval(() => {
+            if (!isConnected && !targetPeerId) {
+                broadcastSearch();
             }
-        }, 4000);
+        }, 1500);
     }
 
-    function broadcastPresence() {
-        if (ws && ws.readyState === WebSocket.OPEN && !isConnected) {
-            ws.send(JSON.stringify({ type: 'find-partner', sender: myId }));
+    function broadcastSearch() {
+        if (ws && ws.readyState === WebSocket.OPEN && !isConnected && !targetPeerId) {
+            ws.send(JSON.stringify({ type: 'find-match', sender: myId }));
         }
     }
 
-    setInterval(() => {
-        if (!isConnected && !targetPeerId) broadcastPresence();
-    }, 2500);
-
     function createPeerConnection() {
+        if (pc) return;
         pc = new RTCPeerConnection(rtcConfig);
 
         pc.onicecandidate = (event) => {
@@ -277,6 +288,7 @@
     }
 
     async function startCall() {
+        if (searchInterval) clearInterval(searchInterval);
         createPeerConnection();
         dataChannel = pc.createDataChannel('chat');
         setupDataChannel();
@@ -292,11 +304,13 @@
 
     function setupDataChannel() {
         dataChannel.onopen = () => {
+            if (searchInterval) clearInterval(searchInterval);
             isConnected = true;
             statusText.textContent = 'Connected!';
             appendSystemMessage('Connected to a stranger.');
             toggleInputs(true);
             
+            // Transmit composite name immediately
             dataChannel.send(JSON.stringify({ type: 'name', name: myName }));
         };
 
@@ -335,18 +349,18 @@
         appendSystemMessage('Stranger disconnected.');
         cleanupConnection();
         statusText.textContent = 'Searching for next partner...';
-        setTimeout(startSearching, 1500);
+        setTimeout(startMatchmaking, 1500);
     }
 
     function findNextPartner() {
         cleanupConnection();
-        startSearching();
+        startMatchmaking();
     }
 
     function cleanupConnection() {
         isConnected = false;
         targetPeerId = null;
-        if (searchTimeout) clearTimeout(searchTimeout);
+        if (searchInterval) clearInterval(searchInterval);
         if (dataChannel) { dataChannel.close(); dataChannel = null; }
         if (pc) { pc.close(); pc = null; }
         toggleInputs(false);

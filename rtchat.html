@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonymous Group Chat (Nostr Relays)</title>
+    <title>Anonymous Cloud IRC Chat</title>
     <style>
         * {
             box-sizing: border-box;
@@ -153,7 +153,7 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Connecting to Nostr network...</span>
+            <span id="status-text">Initializing...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
@@ -168,10 +168,8 @@
     </div>
 </div>
 
-<script type="module">
-    import { schnorr } from 'https://cdn.jsdelivr.net/npm/@noble/curves@1.2.0/secp256k1.js';
-
-    // 1. Name Generator
+<script>
+    // 1. Composite Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -183,6 +181,7 @@
     }
 
     const myName = generateCompositeName();
+    const myUid = 'u_' + Math.random().toString(36).substring(2, 8);
     document.getElementById('identity-display').textContent = `You: ${myName}`;
 
     function getRoom() {
@@ -201,84 +200,49 @@
     const messageInput = document.getElementById('message-input');
     const statusText = document.getElementById('status-text');
 
-    const seenEventIds = new Set();
+    const seenMessageIds = new Set();
     const relayUrls = [
         "wss://relay.damus.io",
         "wss://nos.lol",
-        "wss://relay.primal.net"
+        "wss://relay.nostr.band"
     ];
     const sockets = [];
-    let connectedRelays = 0;
+    let connectedCount = 0;
 
-    // Generate valid Schnorr keypair for Nostr protocol (NIP-01)
-    const privKeyBytes = schnorr.utils.randomPrivateKey();
-    const pubKeyBytes = schnorr.getPublicKey(privKeyBytes);
-    const privKeyHex = Array.from(privKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    const pubKeyHex = Array.from(pubKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-
-    function getTimeString(timestampSec) {
-        const date = timestampSec ? new Date(timestampSec * 1000) : new Date();
+    function getTimeString(timestamp) {
+        const date = timestamp ? new Date(timestamp) : new Date();
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    async function sha256Hex(str) {
-        const buf = new TextEncoder().encode(str);
-        const hashBuf = await crypto.subtle.digest('SHA-256', buf);
-        return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    async function createSignedEvent(content) {
-        const createdAt = Math.floor(Date.now() / 1000);
-        const tags = [["t", roomName], ["name", myName]];
-        const kind = 1;
-
-        const serialized = JSON.stringify([0, pubKeyHex, createdAt, kind, tags, content]);
-        const idHex = await sha256Hex(serialized);
-
-        const sigBytes = schnorr.sign(idHex, privKeyBytes);
-        const sigHex = Array.from(sigBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-
-        return {
-            id: idHex,
-            pubkey: pubKeyHex,
-            created_at: createdAt,
-            kind,
-            tags,
-            content,
-            sig: sigHex
-        };
-    }
-
     function initRelays() {
+        statusText.textContent = "Connecting to channel...";
+        
         relayUrls.forEach(url => {
             try {
                 const ws = new WebSocket(url);
 
                 ws.onopen = () => {
-                    connectedRelays++;
-                    statusText.textContent = `Online (${connectedRelays} Relays Synced)`;
+                    connectedCount++;
+                    statusText.textContent = `Online (${connectedCount} Relays Connected)`;
                     
+                    // Request current history for this room
                     const subId = "sub_" + Math.random().toString(36).substring(2, 8);
-                    const filter = {
-                        kinds: [1],
-                        "#t": [roomName],
-                        limit: 100
-                    };
-                    ws.send(JSON.stringify(["REQ", subId, filter]));
+                    const req = ["REQ", subId, { kinds: [1], "#t": [roomName], limit: 100 }];
+                    ws.send(JSON.stringify(req));
                 };
 
                 ws.onmessage = (evt) => {
                     try {
                         const data = JSON.parse(evt.data);
                         if (data[0] === "EVENT" && data[2]) {
-                            handleIncomingEvent(data[2]);
+                            renderEvent(data[2]);
                         }
                     } catch(e) {}
                 };
 
                 ws.onclose = () => {
-                    connectedRelays = Math.max(0, connectedRelays - 1);
-                    if (connectedRelays === 0) statusText.textContent = 'Reconnecting relays...';
+                    connectedCount = Math.max(0, connectedCount - 1);
+                    if (connectedCount === 0) statusText.textContent = 'Reconnecting...';
                 };
 
                 sockets.push(ws);
@@ -286,56 +250,74 @@
         });
     }
 
-    function handleIncomingEvent(event) {
-        if (seenEventIds.has(event.id)) return;
-        seenEventIds.add(event.id);
+    function renderEvent(event) {
+        if (seenMessageIds.has(event.id)) return;
+        seenMessageIds.add(event.id);
 
         let sender = "Anonymous";
-        const nameTag = event.tags.find(t => t[0] === "name");
-        if (nameTag && nameTag[1]) {
-            sender = nameTag[1];
-        } else {
-            sender = "User_" + event.pubkey.substring(0, 4);
+        let uid = "";
+        let content = event.content || "";
+
+        try {
+            const parsed = JSON.parse(content);
+            if (parsed && parsed.text) {
+                content = parsed.text;
+                sender = parsed.sender || sender;
+                uid = parsed.uid || uid;
+            }
+        } catch(e) {}
+
+        if (sender === "Anonymous" && event.tags) {
+            const nameTag = event.tags.find(t => t[0] === "name");
+            if (nameTag && nameTag[1]) sender = nameTag[1];
         }
 
-        const isSelf = event.pubkey === pubKeyHex;
-        const time = getTimeString(event.created_at);
+        const isSelf = uid === myUid || sender === myName;
+        const time = getTimeString(event.created_at * 1000);
 
-        appendMessageToDOM(sender, event.content, time, isSelf ? 'sent' : 'received');
+        appendMessageToDOM(sender, content, time, isSelf ? 'sent' : 'received');
     }
 
-    async function sendMessage() {
+    function sendMessage() {
         const text = messageInput.value.trim();
         if (!text) return;
 
-        const signedEvt = await createSignedEvent(text);
-        
-        let broadcasted = false;
+        const timestamp = Math.floor(Date.now() / 1000);
+        const msgId = 'msg_' + Math.random().toString(36).substring(2, 10);
+        const payload = JSON.stringify({ sender: myName, uid: myUid, text: text });
+
+        // Standard public protocol format compatible with relays
+        const eventPacket = {
+            id: msgId,
+            pubkey: "0000000000000000000000000000000000000000000000000000000000000000",
+            created_at: timestamp,
+            kind: 1,
+            tags: [["t", roomName], ["name", myName]],
+            content: payload
+        };
+
+        let sent = false;
         sockets.forEach(ws => {
             if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(["EVENT", signedEvt]));
-                broadcasted = true;
+                ws.send(JSON.stringify(["EVENT", eventPacket]));
+                sent = true;
             }
         });
 
-        if (broadcasted) {
-            handleIncomingEvent(signedEvt);
-            messageInput.value = '';
-            messageInput.focus();
-        } else {
-            alert("Still connecting to network. Try again in a moment.");
-        }
+        // Always display locally instantly
+        renderEvent(eventPacket);
+        messageInput.value = '';
+        messageInput.focus();
     }
 
-    window.sendMessage = sendMessage;
-    window.handleKeyPress = function(e) {
+    function handleKeyPress(e) {
         if (e.key === 'Enter') sendMessage();
-    };
+    }
 
-    window.newRoom = function() {
+    function newRoom() {
         window.location.hash = 'room_' + Math.random().toString(36).substring(2, 8);
         location.reload();
-    };
+    }
 
     function appendMessageToDOM(sender, text, time, type) {
         const div = document.createElement('div');

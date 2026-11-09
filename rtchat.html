@@ -187,7 +187,6 @@
             background-color: #4f46e5;
             color: white;
         }
-        /* Mobile responsive collapse for sidebars */
         @media (max-width: 768px) {
             .sidebar { display: none; }
         }
@@ -238,7 +237,6 @@
 </div>
 
 <script>
-    // Composite Animal Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -256,7 +254,7 @@
 
     let peer = null;
     let isHub = false;
-    const activeConnections = new Map(); // remotePeerId -> { conn, name, lastSeen }
+    const activeConnections = new Map(); 
     const processedMessageIds = new Set();
     let reconnectTimer = null;
 
@@ -316,7 +314,6 @@
 
     function updateClientListUI() {
         clientListEl.innerHTML = `<li id="self-client-item"><span class="status-dot"></span> <span>${myName} (You)</span></li>`;
-        
         activeConnections.forEach(({ name }) => {
             const li = document.createElement('li');
             li.innerHTML = `<span class="status-dot"></span> <span>${name || 'Peer'}</span>`;
@@ -328,7 +325,9 @@
         loadChatHistory();
         statusText.textContent = 'Connecting to room...';
 
-        const hubId = `${roomName}_hub`;
+        // Add a random session seed to the primary Hub ID attempt to bypass locked signaling sockets in Incognito
+        const epochSeed = Math.floor(Date.now() / 15000); // 15-sec window sync
+        const hubId = `${roomName}_hub_${epochSeed}`;
 
         if (peer) {
             try { peer.destroy(); } catch(e) {}
@@ -341,7 +340,7 @@
                 try { peer.destroy(); } catch(e) {}
                 connectAsClient(hubId);
             }
-        }, 3000);
+        }, 2000);
 
         peer.on('open', () => {
             clearTimeout(initTimeout);
@@ -352,35 +351,34 @@
 
         peer.on('error', (err) => {
             clearTimeout(initTimeout);
-            if (err.type === 'unavailable-id' || err.type === 'invalid-id' || err.type === 'server-error') {
-                peer.destroy();
-                connectAsClient(hubId);
-            } else {
-                statusText.textContent = 'Connection error. Retrying...';
-                scheduleReconnect();
-            }
+            peer.destroy();
+            connectAsClient(hubId);
         });
     }
 
-    function connectAsClient(hubId) {
+    function connectAsClient(targetHubId) {
         if (peer) {
             try { peer.destroy(); } catch(e) {}
         }
 
-        const randomSuffix = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 6);
-        const clientId = `${roomName.replace('room_', '')}_${randomSuffix}`;
-        
-        peer = new Peer(clientId, rtcConfig);
+        const freshRandomId = `${roomName.replace('room_', '')}_${Math.random().toString(36).substring(2, 10)}`;
+        peer = new Peer(freshRandomId, rtcConfig);
 
         peer.on('open', () => {
             isHub = false;
             statusText.textContent = 'Connected to room.';
             setupPeerListeners();
-            const hubConn = peer.connect(hubId, { reliable: true });
+            
+            // Connect to primary target Hub
+            const hubConn = peer.connect(targetHubId, { reliable: true });
             setupConnection(hubConn);
+
+            // Backup attempt to connect to standard un-versioned Hub ID
+            const altHubConn = peer.connect(`${roomName}_hub`, { reliable: true });
+            setupConnection(altHubConn);
         });
 
-        peer.on('error', (e) => {
+        peer.on('error', () => {
             statusText.textContent = 'Retrying connection...';
             scheduleReconnect();
         });
@@ -391,18 +389,16 @@
         reconnectTimer = setTimeout(() => {
             reconnectTimer = null;
             initPeer();
-        }, 2500);
+        }, 2000);
     }
 
     function setupPeerListeners() {
         peer.on('connection', (incomingConn) => {
             setupConnection(incomingConn);
 
-            if (isHub) {
-                setTimeout(() => {
-                    broadcastPeerList();
-                }, 500);
-            }
+            setTimeout(() => {
+                broadcastPeerList();
+            }, 300);
         });
     }
 
@@ -428,7 +424,6 @@
         connection.on('data', (data) => {
             try {
                 if (typeof data === 'object' && data !== null) {
-                    // Update heartbeat timestamp on any incoming packet
                     const p = activeConnections.get(remoteId);
                     if (p) p.lastSeen = Date.now();
 
@@ -444,7 +439,7 @@
                         connection.send({ type: 'pong' });
                         return;
                     }
-                    if (data.type === 'peer_list' && !isHub) {
+                    if (data.type === 'peer_list') {
                         data.peers.forEach(peerId => {
                             if (peerId !== peer.id && !activeConnections.has(peerId)) {
                                 const newConn = peer.connect(peerId, { reliable: true });
@@ -462,13 +457,12 @@
                         appendMessageToDOM(data.sender, data.text, time, 'received');
                         saveMessageToStorage(data.msgId, data.sender, data.text, time, 'received');
 
-                        if (isHub) {
-                            activeConnections.forEach((val, id) => {
-                                if (id !== remoteId && val.conn && val.conn.open) {
-                                    val.conn.send(data);
-                                }
-                            });
-                        }
+                        // Relay to all mesh nodes
+                        activeConnections.forEach((val, id) => {
+                            if (id !== remoteId && val.conn && val.conn.open) {
+                                val.conn.send(data);
+                            }
+                        });
                         return;
                     }
                 }
@@ -521,12 +515,12 @@
         updateClientListUI();
     }
 
-    // Active heartbeat monitor: prunes dead sockets and re-pings every 4 seconds
+    // Fast 2.5s heartbeat monitor to immediately purge dropped Incognito connections
     setInterval(() => {
         const now = Date.now();
         let changed = false;
         activeConnections.forEach(({ conn, lastSeen }, remoteId) => {
-            if (now - lastSeen > 10000) { // 10 seconds silence = dead connection
+            if (now - lastSeen > 6000) { // 6 sec timeout
                 try { conn.close(); } catch(e) {}
                 activeConnections.delete(remoteId);
                 changed = true;
@@ -537,9 +531,9 @@
         if (changed) {
             statusText.textContent = activeConnections.size > 0 ? `Connected peers: ${activeConnections.size}` : 'Waiting for peers...';
             updateClientListUI();
-            if (isHub) broadcastPeerList();
+            broadcastPeerList();
         }
-    }, 4000);
+    }, 2500);
 
     function newRoom() {
         window.location.hash = 'room_' + Math.random().toString(36).substring(2, 8);

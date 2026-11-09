@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f14">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Lock Screen Input Lab</title>
+<title>Lock Screen Input Lab v2</title>
 <style>
   :root{
-    --bg:#0b0f14; --panel:#111823; --panel2:#0f1620; --line:#1e2937;
-    --text:#e6edf3; --dim:#8b98a9;
-    --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
+    --bg:#0b0f14;--panel:#111823;--panel2:#0f1620;--line:#1e2937;
+    --text:#e6edf3;--dim:#8b98a9;
+    --ok:#34d399;--warn:#fbbf24;--bad:#f87171;--na:#64748b;--accent:#38bdf8;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   body{margin:0;background:var(--bg);color:var(--text);padding:16px 14px 80px;
@@ -22,80 +22,138 @@
   .sub{color:var(--dim);font-size:12.5px;margin:0 0 16px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
   .row{display:flex;gap:8px;flex-wrap:wrap}
-  button{flex:1 1 auto;min-width:110px;padding:12px 14px;border-radius:11px;cursor:pointer;
+  button{flex:1 1 auto;min-width:100px;padding:11px 13px;border-radius:11px;cursor:pointer;
     border:1px solid var(--line);background:#182231;color:var(--text);
     font:600 14px/1 inherit;transition:.15s;touch-action:manipulation}
   button:active{transform:scale(.975)}
   button.primary{background:linear-gradient(180deg,#0ea5e9,#0284c7);border-color:#0ea5e9;color:#04121c}
   button.danger{background:#2a1518;border-color:#4a2226;color:#fca5a5}
   button:disabled{opacity:.42;cursor:not-allowed}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+  button.mode-btn{flex:0 0 auto;min-width:0;padding:8px 12px;font-size:12.5px}
+  button.mode-btn.active{background:linear-gradient(180deg,#0ea5e9,#0284c7);border-color:#0ea5e9;color:#04121c}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+    font-size:11.5px;font-weight:700;letter-spacing:.04em;
+    background:#182231;border:1px solid var(--line);color:var(--dim)}
+  .pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .pill.visible{color:var(--ok);border-color:#14503c;background:#0d1f19}
+  .pill.hidden{color:var(--warn);border-color:#4a3a11;background:#1d1808}
+  .pill.mode{color:var(--accent);border-color:#0e4b66;background:#082030}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
   .stat{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px 12px}
   .stat .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:600}
   .stat .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.4px;margin-top:3px}
+  .stat .v small{font-size:11px;font-weight:500;color:var(--dim)}
+  .stat .sub{font-size:10.5px;color:var(--dim);margin-top:2px;font-variant-numeric:tabular-nums}
+  table.res{width:100%;border-collapse:collapse;font-size:12px}
+  table.res th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;
+    color:var(--dim);padding:8px 6px;border-bottom:1px solid var(--line);font-weight:600}
+  table.res td{padding:8px 6px;border-bottom:1px solid #16202c;vertical-align:top}
+  table.res tr:last-child td{border-bottom:none}
+  .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;
+    font-weight:800;letter-spacing:.05em;margin-bottom:3px}
+  .badge.ok{background:#0d2a20;color:var(--ok);border:1px solid #14503c}
+  .badge.warn{background:#231c08;color:var(--warn);border:1px solid #4a3a11}
+  .badge.bad{background:#2a1214;color:var(--bad);border:1px solid #4a2226}
+  .badge.na{background:#161d27;color:var(--na);border:1px solid #253244}
   .muted{color:var(--dim);font-size:11.5px}
   #log{background:#070b10;border:1px solid var(--line);border-radius:11px;padding:10px;
-    height:220px;overflow-y:auto;font:11.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
+    height:260px;overflow-y:auto;font:11.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
     -webkit-overflow-scrolling:touch}
   .log-line{white-space:pre-wrap;word-break:break-word;color:#9fb0c3}
   .log-ts{color:#4a5a6e;margin-right:6px}
   .log-line.ok{color:#6ee7b7}
   .log-line.warn{color:#fcd34d}
   .log-line.bad{color:#fca5a5}
+  .log-line.hdr{color:#7dd3fc;font-weight:700}
   code{background:#182231;padding:1px 5px;border-radius:4px;font-size:12px;color:#7dd3fc}
+  .period{padding:10px 12px;border:1px solid var(--line);border-radius:11px;margin-bottom:8px;background:var(--panel2)}
+  .period .top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+  .period .mode-tag{font-size:10.5px;font-weight:800;letter-spacing:.06em;
+    padding:2px 8px;border-radius:6px;background:#082030;color:#7dd3fc;border:1px solid #0e4b66}
+  .period .inputs{margin:0;padding-left:0;list-style:none;font-size:11.5px;
+    font-family:ui-monospace,monospace;color:#9fb0c3}
+  .period .inputs li{padding:1px 0}
+  .period .inputs .t{color:#4a5a6e;display:inline-block;min-width:52px}
+  .period .inputs .src{color:#7dd3fc}
+  .mode-hint{background:#082030;border:1px solid #0e4b66;color:#7dd3fc;
+    border-radius:9px;padding:9px 12px;font-size:12px;margin-top:10px;line-height:1.5}
 </style>
 </head>
 <body>
 
-<h1>Lock Screen Input Lab</h1>
-<p class="sub">
-  Uses the <b>Media Session API</b> + a looping near-silent <code>&lt;audio&gt;</code> element.
-  iOS/Android show ⏮ ⏯ ⏭ media controls on the lock screen; taps fire JS handlers <b>while the page is hidden</b>.
-</p>
+<h1>Lock Screen Input Lab v2</h1>
+<p class="sub">Provenance-tracking version. Every input is stamped with its source, visibility state, and time inside the hidden period.</p>
 
 <div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span class="pill" id="pillVis"><span class="dot"></span><span id="pillVisText">visible</span></span>
+      <span class="pill mode" id="pillMode">mode: none</span>
+    </div>
+    <span class="muted" id="sinceStart">not running</span>
+  </div>
+
   <div class="row">
     <button class="primary" id="btnStart">▶ Start</button>
     <button id="btnStop" disabled>■ Stop</button>
     <button class="danger" id="btnReset">Reset</button>
   </div>
-  <div class="muted" style="margin-top:10px">
-    Tap Start → lock the screen → use the lock-screen buttons:
-    <b>⏮ rewind</b> · <b>⏯ pause</b> · <b>⏭ advance</b>. Unlock to see the score and counters.
+
+  <div class="muted" style="margin-top:16px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600">
+    Label the next test
+  </div>
+  <div class="row" style="margin-top:6px;gap:6px">
+    <button class="mode-btn" data-mode="lock">🔒 Lock button</button>
+    <button class="mode-btn" data-mode="home">🏠 Home screen</button>
+    <button class="mode-btn" data-mode="other-app">📱 Other app</button>
+    <button class="mode-btn" data-mode="tab-switch">🗂️ Tab switch</button>
+    <button class="mode-btn active" data-mode="none">❓ Unlabeled</button>
+  </div>
+  <div class="mode-hint" id="modeHint">
+    Current mode: <b>unlabeled</b>. Pick a label before you hide — the next hidden period will be recorded under it.
   </div>
 </div>
 
 <div class="grid" style="margin-bottom:12px">
   <div class="stat"><div class="k">Score</div><div class="v" id="statScore">0</div></div>
-  <div class="stat"><div class="k">State</div><div class="v" id="statPaused" style="font-size:16px">—</div></div>
-  <div class="stat"><div class="k">Running</div><div class="v" id="statRunning" style="font-size:16px">no</div></div>
-  <div class="stat"><div class="k">Media Session</div><div class="v" id="statMS" style="font-size:14px">—</div></div>
-  <div class="stat"><div class="k">Audio</div><div class="v" id="statAudio" style="font-size:14px">—</div></div>
-  <div class="stat"><div class="k">Visibility</div><div class="v" id="statVis" style="font-size:14px">—</div></div>
+  <div class="stat"><div class="k">Game state</div><div class="v" id="statPaused" style="font-size:15px">idle</div></div>
+  <div class="stat"><div class="k">Audio</div><div class="v" id="statAudio" style="font-size:13px">—</div></div>
+  <div class="stat"><div class="k">Media session</div><div class="v" id="statMS" style="font-size:13px">—</div></div>
+  <div class="stat"><div class="k">Volume changes</div><div class="v" id="statVol">0</div></div>
+  <div class="stat"><div class="k">Hidden periods</div><div class="v" id="statPeriods">0</div></div>
 </div>
 
-<h2>Inputs received from lock screen</h2>
-<div class="grid" style="margin-bottom:12px">
-  <div class="stat"><div class="k">⏭ Advance</div><div class="v" id="cntAdv">0</div></div>
-  <div class="stat"><div class="k">⏮ Rewind</div><div class="v" id="cntRew">0</div></div>
-  <div class="stat"><div class="k">⏯ Pause</div><div class="v" id="cntPause">0</div></div>
-</div>
+<h2>Per-source totals</h2>
+<div class="card" id="perSource"><p class="muted">No inputs recorded yet.</p></div>
 
-<h2>On-screen test buttons (foreground)</h2>
+<h2>On-screen test buttons (foreground only — verify logic before locking)</h2>
 <div class="card">
   <div class="row">
     <button data-input="rewind">⏮ Rewind</button>
     <button data-input="pause">⏯ Pause</button>
     <button data-input="advance">⏭ Advance</button>
   </div>
-  <div class="muted" style="margin-top:8px">Verify the game logic works before locking the screen.</div>
+</div>
+
+<h2>Hidden period history</h2>
+<div class="card" id="periods"><p class="muted">No hidden periods recorded. Start the test, pick a mode, then lock the screen (or press home) and use the media controls.</p></div>
+
+<h2>Volume button test</h2>
+<div class="card">
+  <p class="muted" style="margin:0 0 10px">Attempts to detect hardware volume changes while audio plays. On iOS Safari the hardware volume is not exposed to web pages — this panel will report what (if anything) the browser surfaces.</p>
+  <div class="grid">
+    <div class="stat"><div class="k">volumechange events</div><div class="v" id="volChanges">0</div></div>
+    <div class="stat"><div class="k">audioEl.volume</div><div class="v" id="volValue" style="font-size:15px">—</div></div>
+    <div class="stat"><div class="k">audioSession API</div><div class="v" id="volSession" style="font-size:13px">—</div></div>
+    <div class="stat"><div class="k">Volume conclusion</div><div class="v" id="volVerdict" style="font-size:13px">—</div></div>
+  </div>
 </div>
 
 <h2>Event log</h2>
 <div id="log"></div>
 
 <div class="row" style="margin-top:12px">
-  <button id="btnCopy">Copy report</button>
+  <button id="btnCopy">Copy full report</button>
 </div>
 
 <script>
@@ -107,12 +165,24 @@
     running: false,
     paused: false,
     score: 0,
-    counts: { advance: 0, rewind: 0, pause: 0 },
+    currentMode: 'none',
+    hiddenAt: 0,
+    periods: [],
+    currentInputs: [],
+    currentAudioEvents: [],
+    allInputs: [],
+    allAudioEvents: [],
     audioEl: null,
     keepAliveTimer: null,
     clockTimer: null,
     lastClock: 0,
+    lastPauseToggle: 0,
+    volChanges: 0,
+    audioSession: null,
+    startTime: 0,
   };
+
+  /* ---------- logging ---------- */
 
   function log(msg, cls) {
     const d = new Date();
@@ -126,7 +196,64 @@
     box.scrollTop = box.scrollHeight;
   }
 
-  // ---- near-silent WAV (80 Hz, amplitude 100 ≈ -50 dBFS) ----
+  /* ---------- event recording with provenance ---------- */
+
+  function recordInput(action, source) {
+    const now = Date.now();
+    const rec = {
+      t: now, action, source,
+      vis: document.visibilityState,
+      hiddenElapsed: S.hiddenAt ? now - S.hiddenAt : null,
+    };
+    S.allInputs.push(rec);
+    if (S.hiddenAt) S.currentInputs.push(rec);
+    const pos = rec.hiddenElapsed != null ? ' @ +' + (rec.hiddenElapsed/1000).toFixed(1) + 's' : '';
+    log(`[${source}] ${action}${pos}`, 'ok');
+  }
+
+  function recordAudioEvent(type, extra) {
+    const now = Date.now();
+    const rec = {
+      t: now, type, extra: extra || null,
+      vis: document.visibilityState,
+      hiddenElapsed: S.hiddenAt ? now - S.hiddenAt : null,
+    };
+    S.allAudioEvents.push(rec);
+    if (S.hiddenAt) S.currentAudioEvents.push(rec);
+    const pos = rec.hiddenElapsed != null ? ' @ +' + (rec.hiddenElapsed/1000).toFixed(1) + 's' : '';
+    log(`audio:${type}${extra ? ' (' + extra + ')' : ''}${pos}`, type === 'play' ? 'ok' : 'warn');
+  }
+
+  /* ---------- game logic ---------- */
+
+  function handleInput(kind, source) {
+    if (kind === 'pause' || kind === 'play') {
+      const now = Date.now();
+      if (now - S.lastPauseToggle < 300) {
+        log(`[${source}] ⏯ suppressed (debounce, ${now - S.lastPauseToggle}ms)`, 'warn');
+        recordInput(kind + '_debounced', source);
+        return;
+      }
+      S.lastPauseToggle = now;
+      S.paused = !S.paused;
+      recordInput(kind, source);
+      log(`game state → ${S.paused ? 'PAUSED' : 'RUNNING'}`, S.paused ? 'warn' : 'ok');
+      if (S.audioEl && S.audioEl.paused) {
+        S.audioEl.play().then(() => log('audio auto-resumed inside handler', 'ok')).catch(()=>{});
+      }
+      try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
+    } else if (kind === 'advance') {
+      S.score += 10;
+      recordInput('advance', source);
+    } else if (kind === 'rewind') {
+      S.score = Math.max(0, S.score - 10);
+      recordInput('rewind', source);
+    }
+    updateUI();
+  }
+
+  /* ---------- audio ---------- */
+
   function makeWav({ seconds=2, rate=8000, freq=80, amp=100 } = {}) {
     const n = Math.floor(seconds * rate);
     const buf = new ArrayBuffer(44 + n * 2);
@@ -158,40 +285,18 @@
     return c.toDataURL('image/png');
   }
 
-  // ---- Input handling ----
-  function handleInput(kind, source) {
-    if (kind === 'pause' || kind === 'play') {
-      S.paused = !S.paused;
-      S.counts.pause++;
-      log(`[${source}] ⏯ toggle → <b>${S.paused ? 'PAUSED' : 'RUNNING'}</b>`,
-          S.paused ? 'warn' : 'ok');
-      // If the OS paused the audio despite our handler, resume it inside the
-      // same user-gesture context so the media session stays alive.
-      if (S.audioEl && S.audioEl.paused) S.audioEl.play().catch(()=>{});
-      try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
-    } else if (kind === 'advance') {
-      S.counts.advance++;
-      S.score += 10;
-      log(`[${source}] ⏭ ADVANCE → score +10`, 'ok');
-    } else if (kind === 'rewind') {
-      S.counts.rewind++;
-      S.score = Math.max(0, S.score - 10);
-      log(`[${source}] ⏮ REWIND → score −10`, 'ok');
-    }
-    updateUI();
-  }
+  /* ---------- media session ---------- */
 
-  // ---- Media Session ----
   function setupMediaSession() {
     if (!('mediaSession' in navigator)) {
-      log('Media Session API not available in this browser', 'bad');
+      log('Media Session API not available', 'bad');
       return false;
     }
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: 'BG Input Lab',
         artist: 'Lock Screen Controls',
-        album: 'Background Test',
+        album: 'v2',
         artwork: [{ src: makeArtwork(), sizes: '512x512', type: 'image/png' }],
       });
     } catch (e) { log('metadata failed: ' + (e.message || e.name), 'warn'); }
@@ -209,23 +314,183 @@
       try { navigator.mediaSession.setActionHandler(a, fn); ok++; }
       catch (e) { fail++; }
     }
-    log(`Media Session handlers: ${ok} registered${fail ? `, ${fail} unsupported` : ''}`,
-        fail ? 'warn' : 'ok');
+    log(`Media Session handlers: ${ok} registered${fail ? `, ${fail} unsupported` : ''}`, fail ? 'warn' : 'ok');
     try { navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
     return true;
   }
 
-  // ---- Start / stop / reset ----
+  /* ---------- volume attempt ---------- */
+
+  function setupVolumeTest() {
+    // 1. volumechange on the audio element
+    if (S.audioEl) {
+      S.audioEl.addEventListener('volumechange', () => {
+        S.volChanges++;
+        const v = S.audioEl.volume;
+        log('VOLUME CHANGE detected! audioEl.volume=' + v, 'ok');
+        recordInput('volume_change(' + v + ')', 'audio_volumechange');
+        updateUI();
+      });
+      log('Listening for volumechange; audioEl.volume=' + S.audioEl.volume +
+          ' (iOS Safari usually pins this at 1.0)', 'warn');
+    }
+
+    // 2. navigator.audioSession (new API)
+    if ('audioSession' in navigator) {
+      S.audioSession = navigator.audioSession;
+      try {
+        S.audioSession.type = 'playback';
+        log('audioSession.type = playback (helps background audio)', 'ok');
+        if (S.audioSession.addEventListener) {
+          S.audioSession.addEventListener('statechange', () => {
+            log('audioSession state → ' + S.audioSession.type, 'warn');
+            recordAudioEvent('audioSession_state', S.audioSession.type);
+          });
+        }
+      } catch (e) { log('audioSession setup failed: ' + (e.message || e.name), 'warn'); }
+    } else {
+      log('navigator.audioSession not available', 'warn');
+    }
+  }
+
+  /* ---------- visibility ---------- */
+
+  document.addEventListener('visibilitychange', () => {
+    const now = Date.now();
+    updateUI();
+
+    if (document.visibilityState === 'hidden') {
+      S.hiddenAt = now;
+      S.currentInputs = [];
+      S.currentAudioEvents = [];
+      log(`→ HIDDEN (mode="${S.currentMode}")`, 'warn');
+      return;
+    }
+
+    log('← VISIBLE', 'ok');
+    if (!S.hiddenAt) return;
+
+    const period = {
+      mode: S.currentMode,
+      tStart: S.hiddenAt,
+      tEnd: now,
+      duration: now - S.hiddenAt,
+      inputs: S.currentInputs.slice(),
+      audioEvents: S.currentAudioEvents.slice(),
+      audioOnReturn: S.audioEl ? !S.audioEl.paused : null,
+      visibilityOnReturn: document.visibilityState,
+    };
+    S.periods.push(period);
+    S.hiddenAt = 0;
+    S.currentInputs = [];
+    S.currentAudioEvents = [];
+
+    log(`Period ${S.periods.length} recorded: ${period.mode}, ${(period.duration/1000).toFixed(1)}s, ${period.inputs.length} inputs`, 'ok');
+    renderPeriods();
+    renderPerSource();
+    updateUI();
+  });
+
+  /* ---------- UI updates ---------- */
+
+  function updateUI() {
+    const vis = document.visibilityState;
+    $('#pillVis').className = 'pill ' + (vis === 'hidden' ? 'hidden' : 'visible');
+    $('#pillVisText').textContent = vis === 'hidden' ? 'hidden / locked' : 'visible';
+    $('#pillMode').textContent = 'mode: ' + S.currentMode;
+    $('#statScore').textContent = Math.floor(S.score);
+    const st = $('#statPaused');
+    st.textContent = S.paused ? 'PAUSED' : (S.running ? 'running' : 'idle');
+    st.style.color = S.paused ? 'var(--warn)' : (S.running ? 'var(--ok)' : '');
+    $('#statAudio').textContent = S.audioEl ? (S.audioEl.paused ? 'paused' : 'playing') : '—';
+    $('#statMS').textContent = !('mediaSession' in navigator) ? 'unsupported'
+      : (navigator.mediaSession.metadata ? 'metadata set' : 'available');
+    $('#statVol').textContent = S.volChanges;
+    $('#statPeriods').textContent = S.periods.length;
+    $('#volChanges').textContent = S.volChanges;
+    $('#volValue').textContent = S.audioEl ? S.audioEl.volume.toFixed(3) : '—';
+    $('#volSession').textContent = ('audioSession' in navigator) ? 'available' : 'unavailable';
+    const vv = $('#volVerdict');
+    if (S.volChanges > 0) { vv.textContent = 'detected'; vv.style.color = 'var(--ok)'; }
+    else if (S.running) { vv.textContent = 'not detected'; vv.style.color = 'var(--bad)'; }
+    else { vv.textContent = '—'; vv.style.color = ''; }
+    if (S.running) $('#sinceStart').textContent = 'running ' + Math.round((Date.now() - S.startTime) / 1000) + 's';
+  }
+
+  function renderPerSource() {
+    const box = $('#perSource');
+    if (!S.allInputs.length) { box.innerHTML = '<p class="muted">No inputs recorded yet.</p>'; return; }
+
+    const map = {};
+    for (const r of S.allInputs) {
+      const key = r.source + '/' + r.action.replace(/_\d+(\.\d+)?$/, '');
+      if (!map[key]) map[key] = { total: 0, visible: 0, hidden: 0 };
+      map[key].total++;
+      if (r.vis === 'hidden') map[key].hidden++; else map[key].visible++;
+    }
+
+    const rows = Object.entries(map).sort((a,b) => b[1].total - a[1].total).map(([k, v]) => {
+      const hiddenLabel = v.hidden > 0 ? `<span class="badge ok">${v.hidden} hidden</span>` : '';
+      return `<tr><td><code>${k}</code></td><td><b>${v.total}</b></td>
+              <td>${v.visible} visible · ${v.hidden} hidden ${hiddenLabel}</td></tr>`;
+    }).join('');
+
+    box.innerHTML = `<div style="overflow-x:auto"><table class="res">
+      <thead><tr><th>Source / action</th><th>Total</th><th>Visibility split</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  }
+
+  function renderPeriods() {
+    const box = $('#periods');
+    if (!S.periods.length) {
+      box.innerHTML = '<p class="muted">No hidden periods recorded. Start the test, pick a mode, then lock the screen (or press home) and use the media controls.</p>';
+      return;
+    }
+
+    const html = S.periods.slice().reverse().map((p, idx) => {
+      const num = S.periods.length - idx;
+      const dur = (p.duration / 1000).toFixed(1) + 's';
+      const inputs = p.inputs.length
+        ? '<ul class="inputs">' + p.inputs.map(r => {
+            const t = r.hiddenElapsed != null ? '+' + (r.hiddenElapsed/1000).toFixed(1) + 's' : '?';
+            return `<li><span class="t">${t}</span><span class="src">${r.source}</span> → ${r.action}</li>`;
+          }).join('') + '</ul>'
+        : '<p class="muted" style="margin:4px 0 0">No inputs received during hidden period.</p>';
+      const audio = p.audioEvents.length
+        ? '<p class="muted" style="margin:6px 0 0;font-size:11.5px">audio: ' +
+          p.audioEvents.map(r => `${r.type}${r.hiddenElapsed != null ? ' @+' + (r.hiddenElapsed/1000).toFixed(1) + 's' : ''}`).join(', ') + '</p>'
+        : '';
+      const audioReturn = p.audioOnReturn === null ? '—'
+        : p.audioOnReturn ? 'playing' : 'paused';
+
+      return `<div class="period">
+        <div class="top">
+          <span><b>Period ${num}</b> · ${dur}</span>
+          <span class="mode-tag">${p.mode}</span>
+        </div>
+        ${inputs}
+        ${audio}
+        <p class="muted" style="margin:6px 0 0;font-size:11px">on return: audio=${audioReturn}</p>
+      </div>`;
+    }).join('');
+
+    box.innerHTML = html;
+  }
+
+  /* ---------- start / stop / reset ---------- */
+
   async function start() {
     if (S.running) return;
     S.running = true;
     S.paused = false;
     S.score = 0;
+    S.startTime = Date.now();
     S.lastClock = Date.now();
+    S.lastPauseToggle = 0;
 
     $('#btnStart').disabled = true;
     $('#btnStop').disabled = false;
-    log('── Starting ──', 'ok');
+    log('── SESSION STARTED ──', 'hdr');
 
     try {
       S.audioEl = new Audio(makeWav());
@@ -233,24 +498,25 @@
       S.audioEl.volume = 0.05;
       S.audioEl.setAttribute('playsinline', '');
       S.audioEl.setAttribute('webkit-playsinline', '');
+      S.audioEl.addEventListener('play',  () => recordAudioEvent('play'));
+      S.audioEl.addEventListener('pause', () => recordAudioEvent('pause', 'OS paused audio'));
       await S.audioEl.play();
-      log(`audio playing · vol=${S.audioEl.volume}`, 'ok');
+      log('audio playing', 'ok');
     } catch (e) {
       log('audio failed: ' + (e.message || e.name), 'bad');
       S.audioEl = null;
     }
 
     setupMediaSession();
+    setupVolumeTest();
 
-    // Auto-resume the audio if the OS ever pauses it.
     S.keepAliveTimer = setInterval(() => {
       if (!S.running || !S.audioEl) return;
       if (S.audioEl.paused) {
-        S.audioEl.play().then(() => log('audio auto-resumed (OS paused it)', 'warn')).catch(()=>{});
+        S.audioEl.play().then(() => log('audio auto-resumed by keep-alive', 'warn')).catch(()=>{});
       }
     }, 1500);
 
-    // Game clock uses Date.now() deltas so it self-corrects when throttled.
     S.clockTimer = setInterval(() => {
       const now = Date.now();
       const dt = now - S.lastClock;
@@ -277,74 +543,149 @@
         navigator.mediaSession.metadata = null;
       }
     } catch (e) {}
+    if (S.audioSession) { try { S.audioSession.type = 'auto'; } catch (e) {} }
 
     $('#btnStart').disabled = false;
     $('#btnStop').disabled = true;
-    log('Stopped', 'warn');
+    log('Session stopped', 'warn');
     updateUI();
   }
 
   function reset() {
     stop();
     S.score = 0;
-    S.counts = { advance: 0, rewind: 0, pause: 0 };
+    S.periods = [];
+    S.allInputs = [];
+    S.allAudioEvents = [];
+    S.currentInputs = [];
+    S.currentAudioEvents = [];
+    S.volChanges = 0;
+    S.hiddenAt = 0;
     $('#log').innerHTML = '';
-    log('Reset');
+    log('Reset', 'warn');
+    renderPeriods();
+    renderPerSource();
     updateUI();
   }
 
-  // ---- UI ----
-  function updateUI() {
-    $('#statScore').textContent = Math.floor(S.score);
-    const st = $('#statPaused');
-    st.textContent = S.paused ? 'PAUSED' : (S.running ? 'running' : 'idle');
-    st.style.color = S.paused ? 'var(--warn)' : (S.running ? 'var(--ok)' : '');
-    $('#statRunning').textContent = S.running ? 'yes' : 'no';
-    $('#statMS').textContent = !('mediaSession' in navigator) ? 'unsupported'
-      : (navigator.mediaSession.metadata ? 'metadata set' : 'available');
-    $('#statAudio').textContent = !S.audioEl ? '—' : (S.audioEl.paused ? 'paused' : 'playing');
-    $('#statVis').textContent = document.visibilityState;
-    $('#cntAdv').textContent = S.counts.advance;
-    $('#cntRew').textContent = S.counts.rewind;
-    $('#cntPause').textContent = S.counts.pause;
+  /* ---------- report ---------- */
+
+  function buildReport() {
+    const L = [];
+    const push = (...xs) => L.push(...xs);
+
+    push('LOCK SCREEN INPUT LAB — FULL REPORT');
+    push(new Date().toString());
+    push('');
+    push('DEVICE');
+    push('  UA: ' + navigator.userAgent);
+    push('  Display: ' + (matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'));
+    push('  Media Session API: ' + ('mediaSession' in navigator ? 'available' : 'unavailable'));
+    push('  navigator.audioSession: ' + ('audioSession' in navigator ? 'available' : 'unavailable'));
+    push('  Metadata title: ' + (navigator.mediaSession?.metadata?.title || 'none'));
+    push('');
+
+    push('SESSION');
+    push('  Running: ' + S.running);
+    push('  Paused: ' + S.paused);
+    push('  Score: ' + Math.floor(S.score));
+    push('  Audio element: ' + (S.audioEl ? (S.audioEl.paused ? 'paused' : 'playing') : 'none'));
+    push('  audioEl.volume: ' + (S.audioEl ? S.audioEl.volume : '—'));
+    push('');
+
+    push('VOLUME TEST');
+    push('  volumechange events: ' + S.volChanges);
+    push('  audioSession API: ' + ('audioSession' in navigator ? 'available' : 'unavailable'));
+    if (S.volChanges === 0) push('  Result: hardware volume buttons NOT detected (expected on iOS Safari)');
+    else push('  Result: hardware volume changes detected');
+    push('');
+
+    push('PER-SOURCE TOTALS');
+    const map = {};
+    for (const r of S.allInputs) {
+      const key = r.source + '/' + r.action;
+      if (!map[key]) map[key] = { total: 0, visible: 0, hidden: 0 };
+      map[key].total++;
+      if (r.vis === 'hidden') map[key].hidden++; else map[key].visible++;
+    }
+    const keys = Object.keys(map).sort();
+    if (!keys.length) push('  (no inputs)');
+    for (const k of keys) {
+      const v = map[k];
+      push(`  ${k}: ${v.total} (visible: ${v.visible}, hidden: ${v.hidden})`);
+    }
+    push('');
+
+    push('HIDDEN PERIODS');
+    if (!S.periods.length) { push('  (none)'); }
+    else {
+      for (let i = 0; i < S.periods.length; i++) {
+        const p = S.periods[i];
+        push('');
+        push(`Period ${i+1} [${p.mode}] — ${(p.duration/1000).toFixed(1)}s`);
+        push(`  started:  ${new Date(p.tStart).toLocaleTimeString()}`);
+        push(`  ended:    ${new Date(p.tEnd).toLocaleTimeString()}`);
+        push(`  inputs during hidden: ${p.inputs.length}`);
+        for (const r of p.inputs) {
+          const pos = r.hiddenElapsed != null ? '+' + (r.hiddenElapsed/1000).toFixed(1) + 's' : '?';
+          push(`    ${pos.padStart(7)}  ${r.source.padEnd(16)} → ${r.action}`);
+        }
+        if (p.audioEvents.length) {
+          push('  audio events during hidden:');
+          for (const r of p.audioEvents) {
+            const pos = r.hiddenElapsed != null ? '+' + (r.hiddenElapsed/1000).toFixed(1) + 's' : '?';
+            push(`    ${pos.padStart(7)}  ${r.type}${r.extra ? ' (' + r.extra + ')' : ''}`);
+          }
+        }
+        push('  state on return:');
+        push('    audio: ' + (p.audioOnReturn === null ? '—' : p.audioOnReturn ? 'playing' : 'paused'));
+      }
+    }
+    push('');
+    push('END OF REPORT');
+    return L.join('\n');
   }
 
-  // ---- Wiring ----
+  /* ---------- wiring ---------- */
+
   $('#btnStart').addEventListener('click', start);
   $('#btnStop').addEventListener('click', stop);
   $('#btnReset').addEventListener('click', reset);
+
   document.querySelectorAll('[data-input]').forEach(b =>
     b.addEventListener('click', () => handleInput(b.dataset.input, 'onscreen')));
 
-  document.addEventListener('visibilitychange', () => {
-    log('visibility → <b>' + document.visibilityState + '</b>',
-        document.visibilityState === 'hidden' ? 'warn' : 'ok');
-    updateUI();
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      S.currentMode = b.dataset.mode;
+      document.querySelectorAll('.mode-btn').forEach(x => x.classList.toggle('active', x === b));
+      const hints = {
+        lock: '<b>Lock button</b> — press the side button to lock the screen, then use the lock-screen ⏮ ⏯ ⏭ buttons.',
+        home: '<b>Home screen</b> — press the home gesture to background the browser, then open Control Center for ⏮ ⏯ ⏭.',
+        'other-app': '<b>Other app</b> — switch to another app, then open Control Center for ⏮ ⏯ ⏭.',
+        'tab-switch': '<b>Tab switch</b> — switch browser tabs (desktop) or use Control Center.',
+        none: 'Current mode: <b>unlabeled</b>. Pick a label before you hide — the next hidden period will be recorded under it.'
+      };
+      $('#modeHint').innerHTML = hints[S.currentMode];
+      updateUI();
+    });
   });
 
   $('#btnCopy').addEventListener('click', async () => {
-    const r = [
-      'LOCK SCREEN INPUT LAB REPORT', new Date().toString(), '',
-      'UA: ' + navigator.userAgent,
-      'Media Session API: ' + ('mediaSession' in navigator ? 'available' : 'unavailable'),
-      'Metadata title: ' + (navigator.mediaSession?.metadata?.title || 'none'),
-      'Running: ' + S.running,
-      'Audio: ' + (S.audioEl ? (S.audioEl.paused ? 'paused' : 'playing') : 'none'),
-      'Paused: ' + S.paused,
-      'Score: ' + Math.floor(S.score), '',
-      'Counts:',
-      '  advance: ' + S.counts.advance,
-      '  rewind:  ' + S.counts.rewind,
-      '  pause:   ' + S.counts.pause,
-    ].join('\n');
-    try { await navigator.clipboard.writeText(r); log('report copied', 'ok'); }
-    catch (e) { log('copy failed', 'bad'); }
+    const text = buildReport();
+    try { await navigator.clipboard.writeText(text); log('report copied', 'ok'); }
+    catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); log('report copied (fallback)', 'ok'); }
+      catch (e2) { log('copy failed', 'bad'); }
+      document.body.removeChild(ta);
+    }
   });
 
   updateUI();
-  log('Ready. Tap Start, then lock the screen and use the media buttons.');
-  if (!('mediaSession' in navigator))
-    log('⚠ Media Session unsupported — lock-screen buttons will not appear.', 'bad');
+  log('Ready. Pick a mode, Start, then hide + use media controls.');
+  if (!('mediaSession' in navigator)) log('⚠ Media Session unsupported — lock-screen buttons will not appear.', 'bad');
 })();
 </script>
 </body>

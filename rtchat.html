@@ -40,7 +40,7 @@
             font-weight: 600;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
         }
         .status-row {
             display: flex;
@@ -58,6 +58,18 @@
             gap: 6px;
             font-size: 12px;
             align-items: center;
+        }
+        #manual-connect-box {
+            display: flex;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        #partner-id-input {
+            flex: 1;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: none;
+            font-size: 12px;
         }
         #messages {
             flex: 1;
@@ -163,8 +175,12 @@
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
-            <span>Room: <strong id="current-room-display">...</strong></span>
-            <button onclick="createCustomRoom()">New Room</button>
+            <span>Your ID: <strong id="my-peer-id" style="user-select: all; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 3px;">...</strong></span>
+            <button onclick="copyMyId()">Copy ID</button>
+        </div>
+        <div id="manual-connect-box">
+            <input type="text" id="partner-id-input" placeholder="Paste friend's ID here...">
+            <button onclick="connectToManualId()">Connect</button>
         </div>
     </div>
     <div id="messages"></div>
@@ -195,10 +211,10 @@
     let isConnected = false;
 
     const statusText = document.getElementById('status-text');
+    const myPeerIdDisplay = document.getElementById('my-peer-id');
     const messagesContainer = document.getElementById('messages');
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
-    const roomDisplay = document.getElementById('current-room-display');
 
     const rtcConfig = {
         config: {
@@ -232,66 +248,16 @@
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    function getRoomFromHash() {
-        let hash = window.location.hash.substring(1);
-        if (!hash) {
-            hash = 'room_' + Math.random().toString(36).substring(2, 8);
-            window.location.hash = hash;
-        }
-        return hash;
-    }
+    function initPeer() {
+        statusText.textContent = 'Connecting to signaling network...';
 
-    function initChat() {
-        const roomId = getRoomFromHash();
-        roomDisplay.textContent = roomId;
-        statusText.textContent = 'Checking room...';
+        // Unique ID for this specific tab instance
+        const customId = 'chat_' + Math.random().toString(36).substring(2, 8);
+        peer = new Peer(customId, rtcConfig);
 
-        // Step 1: Try connecting to the host of this room
-        const probeId = `probe_${Math.random().toString(36).substring(2, 6)}`;
-        const probePeer = new Peer(probeId, rtcConfig);
-
-        probePeer.on('open', () => {
-            const hostId = `${roomId}_host`;
-            const outbound = probePeer.connect(hostId, { reliable: true });
-
-            let connectedAsGuest = false;
-
-            outbound.on('open', () => {
-                connectedAsGuest = true;
-                statusText.textContent = 'Connected as guest!';
-                setupConnection(outbound);
-            });
-
-            outbound.on('error', () => {
-                if (!connectedAsGuest) {
-                    probePeer.destroy();
-                    startHosting(roomId);
-                }
-            });
-
-            setTimeout(() => {
-                if (!connectedAsGuest && probePeer && !probePeer.destroyed) {
-                    probePeer.destroy();
-                    startHosting(roomId);
-                }
-            }, 2000);
-        });
-
-        probePeer.on('error', () => {
-            startHosting(roomId);
-        });
-    }
-
-    function startHosting(roomId) {
-        statusText.textContent = 'Hosting room... Waiting for peer...';
-        const hostId = `${roomId}_host`;
-
-        if (peer) { try { peer.destroy(); } catch(e){} }
-
-        peer = new Peer(hostId, rtcConfig);
-
-        peer.on('open', () => {
-            statusText.textContent = 'Hosting room... Waiting for peer...';
+        peer.on('open', (id) => {
+            myPeerIdDisplay.textContent = id;
+            statusText.textContent = 'Ready. Waiting for connection...';
         });
 
         peer.on('connection', (incomingConn) => {
@@ -299,37 +265,53 @@
                 incomingConn.close();
                 return;
             }
-            statusText.textContent = 'Connected to peer!';
+            statusText.textContent = 'Incoming connection...';
             setupConnection(incomingConn);
         });
 
         peer.on('error', (err) => {
-            if (err.type === 'unavailable-id') {
-                statusText.textContent = 'Joining room...';
-                setTimeout(initChat, 2000);
-            } else {
-                statusText.textContent = 'Retrying connection...';
-                setTimeout(initChat, 3000);
-            }
+            console.error("PeerJS error:", err);
+            statusText.textContent = 'Network error: ' + err.type;
+        });
+    }
+
+    function connectToManualId() {
+        const targetId = document.getElementById('partner-id-input').value.trim();
+        if (!targetId) {
+            alert('Please enter a valid Peer ID');
+            return;
+        }
+        if (isConnected) {
+            alert('Already connected!');
+            return;
+        }
+
+        statusText.textContent = 'Connecting to ' + targetId + '...';
+        const outbound = peer.connect(targetId, { reliable: true });
+        setupConnection(outbound);
+    }
+
+    function copyMyId() {
+        const idText = myPeerIdDisplay.textContent;
+        navigator.clipboard.writeText(idText).then(() => {
+            alert('Your Peer ID copied to clipboard! Send it to your friend.');
         });
     }
 
     function setupConnection(connection) {
-        if (isConnected) return;
-        isConnected = true;
         conn = connection;
 
-        statusText.textContent = 'Connected!';
-        appendSystemMessage('Connected to a stranger.');
-        toggleInputs(true);
-
         conn.on('open', () => {
-            conn.send({ type: 'name', name: myName });
+            isConnected = true;
+            statusText.textContent = 'Connected!';
+            appendSystemMessage('Connected to a stranger.');
+            toggleInputs(true);
+            conn.send({ type: 'tab_name', name: myName });
         });
 
         conn.on('data', (data) => {
             try {
-                if (typeof data === 'object' && data.type === 'name') {
+                if (typeof data === 'object' && data.type === 'tab_name') {
                     strangerName = data.name;
                     appendSystemMessage(`You are chatting with: ${strangerName}`);
                     return;
@@ -366,14 +348,7 @@
         appendSystemMessage('Stranger disconnected.');
         if (conn) { try { conn.close(); } catch(e){} conn = null; }
         toggleInputs(false);
-        statusText.textContent = 'Disconnected. Reconnecting...';
-        setTimeout(initChat, 2000);
-    }
-
-    function createCustomRoom() {
-        const newRoom = 'room_' + Math.random().toString(36).substring(2, 8);
-        window.location.hash = newRoom;
-        location.reload();
+        statusText.textContent = 'Disconnected. Waiting...';
     }
 
     function toggleInputs(enabled) {
@@ -406,10 +381,7 @@
         saveMessageToStorage('System', text, time, 'system');
     }
 
-    window.onload = () => {
-        loadChatHistory();
-        initChat();
-    };
+    window.onload = initPeer;
 </script>
 
 </body>

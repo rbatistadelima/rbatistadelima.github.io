@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f14">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Lock Screen Input Lab v2</title>
+<title>Lock-Screen Audio Demo</title>
 <style>
   :root{
     --bg:#0b0f14;--panel:#111823;--panel2:#0f1620;--line:#1e2937;
     --text:#e6edf3;--dim:#8b98a9;
-    --ok:#34d399;--warn:#fbbf24;--bad:#f87171;--na:#64748b;--accent:#38bdf8;
+    --ok:#34d399;--warn:#fbbf24;--bad:#f87171;--accent:#38bdf8;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   body{margin:0;background:var(--bg);color:var(--text);padding:16px 14px 80px;
@@ -35,125 +35,103 @@
     font-size:11.5px;font-weight:700;letter-spacing:.04em;
     background:#182231;border:1px solid var(--line);color:var(--dim)}
   .pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
-  .pill.visible{color:var(--ok);border-color:#14503c;background:#0d1f19}
-  .pill.hidden{color:var(--warn);border-color:#4a3a11;background:#1d1808}
+  .pill.ok{color:var(--ok);border-color:#14503c;background:#0d1f19}
+  .pill.warn{color:var(--warn);border-color:#4a3a11;background:#1d1808}
+  .pill.bad{color:var(--bad);border-color:#4a2226;background:#2a1214}
   .pill.mode{color:var(--accent);border-color:#0e4b66;background:#082030}
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
   .stat{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px 12px}
   .stat .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);font-weight:600}
   .stat .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.4px;margin-top:3px}
   .stat .v small{font-size:11px;font-weight:500;color:var(--dim)}
-  .stat .sub{font-size:10.5px;color:var(--dim);margin-top:2px;font-variant-numeric:tabular-nums}
-  table.res{width:100%;border-collapse:collapse;font-size:12px}
-  table.res th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;
-    color:var(--dim);padding:8px 6px;border-bottom:1px solid var(--line);font-weight:600}
-  table.res td{padding:8px 6px;border-bottom:1px solid #16202c;vertical-align:top}
-  table.res tr:last-child td{border-bottom:none}
-  .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;
-    font-weight:800;letter-spacing:.05em;margin-bottom:3px}
-  .badge.ok{background:#0d2a20;color:var(--ok);border:1px solid #14503c}
-  .badge.warn{background:#231c08;color:var(--warn);border:1px solid #4a3a11}
-  .badge.bad{background:#2a1214;color:var(--bad);border:1px solid #4a2226}
-  .badge.na{background:#161d27;color:var(--na);border:1px solid #253244}
   .muted{color:var(--dim);font-size:11.5px}
   #log{background:#070b10;border:1px solid var(--line);border-radius:11px;padding:10px;
-    height:260px;overflow-y:auto;font:11.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
+    height:220px;overflow-y:auto;font:11.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
     -webkit-overflow-scrolling:touch}
   .log-line{white-space:pre-wrap;word-break:break-word;color:#9fb0c3}
   .log-ts{color:#4a5a6e;margin-right:6px}
   .log-line.ok{color:#6ee7b7}
   .log-line.warn{color:#fcd34d}
   .log-line.bad{color:#fca5a5}
-  .log-line.hdr{color:#7dd3fc;font-weight:700}
   code{background:#182231;padding:1px 5px;border-radius:4px;font-size:12px;color:#7dd3fc}
-  .period{padding:10px 12px;border:1px solid var(--line);border-radius:11px;margin-bottom:8px;background:var(--panel2)}
-  .period .top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
-  .period .mode-tag{font-size:10.5px;font-weight:800;letter-spacing:.06em;
-    padding:2px 8px;border-radius:6px;background:#082030;color:#7dd3fc;border:1px solid #0e4b66}
-  .period .inputs{margin:0;padding-left:0;list-style:none;font-size:11.5px;
-    font-family:ui-monospace,monospace;color:#9fb0c3}
-  .period .inputs li{padding:1px 0}
-  .period .inputs .t{color:#4a5a6e;display:inline-block;min-width:52px}
-  .period .inputs .src{color:#7dd3fc}
-  .mode-hint{background:#082030;border:1px solid #0e4b66;color:#7dd3fc;
-    border-radius:9px;padding:9px 12px;font-size:12px;margin-top:10px;line-height:1.5}
+  .avatar{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#0ea5e9,#6366f1);
+    margin:0 auto 10px;transition:transform .15s, box-shadow .15s;
+    display:flex;align-items:center;justify-content:center;font-size:28px}
+  .avatar.jump{transform:translateY(-24px)}
+  .avatar.shoot{box-shadow:0 0 0 6px rgba(52,211,153,.35);transform:scale(1.08)}
 </style>
 </head>
 <body>
 
-<h1>Lock Screen Input Lab v2</h1>
-<p class="sub">Provenance-tracking version. Every input is stamped with its source, visibility state, and time inside the hidden period.</p>
+<h1>Lock-Screen Audio Demo</h1>
+<p class="sub">
+  Synthesized BGM + jump/shoot SFX through Web Audio. Lock-screen ⏮ ⏭ buttons work in
+  <b>Lock-screen control</b> mode; other apps keep playing in <b>Keep other audio</b> mode.
+</p>
 
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <span class="pill" id="pillVis"><span class="dot"></span><span id="pillVisText">visible</span></span>
-      <span class="pill mode" id="pillMode">mode: none</span>
-    </div>
-    <span class="muted" id="sinceStart">not running</span>
+    <span class="pill mode" id="pillMode">mode: lock-screen</span>
+    <span class="muted" id="sessionState">not started</span>
   </div>
 
-  <div class="row">
-    <button class="primary" id="btnStart">▶ Start</button>
-    <button id="btnStop" disabled>■ Stop</button>
-    <button class="danger" id="btnReset">Reset</button>
-  </div>
-
-  <div class="muted" style="margin-top:16px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600">
-    Label the next test
+  <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:600">
+    Operating mode
   </div>
   <div class="row" style="margin-top:6px;gap:6px">
-    <button class="mode-btn" data-mode="lock">🔒 Lock button</button>
-    <button class="mode-btn" data-mode="home">🏠 Home screen</button>
-    <button class="mode-btn" data-mode="other-app">📱 Other app</button>
-    <button class="mode-btn" data-mode="tab-switch">🗂️ Tab switch</button>
-    <button class="mode-btn active" data-mode="none">❓ Unlabeled</button>
+    <button class="mode-btn active" data-mode="lock-screen">🔒 Lock-screen control</button>
+    <button class="mode-btn" data-mode="keep-audio">🎵 Keep other audio</button>
+    <button class="mode-btn" data-mode="hybrid">⚗️ Hybrid (experimental)</button>
   </div>
-  <div class="mode-hint" id="modeHint">
-    Current mode: <b>unlabeled</b>. Pick a label before you hide — the next hidden period will be recorded under it.
+
+  <div style="margin-top:14px" class="row">
+    <button class="primary" id="btnStart">▶ Start</button>
+    <button id="btnStop" disabled>■ Stop</button>
+    <button class="danger" id="btnClear">Clear log</button>
+  </div>
+
+  <div class="muted" style="margin-top:12px;font-size:11.5px;line-height:1.6" id="modeHint">
+    <b>Lock-screen control</b> — silent anchor claims Now Playing so lock-screen ⏮ ⏭ buttons reach the page.
+    <b>Other apps' music will stop.</b> Jump = ⏮ / back. Shoot = ⏭ / forward.
   </div>
 </div>
 
-<div class="grid" style="margin-bottom:12px">
-  <div class="stat"><div class="k">Score</div><div class="v" id="statScore">0</div></div>
-  <div class="stat"><div class="k">Game state</div><div class="v" id="statPaused" style="font-size:15px">idle</div></div>
-  <div class="stat"><div class="k">Audio</div><div class="v" id="statAudio" style="font-size:13px">—</div></div>
-  <div class="stat"><div class="k">Media session</div><div class="v" id="statMS" style="font-size:13px">—</div></div>
-  <div class="stat"><div class="k">Volume changes</div><div class="v" id="statVol">0</div></div>
-  <div class="stat"><div class="k">Hidden periods</div><div class="v" id="statPeriods">0</div></div>
+<div class="card" style="text-align:center">
+  <div class="avatar" id="avatar">🎮</div>
+  <div class="grid">
+    <div class="stat"><div class="k">Jumps</div><div class="v" id="cntJump">0</div></div>
+    <div class="stat"><div class="k">Shoots</div><div class="v" id="cntShoot">0</div></div>
+    <div class="stat"><div class="k">BGM</div><div class="v" id="bgmState" style="font-size:15px">off</div></div>
+    <div class="stat"><div class="k">AudioContext</div><div class="v" id="ctxState" style="font-size:14px">—</div></div>
+  </div>
 </div>
 
-<h2>Per-source totals</h2>
-<div class="card" id="perSource"><p class="muted">No inputs recorded yet.</p></div>
-
-<h2>On-screen test buttons (foreground only — verify logic before locking)</h2>
+<h2>On-screen controls (work in every mode)</h2>
 <div class="card">
   <div class="row">
-    <button data-input="rewind">⏮ Rewind</button>
-    <button data-input="pause">⏯ Pause</button>
-    <button data-input="advance">⏭ Advance</button>
+    <button data-action="jump">⏮ Jump</button>
+    <button data-action="shoot">⏭ Shoot</button>
   </div>
-</div>
-
-<h2>Hidden period history</h2>
-<div class="card" id="periods"><p class="muted">No hidden periods recorded. Start the test, pick a mode, then lock the screen (or press home) and use the media controls.</p></div>
-
-<h2>Volume button test</h2>
-<div class="card">
-  <p class="muted" style="margin:0 0 10px">Attempts to detect hardware volume changes while audio plays. On iOS Safari the hardware volume is not exposed to web pages — this panel will report what (if anything) the browser surfaces.</p>
-  <div class="grid">
-    <div class="stat"><div class="k">volumechange events</div><div class="v" id="volChanges">0</div></div>
-    <div class="stat"><div class="k">audioEl.volume</div><div class="v" id="volValue" style="font-size:15px">—</div></div>
-    <div class="stat"><div class="k">audioSession API</div><div class="v" id="volSession" style="font-size:13px">—</div></div>
-    <div class="stat"><div class="k">Volume conclusion</div><div class="v" id="volVerdict" style="font-size:13px">—</div></div>
-  </div>
+  <div class="muted" style="margin-top:8px">Use these to verify the game logic before relying on lock-screen buttons.</div>
 </div>
 
 <h2>Event log</h2>
 <div id="log"></div>
 
-<div class="row" style="margin-top:12px">
-  <button id="btnCopy">Copy full report</button>
+<h2>How to test</h2>
+<div class="card">
+  <p class="muted" style="margin:0 0 8px">
+    <b>Lock-screen control:</b> tap Start → lock the phone → press ⏮ (jump) and ⏭ (shoot) on the lock screen →
+    unlock and check the counters. YouTube Music will stop when the demo starts.
+  </p>
+  <p class="muted" style="margin:0 0 8px">
+    <b>Keep other audio:</b> start YouTube Music playing → switch to this page → pick this mode → tap Start.
+    YouTube Music should keep playing. The game is controlled only from the on-screen buttons above.
+  </p>
+  <p class="muted" style="margin:0">
+    <b>Hybrid (experimental):</b> attempts to claim Now Playing and then immediately release it to ambient.
+    May give a few seconds of lock-screen control while other audio keeps playing, or may fail entirely.
+  </p>
 </div>
 
 <script>
@@ -163,26 +141,19 @@
 
   const S = {
     running: false,
-    paused: false,
-    score: 0,
-    currentMode: 'none',
-    hiddenAt: 0,
-    periods: [],
-    currentInputs: [],
-    currentAudioEvents: [],
-    allInputs: [],
-    allAudioEvents: [],
-    audioEl: null,
-    keepAliveTimer: null,
-    clockTimer: null,
-    lastClock: 0,
-    lastPauseToggle: 0,
-    volChanges: 0,
-    audioSession: null,
-    startTime: 0,
+    mode: 'lock-screen',
+    jumps: 0,
+    shoots: 0,
+    audioCtx: null,
+    bgmSource: null,
+    bgmGain: null,
+    anchor: null,
+    lastJumpAt: 0,
+    lastShootAt: 0,
+    bgmOn: false,
   };
 
-  /* ---------- logging ---------- */
+  const DEBOUNCE_MS = 100;
 
   function log(msg, cls) {
     const d = new Date();
@@ -192,69 +163,14 @@
     el.innerHTML = `<span class="log-ts">${ts}</span>${msg}`;
     const box = $('#log');
     box.appendChild(el);
-    while (box.children.length > 400) box.removeChild(box.firstChild);
+    while (box.children.length > 300) box.removeChild(box.firstChild);
     box.scrollTop = box.scrollHeight;
   }
 
-  /* ---------- event recording with provenance ---------- */
-
-  function recordInput(action, source) {
-    const now = Date.now();
-    const rec = {
-      t: now, action, source,
-      vis: document.visibilityState,
-      hiddenElapsed: S.hiddenAt ? now - S.hiddenAt : null,
-    };
-    S.allInputs.push(rec);
-    if (S.hiddenAt) S.currentInputs.push(rec);
-    const pos = rec.hiddenElapsed != null ? ' @ +' + (rec.hiddenElapsed/1000).toFixed(1) + 's' : '';
-    log(`[${source}] ${action}${pos}`, 'ok');
-  }
-
-  function recordAudioEvent(type, extra) {
-    const now = Date.now();
-    const rec = {
-      t: now, type, extra: extra || null,
-      vis: document.visibilityState,
-      hiddenElapsed: S.hiddenAt ? now - S.hiddenAt : null,
-    };
-    S.allAudioEvents.push(rec);
-    if (S.hiddenAt) S.currentAudioEvents.push(rec);
-    const pos = rec.hiddenElapsed != null ? ' @ +' + (rec.hiddenElapsed/1000).toFixed(1) + 's' : '';
-    log(`audio:${type}${extra ? ' (' + extra + ')' : ''}${pos}`, type === 'play' ? 'ok' : 'warn');
-  }
-
-  /* ---------- game logic ---------- */
-
-  function handleInput(kind, source) {
-    if (kind === 'pause' || kind === 'play') {
-      const now = Date.now();
-      if (now - S.lastPauseToggle < 300) {
-        log(`[${source}] ⏯ suppressed (debounce, ${now - S.lastPauseToggle}ms)`, 'warn');
-        recordInput(kind + '_debounced', source);
-        return;
-      }
-      S.lastPauseToggle = now;
-      S.paused = !S.paused;
-      recordInput(kind, source);
-      log(`game state → ${S.paused ? 'PAUSED' : 'RUNNING'}`, S.paused ? 'warn' : 'ok');
-      if (S.audioEl && S.audioEl.paused) {
-        S.audioEl.play().then(() => log('audio auto-resumed inside handler', 'ok')).catch(()=>{});
-      }
-      try { if (navigator.mediaSession) navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
-    } else if (kind === 'advance') {
-      S.score += 10;
-      recordInput('advance', source);
-    } else if (kind === 'rewind') {
-      S.score = Math.max(0, S.score - 10);
-      recordInput('rewind', source);
-    }
-    updateUI();
-  }
-
-  /* ---------- audio ---------- */
-
-  function makeWav({ seconds=2, rate=8000, freq=80, amp=100 } = {}) {
+  /* ------------------------------------------------------------------ */
+  /*  Silent WAV generator (anchor for Media Session)                   */
+  /* ------------------------------------------------------------------ */
+  function silentWavUri(seconds = 2, rate = 8000, freq = 80, amp = 50) {
     const n = Math.floor(seconds * rate);
     const buf = new ArrayBuffer(44 + n * 2);
     const v = new DataView(buf);
@@ -274,267 +190,202 @@
     return 'data:audio/wav;base64,' + btoa(bin);
   }
 
-  function makeArtwork() {
+  function artworkUri() {
     const c = document.createElement('canvas');
     c.width = c.height = 512;
     const ctx = c.getContext('2d');
     ctx.fillStyle = '#0ea5e9'; ctx.fillRect(0, 0, 512, 512);
-    ctx.fillStyle = '#04121c'; ctx.font = 'bold 160px sans-serif';
+    ctx.fillStyle = '#04121c'; ctx.font = 'bold 120px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('BG', 256, 256);
+    ctx.fillText('DEMO', 256, 256);
     return c.toDataURL('image/png');
   }
 
-  /* ---------- media session ---------- */
+  /* ------------------------------------------------------------------ */
+  /*  Web Audio: BGM + SFX                                              */
+  /* ------------------------------------------------------------------ */
+  function generateBGM(ctx) {
+    const sr = ctx.sampleRate;
+    const dur = 4;
+    const len = Math.floor(dur * sr);
+    const buf = ctx.createBuffer(1, len, sr);
+    const data = buf.getChannelData(0);
 
+    const chords = [
+      [261.63, 329.63, 392.00], // C major
+      [220.00, 261.63, 329.63], // A minor
+      [174.61, 220.00, 261.63], // F major
+      [196.00, 246.94, 293.66], // G major
+    ];
+    const stepDur = 1.0;
+    const noteDur = 0.25;
+
+    for (let i = 0; i < len; i++) {
+      const t = i / sr;
+      const chordIdx = Math.floor(t / stepDur) % chords.length;
+      const localT = t - Math.floor(t / stepDur) * stepDur;
+      const chord = chords[chordIdx];
+
+      let sample = 0;
+      for (let n = 0; n < chord.length; n++) {
+        const freq = chord[n];
+        const noteStart = n * noteDur;
+        if (localT >= noteStart) {
+          const noteT = localT - noteStart;
+          const env = Math.min(1, noteT / 0.02) * Math.max(0, 1 - noteT / (stepDur - noteStart));
+          sample += Math.sin(2 * Math.PI * freq * noteT) * 0.08 * env;
+        }
+      }
+      const bassFreq = chord[0] / 2;
+      const bassEnv = Math.min(1, localT / 0.01) * Math.max(0, 1 - (localT - 0.75) / 0.25);
+      sample += Math.sin(2 * Math.PI * bassFreq * localT) * 0.05 * bassEnv;
+
+      data[i] = sample;
+    }
+
+    const fadeLen = Math.floor(0.01 * sr);
+    for (let i = 0; i < fadeLen; i++) {
+      data[i] *= i / fadeLen;
+      data[len - 1 - i] *= i / fadeLen;
+    }
+    return buf;
+  }
+
+  function startBGM(ctx) {
+    if (S.bgmSource) return;
+    const buf = generateBGM(ctx);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.6;
+    src.connect(gain).connect(ctx.destination);
+    src.start();
+    S.bgmSource = src;
+    S.bgmGain = gain;
+    S.bgmOn = true;
+    updateUI();
+    log('BGM started (Web Audio, 4s loop)', 'ok');
+  }
+
+  function stopBGM() {
+    if (S.bgmSource) { try { S.bgmSource.stop(); } catch (e) {} S.bgmSource.disconnect(); S.bgmSource = null; }
+    if (S.bgmGain) { S.bgmGain.disconnect(); S.bgmGain = null; }
+    S.bgmOn = false;
+    updateUI();
+  }
+
+  function playJump(ctx) {
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.exponentialRampToValueAtTime(800, now + 0.15);
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.18);
+  }
+
+  function playShoot(ctx) {
+    const sr = ctx.sampleRate;
+    const len = Math.floor(0.08 * sr);
+    const buf = ctx.createBuffer(1, len, sr);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 1200;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.5, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+    src.connect(filter).connect(gain).connect(ctx.destination);
+    src.start();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Actions                                                           */
+  /* ------------------------------------------------------------------ */
+  function doJump(source) {
+    const now = Date.now();
+    if (now - S.lastJumpAt < DEBOUNCE_MS) {
+      log(`[${source}] jump debounced`, 'warn');
+      return;
+    }
+    S.lastJumpAt = now;
+    S.jumps++;
+    if (S.audioCtx) playJump(S.audioCtx);
+    const av = $('#avatar');
+    av.classList.add('jump');
+    setTimeout(() => av.classList.remove('jump'), 150);
+    log(`[${source}] ⏮ JUMP → playJump()`, 'ok');
+    updateUI();
+  }
+
+  function doShoot(source) {
+    const now = Date.now();
+    if (now - S.lastShootAt < DEBOUNCE_MS) {
+      log(`[${source}] shoot debounced`, 'warn');
+      return;
+    }
+    S.lastShootAt = now;
+    S.shoots++;
+    if (S.audioCtx) playShoot(S.audioCtx);
+    const av = $('#avatar');
+    av.classList.add('shoot');
+    setTimeout(() => av.classList.remove('shoot'), 150);
+    log(`[${source}] ⏭ SHOOT → playShoot()`, 'ok');
+    updateUI();
+  }
+
+  function toggleBGM() {
+    if (!S.audioCtx) return;
+    if (S.bgmOn) { stopBGM(); log('BGM paused', 'warn'); }
+    else { startBGM(S.audioCtx); }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Media Session                                                     */
+  /* ------------------------------------------------------------------ */
   function setupMediaSession() {
     if (!('mediaSession' in navigator)) {
-      log('Media Session API not available', 'bad');
-      return false;
+      log('Media Session API unavailable', 'bad');
+      return;
     }
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: 'BG Input Lab',
-        artist: 'Lock Screen Controls',
-        album: 'v2',
-        artwork: [{ src: makeArtwork(), sizes: '512x512', type: 'image/png' }],
+        title: 'Audio Demo',
+        artist: 'Lock-Screen Controls',
+        album: 'Jump / Shoot',
+        artwork: [{ src: artworkUri(), sizes: '512x512', type: 'image/png' }],
       });
     } catch (e) { log('metadata failed: ' + (e.message || e.name), 'warn'); }
 
     const handlers = {
-      previoustrack: () => handleInput('rewind', 'previoustrack'),
-      nexttrack:    () => handleInput('advance', 'nexttrack'),
-      seekbackward: () => handleInput('rewind', 'seekbackward'),
-      seekforward:  () => handleInput('advance', 'seekforward'),
-      pause:        () => handleInput('pause', 'pause'),
-      play:         () => handleInput('play', 'play'),
+      previoustrack: () => doJump('previoustrack'),
+      nexttrack:    () => doShoot('nexttrack'),
+      seekbackward: () => doJump('seekbackward'),
+      seekforward:  () => doShoot('seekforward'),
+      pause:        () => toggleBGM(),
+      play:         () => toggleBGM(),
     };
     let ok = 0, fail = 0;
     for (const [a, fn] of Object.entries(handlers)) {
       try { navigator.mediaSession.setActionHandler(a, fn); ok++; }
       catch (e) { fail++; }
     }
-    log(`Media Session handlers: ${ok} registered${fail ? `, ${fail} unsupported` : ''}`, fail ? 'warn' : 'ok');
+    log(`Media Session: ${ok} handlers registered${fail ? `, ${fail} unsupported` : ''}`,
+        fail ? 'warn' : 'ok');
     try { navigator.mediaSession.playbackState = 'playing'; } catch (e) {}
-    return true;
   }
 
-  /* ---------- volume attempt ---------- */
-
-  function setupVolumeTest() {
-    // 1. volumechange on the audio element
-    if (S.audioEl) {
-      S.audioEl.addEventListener('volumechange', () => {
-        S.volChanges++;
-        const v = S.audioEl.volume;
-        log('VOLUME CHANGE detected! audioEl.volume=' + v, 'ok');
-        recordInput('volume_change(' + v + ')', 'audio_volumechange');
-        updateUI();
-      });
-      log('Listening for volumechange; audioEl.volume=' + S.audioEl.volume +
-          ' (iOS Safari usually pins this at 1.0)', 'warn');
-    }
-
-    // 2. navigator.audioSession (new API)
-    if ('audioSession' in navigator) {
-      S.audioSession = navigator.audioSession;
-      try {
-        S.audioSession.type = 'playback';
-        log('audioSession.type = playback (helps background audio)', 'ok');
-        if (S.audioSession.addEventListener) {
-          S.audioSession.addEventListener('statechange', () => {
-            log('audioSession state → ' + S.audioSession.type, 'warn');
-            recordAudioEvent('audioSession_state', S.audioSession.type);
-          });
-        }
-      } catch (e) { log('audioSession setup failed: ' + (e.message || e.name), 'warn'); }
-    } else {
-      log('navigator.audioSession not available', 'warn');
-    }
-  }
-
-  /* ---------- visibility ---------- */
-
-  document.addEventListener('visibilitychange', () => {
-    const now = Date.now();
-    updateUI();
-
-    if (document.visibilityState === 'hidden') {
-      S.hiddenAt = now;
-      S.currentInputs = [];
-      S.currentAudioEvents = [];
-      log(`→ HIDDEN (mode="${S.currentMode}")`, 'warn');
-      return;
-    }
-
-    log('← VISIBLE', 'ok');
-    if (!S.hiddenAt) return;
-
-    const period = {
-      mode: S.currentMode,
-      tStart: S.hiddenAt,
-      tEnd: now,
-      duration: now - S.hiddenAt,
-      inputs: S.currentInputs.slice(),
-      audioEvents: S.currentAudioEvents.slice(),
-      audioOnReturn: S.audioEl ? !S.audioEl.paused : null,
-      visibilityOnReturn: document.visibilityState,
-    };
-    S.periods.push(period);
-    S.hiddenAt = 0;
-    S.currentInputs = [];
-    S.currentAudioEvents = [];
-
-    log(`Period ${S.periods.length} recorded: ${period.mode}, ${(period.duration/1000).toFixed(1)}s, ${period.inputs.length} inputs`, 'ok');
-    renderPeriods();
-    renderPerSource();
-    updateUI();
-  });
-
-  /* ---------- UI updates ---------- */
-
-  function updateUI() {
-    const vis = document.visibilityState;
-    $('#pillVis').className = 'pill ' + (vis === 'hidden' ? 'hidden' : 'visible');
-    $('#pillVisText').textContent = vis === 'hidden' ? 'hidden / locked' : 'visible';
-    $('#pillMode').textContent = 'mode: ' + S.currentMode;
-    $('#statScore').textContent = Math.floor(S.score);
-    const st = $('#statPaused');
-    st.textContent = S.paused ? 'PAUSED' : (S.running ? 'running' : 'idle');
-    st.style.color = S.paused ? 'var(--warn)' : (S.running ? 'var(--ok)' : '');
-    $('#statAudio').textContent = S.audioEl ? (S.audioEl.paused ? 'paused' : 'playing') : '—';
-    $('#statMS').textContent = !('mediaSession' in navigator) ? 'unsupported'
-      : (navigator.mediaSession.metadata ? 'metadata set' : 'available');
-    $('#statVol').textContent = S.volChanges;
-    $('#statPeriods').textContent = S.periods.length;
-    $('#volChanges').textContent = S.volChanges;
-    $('#volValue').textContent = S.audioEl ? S.audioEl.volume.toFixed(3) : '—';
-    $('#volSession').textContent = ('audioSession' in navigator) ? 'available' : 'unavailable';
-    const vv = $('#volVerdict');
-    if (S.volChanges > 0) { vv.textContent = 'detected'; vv.style.color = 'var(--ok)'; }
-    else if (S.running) { vv.textContent = 'not detected'; vv.style.color = 'var(--bad)'; }
-    else { vv.textContent = '—'; vv.style.color = ''; }
-    if (S.running) $('#sinceStart').textContent = 'running ' + Math.round((Date.now() - S.startTime) / 1000) + 's';
-  }
-
-  function renderPerSource() {
-    const box = $('#perSource');
-    if (!S.allInputs.length) { box.innerHTML = '<p class="muted">No inputs recorded yet.</p>'; return; }
-
-    const map = {};
-    for (const r of S.allInputs) {
-      const key = r.source + '/' + r.action.replace(/_\d+(\.\d+)?$/, '');
-      if (!map[key]) map[key] = { total: 0, visible: 0, hidden: 0 };
-      map[key].total++;
-      if (r.vis === 'hidden') map[key].hidden++; else map[key].visible++;
-    }
-
-    const rows = Object.entries(map).sort((a,b) => b[1].total - a[1].total).map(([k, v]) => {
-      const hiddenLabel = v.hidden > 0 ? `<span class="badge ok">${v.hidden} hidden</span>` : '';
-      return `<tr><td><code>${k}</code></td><td><b>${v.total}</b></td>
-              <td>${v.visible} visible · ${v.hidden} hidden ${hiddenLabel}</td></tr>`;
-    }).join('');
-
-    box.innerHTML = `<div style="overflow-x:auto"><table class="res">
-      <thead><tr><th>Source / action</th><th>Total</th><th>Visibility split</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`;
-  }
-
-  function renderPeriods() {
-    const box = $('#periods');
-    if (!S.periods.length) {
-      box.innerHTML = '<p class="muted">No hidden periods recorded. Start the test, pick a mode, then lock the screen (or press home) and use the media controls.</p>';
-      return;
-    }
-
-    const html = S.periods.slice().reverse().map((p, idx) => {
-      const num = S.periods.length - idx;
-      const dur = (p.duration / 1000).toFixed(1) + 's';
-      const inputs = p.inputs.length
-        ? '<ul class="inputs">' + p.inputs.map(r => {
-            const t = r.hiddenElapsed != null ? '+' + (r.hiddenElapsed/1000).toFixed(1) + 's' : '?';
-            return `<li><span class="t">${t}</span><span class="src">${r.source}</span> → ${r.action}</li>`;
-          }).join('') + '</ul>'
-        : '<p class="muted" style="margin:4px 0 0">No inputs received during hidden period.</p>';
-      const audio = p.audioEvents.length
-        ? '<p class="muted" style="margin:6px 0 0;font-size:11.5px">audio: ' +
-          p.audioEvents.map(r => `${r.type}${r.hiddenElapsed != null ? ' @+' + (r.hiddenElapsed/1000).toFixed(1) + 's' : ''}`).join(', ') + '</p>'
-        : '';
-      const audioReturn = p.audioOnReturn === null ? '—'
-        : p.audioOnReturn ? 'playing' : 'paused';
-
-      return `<div class="period">
-        <div class="top">
-          <span><b>Period ${num}</b> · ${dur}</span>
-          <span class="mode-tag">${p.mode}</span>
-        </div>
-        ${inputs}
-        ${audio}
-        <p class="muted" style="margin:6px 0 0;font-size:11px">on return: audio=${audioReturn}</p>
-      </div>`;
-    }).join('');
-
-    box.innerHTML = html;
-  }
-
-  /* ---------- start / stop / reset ---------- */
-
-  async function start() {
-    if (S.running) return;
-    S.running = true;
-    S.paused = false;
-    S.score = 0;
-    S.startTime = Date.now();
-    S.lastClock = Date.now();
-    S.lastPauseToggle = 0;
-
-    $('#btnStart').disabled = true;
-    $('#btnStop').disabled = false;
-    log('── SESSION STARTED ──', 'hdr');
-
-    try {
-      S.audioEl = new Audio(makeWav());
-      S.audioEl.loop = true;
-      S.audioEl.volume = 0.05;
-      S.audioEl.setAttribute('playsinline', '');
-      S.audioEl.setAttribute('webkit-playsinline', '');
-      S.audioEl.addEventListener('play',  () => recordAudioEvent('play'));
-      S.audioEl.addEventListener('pause', () => recordAudioEvent('pause', 'OS paused audio'));
-      await S.audioEl.play();
-      log('audio playing', 'ok');
-    } catch (e) {
-      log('audio failed: ' + (e.message || e.name), 'bad');
-      S.audioEl = null;
-    }
-
-    setupMediaSession();
-    setupVolumeTest();
-
-    S.keepAliveTimer = setInterval(() => {
-      if (!S.running || !S.audioEl) return;
-      if (S.audioEl.paused) {
-        S.audioEl.play().then(() => log('audio auto-resumed by keep-alive', 'warn')).catch(()=>{});
-      }
-    }, 1500);
-
-    S.clockTimer = setInterval(() => {
-      const now = Date.now();
-      const dt = now - S.lastClock;
-      S.lastClock = now;
-      if (!S.running || S.paused) return;
-      S.score += dt / 1000;
-      updateUI();
-    }, 500);
-
-    updateUI();
-  }
-
-  function stop() {
-    S.running = false;
-    clearInterval(S.keepAliveTimer); S.keepAliveTimer = null;
-    clearInterval(S.clockTimer); S.clockTimer = null;
-
-    if (S.audioEl) { try { S.audioEl.pause(); } catch (e) {} S.audioEl = null; }
+  function clearMediaSession() {
     try {
       if (navigator.mediaSession) {
         navigator.mediaSession.playbackState = 'none';
@@ -543,149 +394,193 @@
         navigator.mediaSession.metadata = null;
       }
     } catch (e) {}
-    if (S.audioSession) { try { S.audioSession.type = 'auto'; } catch (e) {} }
-
-    $('#btnStart').disabled = false;
-    $('#btnStop').disabled = true;
-    log('Session stopped', 'warn');
-    updateUI();
   }
 
-  function reset() {
-    stop();
-    S.score = 0;
-    S.periods = [];
-    S.allInputs = [];
-    S.allAudioEvents = [];
-    S.currentInputs = [];
-    S.currentAudioEvents = [];
-    S.volChanges = 0;
-    S.hiddenAt = 0;
-    $('#log').innerHTML = '';
-    log('Reset', 'warn');
-    renderPeriods();
-    renderPerSource();
-    updateUI();
+  /* ------------------------------------------------------------------ */
+  /*  Audio session category (iOS)                                     */
+  /* ------------------------------------------------------------------ */
+  function setAudioSessionType(type) {
+    if (!('audioSession' in navigator)) {
+      log('navigator.audioSession unavailable — category cannot be set', 'warn');
+      return false;
+    }
+    try {
+      navigator.audioSession.type = type;
+      log(`audioSession.type = "${type}"`, 'ok');
+      return true;
+    } catch (e) {
+      log(`audioSession.type failed: ${e.message || e.name}`, 'bad');
+      return false;
+    }
   }
 
-  /* ---------- report ---------- */
-
-  function buildReport() {
-    const L = [];
-    const push = (...xs) => L.push(...xs);
-
-    push('LOCK SCREEN INPUT LAB — FULL REPORT');
-    push(new Date().toString());
-    push('');
-    push('DEVICE');
-    push('  UA: ' + navigator.userAgent);
-    push('  Display: ' + (matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'));
-    push('  Media Session API: ' + ('mediaSession' in navigator ? 'available' : 'unavailable'));
-    push('  navigator.audioSession: ' + ('audioSession' in navigator ? 'available' : 'unavailable'));
-    push('  Metadata title: ' + (navigator.mediaSession?.metadata?.title || 'none'));
-    push('');
-
-    push('SESSION');
-    push('  Running: ' + S.running);
-    push('  Paused: ' + S.paused);
-    push('  Score: ' + Math.floor(S.score));
-    push('  Audio element: ' + (S.audioEl ? (S.audioEl.paused ? 'paused' : 'playing') : 'none'));
-    push('  audioEl.volume: ' + (S.audioEl ? S.audioEl.volume : '—'));
-    push('');
-
-    push('VOLUME TEST');
-    push('  volumechange events: ' + S.volChanges);
-    push('  audioSession API: ' + ('audioSession' in navigator ? 'available' : 'unavailable'));
-    if (S.volChanges === 0) push('  Result: hardware volume buttons NOT detected (expected on iOS Safari)');
-    else push('  Result: hardware volume changes detected');
-    push('');
-
-    push('PER-SOURCE TOTALS');
-    const map = {};
-    for (const r of S.allInputs) {
-      const key = r.source + '/' + r.action;
-      if (!map[key]) map[key] = { total: 0, visible: 0, hidden: 0 };
-      map[key].total++;
-      if (r.vis === 'hidden') map[key].hidden++; else map[key].visible++;
+  /* ------------------------------------------------------------------ */
+  /*  Anchor (silent <audio> element)                                   */
+  /* ------------------------------------------------------------------ */
+  async function startAnchor() {
+    if (S.anchor) return;
+    const el = new Audio(silentWavUri());
+    el.loop = true;
+    el.setAttribute('playsinline', '');
+    el.setAttribute('webkit-playsinline', '');
+    el.addEventListener('play',  () => log('anchor: play', 'ok'));
+    el.addEventListener('pause', () => log('anchor: pause (OS may have interrupted)', 'warn'));
+    try {
+      await el.play();
+      S.anchor = el;
+      log('anchor playing (silent WAV)', 'ok');
+    } catch (e) {
+      log('anchor play failed: ' + (e.message || e.name), 'bad');
     }
-    const keys = Object.keys(map).sort();
-    if (!keys.length) push('  (no inputs)');
-    for (const k of keys) {
-      const v = map[k];
-      push(`  ${k}: ${v.total} (visible: ${v.visible}, hidden: ${v.hidden})`);
-    }
-    push('');
+  }
 
-    push('HIDDEN PERIODS');
-    if (!S.periods.length) { push('  (none)'); }
-    else {
-      for (let i = 0; i < S.periods.length; i++) {
-        const p = S.periods[i];
-        push('');
-        push(`Period ${i+1} [${p.mode}] — ${(p.duration/1000).toFixed(1)}s`);
-        push(`  started:  ${new Date(p.tStart).toLocaleTimeString()}`);
-        push(`  ended:    ${new Date(p.tEnd).toLocaleTimeString()}`);
-        push(`  inputs during hidden: ${p.inputs.length}`);
-        for (const r of p.inputs) {
-          const pos = r.hiddenElapsed != null ? '+' + (r.hiddenElapsed/1000).toFixed(1) + 's' : '?';
-          push(`    ${pos.padStart(7)}  ${r.source.padEnd(16)} → ${r.action}`);
-        }
-        if (p.audioEvents.length) {
-          push('  audio events during hidden:');
-          for (const r of p.audioEvents) {
-            const pos = r.hiddenElapsed != null ? '+' + (r.hiddenElapsed/1000).toFixed(1) + 's' : '?';
-            push(`    ${pos.padStart(7)}  ${r.type}${r.extra ? ' (' + r.extra + ')' : ''}`);
-          }
-        }
-        push('  state on return:');
-        push('    audio: ' + (p.audioOnReturn === null ? '—' : p.audioOnReturn ? 'playing' : 'paused'));
+  function stopAnchor() {
+    if (S.anchor) { try { S.anchor.pause(); } catch (e) {} S.anchor = null; }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Mode switching                                                    */
+  /* ------------------------------------------------------------------ */
+  async function applyMode(mode) {
+    S.mode = mode;
+    document.querySelectorAll('.mode-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.mode === mode));
+    $('#pillMode').textContent = 'mode: ' + mode;
+
+    // Tear down whatever was running
+    clearMediaSession();
+    stopAnchor();
+    stopBGM();
+
+    // Ensure AudioContext exists
+    if (!S.audioCtx) {
+      try {
+        S.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        log('AudioContext created', 'ok');
+      } catch (e) {
+        log('AudioContext failed: ' + (e.message || e.name), 'bad');
+        return;
       }
     }
-    push('');
-    push('END OF REPORT');
-    return L.join('\n');
+    if (S.audioCtx.state === 'suspended') {
+      try { await S.audioCtx.resume(); } catch (e) {}
+    }
+
+    if (mode === 'lock-screen') {
+      setAudioSessionType('playback');
+      await startAnchor();
+      setupMediaSession();
+      startBGM(S.audioCtx);
+      log('Mode: lock-screen — YouTube Music will stop; ⏮ ⏭ reach the page', 'ok');
+    } else if (mode === 'keep-audio') {
+      setAudioSessionType('ambient');
+      // no anchor, no media session — just Web Audio
+      startBGM(S.audioCtx);
+      log('Mode: keep-audio — YouTube Music should continue; lock-screen buttons will not reach the page', 'ok');
+    } else if (mode === 'hybrid') {
+      setAudioSessionType('playback');
+      await startAnchor();
+      setupMediaSession();
+      startBGM(S.audioCtx);
+      log('Mode: hybrid — claimed Now Playing; will release to ambient in 600ms', 'warn');
+      setTimeout(() => {
+        setAudioSessionType('ambient');
+        log('hybrid: switched to ambient — media session may now be lost', 'warn');
+      }, 600);
+    }
+    updateUI();
   }
 
-  /* ---------- wiring ---------- */
+  /* ------------------------------------------------------------------ */
+  /*  Start / stop                                                      */
+  /* ------------------------------------------------------------------ */
+  async function start() {
+    if (S.running) return;
+    S.running = true;
+    $('#btnStart').disabled = true;
+    $('#btnStop').disabled = false;
+    log('── START ──', 'ok');
+    await applyMode(S.mode);
+    updateUI();
+  }
 
-  $('#btnStart').addEventListener('click', start);
-  $('#btnStop').addEventListener('click', stop);
-  $('#btnReset').addEventListener('click', reset);
+  function stop() {
+    S.running = false;
+    clearMediaSession();
+    stopAnchor();
+    stopBGM();
+    if (S.audioCtx) {
+      try { S.audioCtx.close(); } catch (e) {}
+      S.audioCtx = null;
+    }
+    $('#btnStart').disabled = false;
+    $('#btnStop').disabled = true;
+    log('Stopped', 'warn');
+    updateUI();
+  }
 
-  document.querySelectorAll('[data-input]').forEach(b =>
-    b.addEventListener('click', () => handleInput(b.dataset.input, 'onscreen')));
+  /* ------------------------------------------------------------------ */
+  /*  UI                                                                */
+  /* ------------------------------------------------------------------ */
+  function updateUI() {
+    $('#cntJump').textContent = S.jumps;
+    $('#cntShoot').textContent = S.shoots;
+    $('#bgmState').textContent = S.bgmOn ? 'on' : 'off';
+    $('#ctxState').textContent = S.audioCtx ? S.audioCtx.state : '—';
+    $('#sessionState').textContent = S.running ? 'running' : 'not started';
+    const ms = 'mediaSession' in navigator && navigator.mediaSession.metadata;
+    const vis = document.visibilityState;
+    // hint
+    const hints = {
+      'lock-screen': '<b>Lock-screen control</b> — silent anchor claims Now Playing so lock-screen ⏮ ⏭ buttons reach the page. <b>Other apps\' music will stop.</b> Jump = ⏮ / back. Shoot = ⏭ / forward.',
+      'keep-audio': '<b>Keep other audio</b> — Web Audio only, ambient category. Other apps\' music should continue. Lock-screen buttons will <b>not</b> reach the page; use the on-screen buttons above.',
+      'hybrid': '<b>Hybrid (experimental)</b> — claims Now Playing, then releases to ambient. May give a few seconds of lock-screen control while other audio keeps playing, or may fail. Treat as a test, not a feature.',
+    };
+    $('#modeHint').innerHTML = hints[S.mode] || '';
+  }
 
+  /* ------------------------------------------------------------------ */
+  /*  Wiring                                                            */
+  /* ------------------------------------------------------------------ */
   document.querySelectorAll('.mode-btn').forEach(b => {
-    b.addEventListener('click', () => {
-      S.currentMode = b.dataset.mode;
-      document.querySelectorAll('.mode-btn').forEach(x => x.classList.toggle('active', x === b));
-      const hints = {
-        lock: '<b>Lock button</b> — press the side button to lock the screen, then use the lock-screen ⏮ ⏯ ⏭ buttons.',
-        home: '<b>Home screen</b> — press the home gesture to background the browser, then open Control Center for ⏮ ⏯ ⏭.',
-        'other-app': '<b>Other app</b> — switch to another app, then open Control Center for ⏮ ⏯ ⏭.',
-        'tab-switch': '<b>Tab switch</b> — switch browser tabs (desktop) or use Control Center.',
-        none: 'Current mode: <b>unlabeled</b>. Pick a label before you hide — the next hidden period will be recorded under it.'
-      };
-      $('#modeHint').innerHTML = hints[S.currentMode];
-      updateUI();
+    b.addEventListener('click', async () => {
+      if (S.running) {
+        // Restart in the new mode
+        stop();
+        await start();
+      } else {
+        S.mode = b.dataset.mode;
+        document.querySelectorAll('.mode-btn').forEach(x => x.classList.toggle('active', x === b));
+        $('#pillMode').textContent = 'mode: ' + S.mode;
+        updateUI();
+        log('Mode selected: ' + S.mode);
+      }
     });
   });
 
-  $('#btnCopy').addEventListener('click', async () => {
-    const text = buildReport();
-    try { await navigator.clipboard.writeText(text); log('report copied', 'ok'); }
-    catch (e) {
-      const ta = document.createElement('textarea');
-      ta.value = text; document.body.appendChild(ta); ta.select();
-      try { document.execCommand('copy'); log('report copied (fallback)', 'ok'); }
-      catch (e2) { log('copy failed', 'bad'); }
-      document.body.removeChild(ta);
-    }
+  document.querySelectorAll('[data-action]').forEach(b => {
+    b.addEventListener('click', () => {
+      if (!S.running) return;
+      if (b.dataset.action === 'jump') doJump('onscreen');
+      else doShoot('onscreen');
+    });
+  });
+
+  $('#btnStart').addEventListener('click', start);
+  $('#btnStop').addEventListener('click', stop);
+  $('#btnClear').addEventListener('click', () => { $('#log').innerHTML = ''; });
+
+  document.addEventListener('visibilitychange', () => {
+    log('visibility → ' + document.visibilityState,
+        document.visibilityState === 'hidden' ? 'warn' : 'ok');
   });
 
   updateUI();
-  log('Ready. Pick a mode, Start, then hide + use media controls.');
-  if (!('mediaSession' in navigator)) log('⚠ Media Session unsupported — lock-screen buttons will not appear.', 'bad');
+  log('Ready. Pick a mode, tap Start.');
+  if (!('audioSession' in navigator))
+    log('⚠ navigator.audioSession unavailable — mode switching may not control other apps.', 'warn');
+  if (!('mediaSession' in navigator))
+    log('⚠ Media Session unavailable — lock-screen buttons will not appear.', 'bad');
 })();
 </script>
 </body>

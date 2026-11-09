@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anonymous WebRTC Chat</title>
-    <!-- ScaleDrone WebRTC Signaling SDK -->
+    <!-- ScaleDrone Signaling SDK -->
     <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
     <style>
         * {
@@ -162,10 +162,9 @@
 </div>
 
 <script>
-    // Public free channel key for ScaleDrone signaling
     const CHANNEL_ID = 'yiS12C5iAgNWIWgm';
 
-    // 1. Composite Animal Name Generator
+    // 1. Composite Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -185,6 +184,7 @@
     let pc = null;
     let dataChannel = null;
     let isConnected = false;
+    let isConnecting = false;
 
     const statusText = document.getElementById('status-text');
     const messagesContainer = document.getElementById('messages');
@@ -199,15 +199,11 @@
         ]
     };
 
-    // --- LocalStorage History Handling ---
     function loadChatHistory() {
         const saved = localStorage.getItem('webrtc_chat_history');
         if (saved) {
             try {
-                const history = JSON.parse(saved);
-                history.forEach(item => {
-                    appendMessageToDOM(item.sender, item.text, item.time, item.type);
-                });
+                JSON.parse(saved).forEach(item => appendMessageToDOM(item.sender, item.text, item.time, item.type));
             } catch(e) {}
         }
     }
@@ -223,53 +219,70 @@
     }
 
     function getTimeString() {
-        const now = new Date();
-        return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
     function initSignaling() {
+        if (isConnected || isConnecting) return;
+        isConnecting = true;
         statusText.textContent = 'Connecting to signaling network...';
-        
+
         drone = new ScaleDrone(CHANNEL_ID);
 
         drone.on('open', (error) => {
-            if (error) return console.error(error);
+            if (error) {
+                isConnecting = false;
+                setTimeout(initSignaling, 3000);
+                return;
+            }
 
-            // Join lobby room
-            const roomName = 'observable-lobby-room';
-            room = drone.subscribe(roomName);
+            room = drone.subscribe('observable-stable-chat-room');
 
             room.on('open', (error) => {
-                if (error) console.error(error);
+                if (error) return;
                 statusText.textContent = 'Searching for partner...';
                 nextBtn.disabled = false;
             });
 
             room.on('members', (members) => {
-                // If 2 members in the room, host initiates the call
-                const isOfferer = members.length === 2;
-                startWebRTC(isOfferer);
+                if (isConnected || members.length < 2) {
+                    if (!isConnected) statusText.textContent = 'Waiting for stranger to join...';
+                    return;
+                }
+
+                // Sort members by ID and pick the first one as the persistent offerer
+                members.sort((a, b) => a.id.localeCompare(b.id));
+                const isOfferer = members[0].id === drone.clientId;
+
+                if (!pc) {
+                    startWebRTC(isOfferer);
+                }
             });
+        });
+
+        drone.on('error', () => {
+            isConnecting = false;
+            setTimeout(initSignaling, 3000);
         });
     }
 
     function startWebRTC(isOfferer) {
+        if (isConnected) return;
+        statusText.textContent = 'Connecting to stranger...';
         pc = new RTCPeerConnection(rtcConfig);
 
         pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                sendMessageToSignaling({ candidate: event.candidate });
+            if (event.candidate && drone && drone.clientId) {
+                drone.publish({ room: 'observable-stable-chat-room', message: { candidate: event.candidate } });
             }
         };
 
         if (isOfferer) {
-            pc.onnegotiationneeded = async () => {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                sendMessageToSignaling({ sdp: pc.localDescription });
-            };
             dataChannel = pc.createDataChannel('chat');
             setupDataChannel();
+            pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => {
+                drone.publish({ room: 'observable-stable-chat-room', message: { sdp: pc.localDescription } });
+            });
         } else {
             pc.ondatachannel = (event) => {
                 dataChannel = event.channel;
@@ -277,16 +290,15 @@
             };
         }
 
-        // Listen for incoming signaling data from ScaleDrone
         room.on('data', async (message, member) => {
-            if (member.id === drone.clientId) return;
+            if (!member || member.id === drone.clientId || isConnected) return;
 
             if (message.sdp) {
                 await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
                 if (pc.remoteDescription.type === 'offer') {
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
-                    sendMessageToSignaling({ sdp: pc.localDescription });
+                    drone.publish({ room: 'observable-stable-chat-room', message: { sdp: pc.localDescription } });
                 }
             } else if (message.candidate) {
                 try {
@@ -296,21 +308,13 @@
         });
     }
 
-    function sendMessageToSignaling(message) {
-        drone.publish({
-            room: 'observable-lobby-room',
-            message: message
-        });
-    }
-
     function setupDataChannel() {
         dataChannel.onopen = () => {
             isConnected = true;
+            isConnecting = false;
             statusText.textContent = 'Connected!';
             appendSystemMessage('Connected to a stranger.');
             toggleInputs(true);
-
-            // Send composite animal name
             dataChannel.send(JSON.stringify({ type: 'name', name: myName }));
         };
 
@@ -320,21 +324,17 @@
                 if (data.type === 'name') {
                     strangerName = data.name;
                     appendSystemMessage(`You are chatting with: ${strangerName}`);
-                } else {
-                    const time = getTimeString();
-                    appendMessageToDOM(strangerName, event.data, time, 'received');
-                    saveMessageToStorage(strangerName, event.data, time, 'received');
+                    return;
                 }
-            } catch {
-                const time = getTimeString();
-                appendMessageToDOM(strangerName, event.data, time, 'received');
-                saveMessageToStorage(strangerName, event.data, time, 'received');
-            }
+            } catch(e) {}
+
+            const time = getTimeString();
+            appendMessageToDOM(strangerName, event.data, time, 'received');
+            saveMessageToStorage(strangerName, event.data, time, 'received');
         };
 
-        dataChannel.onclose = () => {
-            handleDisconnect();
-        };
+        dataChannel.onclose = () => handleDisconnect();
+        dataChannel.onerror = () => handleDisconnect();
     }
 
     function sendMessage() {
@@ -353,12 +353,13 @@
     }
 
     function handleDisconnect() {
-        if (!isConnected) return;
+        if (!isConnected && !isConnecting) return;
         isConnected = false;
+        isConnecting = false;
         appendSystemMessage('Stranger disconnected.');
         cleanupConnection();
         statusText.textContent = 'Searching for next partner...';
-        setTimeout(initSignaling, 1500);
+        setTimeout(initSignaling, 2000);
     }
 
     function findNextPartner() {
@@ -368,6 +369,7 @@
 
     function cleanupConnection() {
         isConnected = false;
+        isConnecting = false;
         if (dataChannel) { try { dataChannel.close(); } catch(e){} dataChannel = null; }
         if (pc) { try { pc.close(); } catch(e){} pc = null; }
         if (drone) { try { drone.close(); } catch(e){} drone = null; }
@@ -384,7 +386,6 @@
     function appendMessageToDOM(sender, text, time, type) {
         const div = document.createElement('div');
         div.className = `message ${type}`;
-
         if (type === 'system') {
             div.textContent = text;
         } else {

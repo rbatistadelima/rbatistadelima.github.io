@@ -59,13 +59,6 @@
             font-size: 12px;
             align-items: center;
         }
-        #room-input {
-            padding: 4px 8px;
-            border-radius: 4px;
-            border: none;
-            font-size: 12px;
-            width: 100px;
-        }
         #messages {
             flex: 1;
             padding: 16px;
@@ -216,7 +209,6 @@
         }
     };
 
-    // --- LocalStorage History Handling ---
     function loadChatHistory() {
         const saved = localStorage.getItem('webrtc_chat_history');
         if (saved) {
@@ -240,7 +232,6 @@
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    // --- Room / Peer Connection Setup ---
     function getRoomFromHash() {
         let hash = window.location.hash.substring(1);
         if (!hash) {
@@ -253,16 +244,54 @@
     function initChat() {
         const roomId = getRoomFromHash();
         roomDisplay.textContent = roomId;
-        statusText.textContent = 'Connecting...';
+        statusText.textContent = 'Checking room...';
 
-        // Use PeerJS with a fixed room ID prefix so both users target the same node name
-        const myPeerId = `${roomId}_${Math.random().toString(36).substring(2, 6)}`;
-        peer = new Peer(myPeerId, rtcConfig);
+        // Step 1: Try connecting to the host of this room
+        const probeId = `probe_${Math.random().toString(36).substring(2, 6)}`;
+        const probePeer = new Peer(probeId, rtcConfig);
+
+        probePeer.on('open', () => {
+            const hostId = `${roomId}_host`;
+            const outbound = probePeer.connect(hostId, { reliable: true });
+
+            let connectedAsGuest = false;
+
+            outbound.on('open', () => {
+                connectedAsGuest = true;
+                statusText.textContent = 'Connected as guest!';
+                setupConnection(outbound);
+            });
+
+            outbound.on('error', () => {
+                if (!connectedAsGuest) {
+                    probePeer.destroy();
+                    startHosting(roomId);
+                }
+            });
+
+            setTimeout(() => {
+                if (!connectedAsGuest && probePeer && !probePeer.destroyed) {
+                    probePeer.destroy();
+                    startHosting(roomId);
+                }
+            }, 2000);
+        });
+
+        probePeer.on('error', () => {
+            startHosting(roomId);
+        });
+    }
+
+    function startHosting(roomId) {
+        statusText.textContent = 'Hosting room... Waiting for peer...';
+        const hostId = `${roomId}_host`;
+
+        if (peer) { try { peer.destroy(); } catch(e){} }
+
+        peer = new Peer(hostId, rtcConfig);
 
         peer.on('open', () => {
-            statusText.textContent = 'Ready. Looking for peer...';
-            // Try connecting to the partner in the same room slot
-            tryConnectingToPartner(roomId);
+            statusText.textContent = 'Hosting room... Waiting for peer...';
         });
 
         peer.on('connection', (incomingConn) => {
@@ -270,27 +299,17 @@
                 incomingConn.close();
                 return;
             }
+            statusText.textContent = 'Connected to peer!';
             setupConnection(incomingConn);
         });
 
         peer.on('error', (err) => {
-            console.error(err);
-            statusText.textContent = 'Waiting for peer...';
-        });
-    }
-
-    function tryConnectingToPartner(roomId) {
-        if (isConnected) return;
-        // Search for other peers registered under this room prefix
-        peer.listAllPeers((peers) => {
-            if (isConnected) return;
-            const partnerId = peers.find(id => id.startsWith(roomId) && id !== peer.id);
-            if (partnerId) {
-                statusText.textContent = 'Connecting...';
-                const outbound = peer.connect(partnerId, { reliable: true });
-                setupConnection(outbound);
+            if (err.type === 'unavailable-id') {
+                statusText.textContent = 'Joining room...';
+                setTimeout(initChat, 2000);
             } else {
-                setTimeout(() => tryConnectingToPartner(roomId), 2000);
+                statusText.textContent = 'Retrying connection...';
+                setTimeout(initChat, 3000);
             }
         });
     }
@@ -347,8 +366,8 @@
         appendSystemMessage('Stranger disconnected.');
         if (conn) { try { conn.close(); } catch(e){} conn = null; }
         toggleInputs(false);
-        statusText.textContent = 'Disconnected. Searching...';
-        setTimeout(() => tryConnectingToPartner(getRoomFromHash()), 2000);
+        statusText.textContent = 'Disconnected. Reconnecting...';
+        setTimeout(initChat, 2000);
     }
 
     function createCustomRoom() {

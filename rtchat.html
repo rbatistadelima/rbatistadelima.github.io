@@ -194,12 +194,14 @@
     const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 8);
     document.getElementById('identity-display').textContent = `You: ${myName}`;
 
-    const shortId = Math.random().toString(36).substring(2, 6);
+    // Unique session token to prevent ID collisions on rapid reloads in Incognito
+    const sessionSalt = Math.random().toString(36).substring(2, 6);
     
     let peer = null;
     let isHub = false;
     const activeConnections = new Map();
     const processedMessageIds = new Set();
+    let reconnectTimer = null;
 
     const statusText = document.getElementById('status-text');
     const roomDisplay = document.getElementById('room-display');
@@ -259,54 +261,69 @@
         statusText.textContent = 'Connecting to room...';
 
         const hubId = `${roomName}_hub`;
-        
-        // Clean up any existing peer instance before re-initializing
+
         if (peer) {
             try { peer.destroy(); } catch(e) {}
         }
 
+        // Try to claim the Hub ID first
         peer = new Peer(hubId, rtcConfig);
 
+        // Safety timeout: if peer.on('open') or 'error' doesn't fire within 4s, force retry as client
+        const initTimeout = setTimeout(() => {
+            if (peer && !peer.open && !isHub) {
+                try { peer.destroy(); } catch(e) {}
+                connectAsClient(hubId);
+            }
+        }, 4000);
+
         peer.on('open', () => {
+            clearTimeout(initTimeout);
             isHub = true;
             statusText.textContent = 'Room active (Hub ready). Waiting for peers...';
             setupPeerListeners();
         });
 
-        peer.on('disconnected', () => {
-            statusText.textContent = 'Reconnecting to signaling server...';
-            try { peer.reconnect(); } catch(e) {}
-        });
-
         peer.on('error', (err) => {
-            if (err.type === 'unavailable-id') {
+            clearTimeout(initTimeout);
+            if (err.type === 'unavailable-id' || err.type === 'invalid-id' || err.type === 'server-error') {
                 peer.destroy();
-                const clientId = `${roomName.replace('room_', '')}_${shortId}`;
-                peer = new Peer(clientId, rtcConfig);
-
-                peer.on('open', () => {
-                    isHub = false;
-                    statusText.textContent = 'Connected to room. Joining...';
-                    setupPeerListeners();
-                    const hubConn = peer.connect(hubId, { reliable: true });
-                    setupConnection(hubConn);
-                });
-
-                peer.on('disconnected', () => {
-                    statusText.textContent = 'Reconnecting...';
-                    try { peer.reconnect(); } catch(e) {}
-                });
-
-                peer.on('error', (e) => {
-                    statusText.textContent = 'Connection error: ' + e.type;
-                    // Auto-retry connection after 3 seconds if handshake fails
-                    setTimeout(initPeer, 3000);
-                });
+                connectAsClient(hubId);
             } else {
-                statusText.textContent = 'Error: ' + err.type;
-                setTimeout(initPeer, 3000);
+                statusText.textContent = 'Connection error. Retrying...';
+                scheduleReconnect();
             }
         });
+    }
+
+    function connectAsClient(hubId) {
+        if (peer) {
+            try { peer.destroy(); } catch(e) {}
+        }
+
+        const clientId = `${roomName.replace('room_', '')}_${sessionSalt}`;
+        peer = new Peer(clientId, rtcConfig);
+
+        peer.on('open', () => {
+            isHub = false;
+            statusText.textContent = 'Connected to room. Joining...';
+            setupPeerListeners();
+            const hubConn = peer.connect(hubId, { reliable: true });
+            setupConnection(hubConn);
+        });
+
+        peer.on('error', (e) => {
+            statusText.textContent = 'Retrying connection...';
+            scheduleReconnect();
+        });
+    }
+
+    function scheduleReconnect() {
+        if (reconnectTimer) return;
+        reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            initPeer();
+        }, 3000);
     }
 
     function setupPeerListeners() {

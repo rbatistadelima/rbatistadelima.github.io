@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Anonymous IRC Chat</title>
+    <title>Anonymous Cloud IRC Chat</title>
     <style>
         * {
             box-sizing: border-box;
@@ -120,7 +120,7 @@
             border: 1px solid #d1d5db;
             border-radius: 8px;
             outline: none;
-            font-size: 16px; /* Prevents iOS auto-zoom on input focus */
+            font-size: 16px; /* Prevents auto-zoom on iPhone 8 */
         }
         #message-input:focus {
             border-color: #4f46e5;
@@ -149,7 +149,7 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Local IRC Log Active</span>
+            <span id="status-text">Connecting to cloud highscore log...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
@@ -167,7 +167,7 @@
 </div>
 
 <script>
-    // 1. Composite Name Generator
+    // 1. Composite Animal Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -179,7 +179,7 @@
     }
 
     const myName = generateCompositeName();
-    const myUid = 'u_' + Math.random().toString(36).substring(2, 8);
+    const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 8);
     document.getElementById('identity-display').textContent = `You: ${myName}`;
 
     function getRoom() {
@@ -196,43 +196,110 @@
 
     const messagesContainer = document.getElementById('messages');
     const messageInput = document.getElementById('message-input');
-    const storageKey = 'irc_chat_log_' + roomName;
+    const statusText = document.getElementById('status-text');
+
+    // Free public JSON storage bin endpoint mapped dynamically to your room hash
+    const STORAGE_URL = `https://json.extendsclass.com/bin/irc_room_${roomName}`;
+
+    let cachedMessages = [];
+    let isSyncing = false;
 
     function getTimeString() {
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    function loadHistory() {
+    async function fetchCloudLog() {
+        if (isSyncing) return;
+        isSyncing = true;
+        try {
+            const response = await fetch(STORAGE_URL, { cache: 'no-store' });
+            if (response.ok) {
+                const data = await response.json();
+                if (Array.isArray(data) && JSON.stringify(data) !== JSON.stringify(cachedMessages)) {
+                    cachedMessages = data;
+                    renderChatHistory(data);
+                }
+                statusText.textContent = `Online (Synced)`;
+            } else if (response.status === 404) {
+                // If room bin doesn't exist yet, initialize it
+                await initializeBin();
+            }
+        } catch(e) {
+            statusText.textContent = `Offline (Using Local Log)`;
+            // Fallback to local storage if network drops
+            const local = localStorage.getItem('fallback_log_' + roomName);
+            if (local && cachedMessages.length === 0) {
+                cachedMessages = JSON.parse(local);
+                renderChatHistory(cachedMessages);
+            }
+        } finally {
+            isSyncing = false;
+        }
+    }
+
+    async function initializeBin() {
+        try {
+            await fetch(STORAGE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify([])
+            });
+        } catch(e) {}
+    }
+
+    async function postMessageToCloud(text) {
+        const time = getTimeString();
+        const newMsg = { sender: myName, uid: myUniqueId, text: text, time: time };
+        
+        cachedMessages.push(newMsg);
+        if (cachedMessages.length > 100) cachedMessages.shift(); // Keep last 100 messages like a high-score table
+
+        renderChatHistory(cachedMessages);
+        localStorage.setItem('fallback_log_' + roomName, JSON.stringify(cachedMessages));
+        
+        messageInput.value = '';
+        messageInput.blur(); // Dismisses virtual keyboard smoothly on iPhone 8
+
+        try {
+            // Push updated message array to the online JSON storage bin
+            await fetch(STORAGE_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cachedMessages)
+            });
+        } catch(e) {
+            statusText.textContent = `Cloud sync pending...`;
+        }
+    }
+
+    function renderChatHistory(messages) {
+        const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop <= messagesContainer.clientHeight + 60;
         messagesContainer.innerHTML = '';
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-            try {
-                const history = JSON.parse(saved);
-                history.forEach(msg => appendMessageToDOM(msg.sender, msg.text, msg.time, msg.uid === myUid ? 'sent' : 'received'));
-            } catch(e) {}
+
+        messages.forEach(msg => {
+            const div = document.createElement('div');
+            const isSelf = msg.uid === myUniqueId;
+            div.className = `message ${isSelf ? 'sent' : 'received'}`;
+            div.innerHTML = `
+                <div class="msg-header">
+                    <span>${msg.sender}</span>
+                    <span class="msg-time">${msg.time}</span>
+                </div>
+                <div>${msg.text}</div>
+            `;
+            messagesContainer.appendChild(div);
+        });
+
+        if (isAtBottom || messages.length <= 5) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (!text) return;
-
-        const time = getTimeString();
-        const msg = { sender: myName, uid: myUid, text: text, time: time };
-
-        // Save to local storage log
-        let history = [];
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-            try { history = JSON.parse(saved); } catch(e) {}
+        if (text) {
+            postMessageToCloud(text);
         }
-        history.push(msg);
-        if (history.length > 200) history.shift();
-        localStorage.setItem(storageKey, JSON.stringify(history));
-
-        appendMessageToDOM(myName, text, time, 'sent');
-        messageInput.value = '';
-        messageInput.blur(); // Dismisses virtual keyboard smoothly on iPhone
     }
 
     function handleKeyPress(e) {
@@ -246,22 +313,10 @@
         location.reload();
     }
 
-    function appendMessageToDOM(sender, text, time, type) {
-        const div = document.createElement('div');
-        div.className = `message ${type}`;
-        div.innerHTML = `
-            <div class="msg-header">
-                <span>${sender}</span>
-                <span class="msg-time">${time}</span>
-            </div>
-            <div>${text}</div>
-        `;
-        messagesContainer.appendChild(div);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-
     window.onload = () => {
-        loadHistory();
+        fetchCloudLog();
+        // Poll every 2.5 seconds to pull new entries from other users/devices automatically
+        setInterval(fetchCloudLog, 2500);
     };
 </script>
 

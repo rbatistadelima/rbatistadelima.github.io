@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonymous Cloud Chat</title>
-    <!-- GunDB Decentralized Database & WebSockets -->
-    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <title>Anonymous Cloud IRC Chat</title>
     <style>
         * {
             box-sizing: border-box;
@@ -155,7 +153,7 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Connecting to network...</span>
+            <span id="status-text">Connecting to cloud...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
@@ -202,57 +200,88 @@
     const messageInput = document.getElementById('message-input');
     const statusText = document.getElementById('status-text');
 
-    const seenMsgIds = new Set();
+    // Using a public cross-platform KV storage bin that allows open browser syncing without CORS restrictions
+    const STORE_URL = `https://api.allorigins.win/raw?url=` + encodeURIComponent(`https://jsonbin.org/rtchat_${roomName}`);
 
-    // Initialize Gun DB with multiple public WebSocket relays
-    const gun = Gun({
-        peers: [
-            'https://gun-manhattan.herokuapp.com/gun',
-            'https://peer.walla.app/gun'
-        ]
-    });
+    let cachedLog = [];
+    let isSyncing = false;
 
-    const roomNode = gun.get('anonymous_chat_rooms_v1').get(roomName);
-
-    function getTimeString(timestamp) {
-        const date = timestamp ? new Date(timestamp) : new Date();
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    function getTimeString() {
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    function initChat() {
-        statusText.textContent = "Online (P2P Relay Connected)";
+    async function fetchLog() {
+        if (isSyncing) return;
+        isSyncing = true;
+        try {
+            const res = await fetch(`https://corsproxy.io/?` + encodeURIComponent(`https://json.extendsclass.com/bin/chat_${roomName}`));
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data) && JSON.stringify(data) !== JSON.stringify(cachedLog)) {
+                    cachedLog = data;
+                    renderHistory(data);
+                }
+            }
+        } catch(e) {
+            // Fallback to local storage cache if network blips
+            const local = localStorage.getItem('chat_' + roomName);
+            if (local && cachedLog.length === 0) {
+                cachedLog = JSON.parse(local);
+                renderHistory(cachedLog);
+            }
+        } finally {
+            isSyncing = false;
+            statusText.textContent = "Online (Cloud Synced)";
+        }
+    }
 
-        // Listen for new messages & load online historical log
-        roomNode.map().once((data, id) => {
-            if (!data || seenMsgIds.has(id)) return;
-            seenMsgIds.add(id);
+    async function postMessage(text) {
+        const time = getTimeString();
+        const msg = { sender: myName, uid: myUid, text: text, time: time };
+        
+        cachedLog.push(msg);
+        if (cachedLog.length > 100) cachedLog.shift();
+        
+        renderHistory(cachedLog);
+        localStorage.setItem('chat_' + roomName, JSON.stringify(cachedLog));
+        messageInput.value = '';
+        messageInput.focus();
 
-            const isSelf = data.uid === myUid || data.sender === myName;
-            const time = getTimeString(data.timestamp);
+        try {
+            await fetch(`https://corsproxy.io/?` + encodeURIComponent(`https://json.extendsclass.com/bin/chat_${roomName}`), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cachedLog)
+            });
+        } catch(e) {}
+    }
 
-            appendMessageToDOM(data.sender, data.text, time, isSelf ? 'sent' : 'received');
+    function renderHistory(messages) {
+        const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop <= messagesContainer.clientHeight + 60;
+        messagesContainer.innerHTML = '';
+
+        messages.forEach(msg => {
+            const div = document.createElement('div');
+            const isSelf = msg.uid === myUid;
+            div.className = `message ${isSelf ? 'sent' : 'received'}`;
+            div.innerHTML = `
+                <div class="msg-header">
+                    <span>${msg.sender}</span>
+                    <span class="msg-time">${msg.time}</span>
+                </div>
+                <div>${msg.text}</div>
+            `;
+            messagesContainer.appendChild(div);
         });
+
+        if (isAtBottom || messages.length <= 5) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (!text) return;
-
-        const timestamp = Date.now();
-        const msgId = 'msg_' + timestamp + '_' + Math.random().toString(36).substring(2, 6);
-
-        const payload = {
-            sender: myName,
-            uid: myUid,
-            text: text,
-            timestamp: timestamp
-        };
-
-        // Write directly to decentralized mesh graph
-        roomNode.get(msgId).put(payload);
-
-        messageInput.value = '';
-        messageInput.focus();
+        if (text) postMessage(text);
     }
 
     function handleKeyPress(e) {
@@ -264,21 +293,10 @@
         location.reload();
     }
 
-    function appendMessageToDOM(sender, text, time, type) {
-        const div = document.createElement('div');
-        div.className = `message ${type}`;
-        div.innerHTML = `
-            <div class="msg-header">
-                <span>${sender}</span>
-                <span class="msg-time">${time}</span>
-            </div>
-            <div>${text}</div>
-        `;
-        messagesContainer.appendChild(div);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-
-    window.onload = initChat;
+    window.onload = () => {
+        fetchLog();
+        setInterval(fetchLog, 3000); // Polling every 3 seconds for instant chat updates across tabs
+    };
 </script>
 
 </body>

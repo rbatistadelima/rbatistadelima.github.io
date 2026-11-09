@@ -256,7 +256,7 @@
 
     let peer = null;
     let isHub = false;
-    const activeConnections = new Map(); // peerId -> { conn, name }
+    const activeConnections = new Map(); // remotePeerId -> { conn, name, lastSeen }
     const processedMessageIds = new Set();
     let reconnectTimer = null;
 
@@ -315,10 +315,8 @@
     }
 
     function updateClientListUI() {
-        // Keep self entry
         clientListEl.innerHTML = `<li id="self-client-item"><span class="status-dot"></span> <span>${myName} (You)</span></li>`;
         
-        // Add connected peers
         activeConnections.forEach(({ name }) => {
             const li = document.createElement('li');
             li.innerHTML = `<span class="status-dot"></span> <span>${name || 'Peer'}</span>`;
@@ -402,13 +400,17 @@
 
             if (isHub) {
                 setTimeout(() => {
-                    const peerList = Array.from(activeConnections.keys());
-                    activeConnections.forEach(({ conn }) => {
-                        if (conn && conn.open) {
-                            conn.send({ type: 'peer_list', peers: peerList });
-                        }
-                    });
+                    broadcastPeerList();
                 }, 500);
+            }
+        });
+    }
+
+    function broadcastPeerList() {
+        const peerList = Array.from(activeConnections.keys());
+        activeConnections.forEach(({ conn }) => {
+            if (conn && conn.open) {
+                conn.send({ type: 'peer_list', peers: peerList });
             }
         });
     }
@@ -417,7 +419,7 @@
         const remoteId = connection.peer;
 
         connection.on('open', () => {
-            activeConnections.set(remoteId, { conn: connection, name: "Peer" });
+            activeConnections.set(remoteId, { conn: connection, name: "Peer", lastSeen: Date.now() });
             statusText.textContent = `Connected peers: ${activeConnections.size}`;
             connection.send({ type: 'profile', id: myUniqueId, name: myName });
             updateClientListUI();
@@ -426,13 +428,20 @@
         connection.on('data', (data) => {
             try {
                 if (typeof data === 'object' && data !== null) {
+                    // Update heartbeat timestamp on any incoming packet
+                    const p = activeConnections.get(remoteId);
+                    if (p) p.lastSeen = Date.now();
+
                     if (data.type === 'profile') {
-                        const p = activeConnections.get(remoteId);
                         if (p) {
                             p.name = data.name;
                             p.uid = data.id;
                             updateClientListUI();
                         }
+                        return;
+                    }
+                    if (data.type === 'ping') {
+                        connection.send({ type: 'pong' });
                         return;
                     }
                     if (data.type === 'peer_list' && !isHub) {
@@ -511,6 +520,26 @@
         statusText.textContent = activeConnections.size > 0 ? `Connected peers: ${activeConnections.size}` : 'Waiting for peers...';
         updateClientListUI();
     }
+
+    // Active heartbeat monitor: prunes dead sockets and re-pings every 4 seconds
+    setInterval(() => {
+        const now = Date.now();
+        let changed = false;
+        activeConnections.forEach(({ conn, lastSeen }, remoteId) => {
+            if (now - lastSeen > 10000) { // 10 seconds silence = dead connection
+                try { conn.close(); } catch(e) {}
+                activeConnections.delete(remoteId);
+                changed = true;
+            } else if (conn && conn.open) {
+                conn.send({ type: 'ping' });
+            }
+        });
+        if (changed) {
+            statusText.textContent = activeConnections.size > 0 ? `Connected peers: ${activeConnections.size}` : 'Waiting for peers...';
+            updateClientListUI();
+            if (isHub) broadcastPeerList();
+        }
+    }, 4000);
 
     function newRoom() {
         window.location.hash = 'room_' + Math.random().toString(36).substring(2, 8);

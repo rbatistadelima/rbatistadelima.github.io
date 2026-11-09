@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anonymous WebRTC Chat</title>
-    <!-- PeerJS Library -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- ScaleDrone WebRTC Signaling SDK -->
+    <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -149,7 +149,7 @@
 <div id="chat-container">
     <div id="status-bar">
         <div>
-            <div id="status-text">Initializing...</div>
+            <div id="status-text">Connecting...</div>
             <div id="identity-display">You: Loading...</div>
         </div>
         <button id="next-btn" onclick="findNextPartner()" disabled>Next Stranger</button>
@@ -162,7 +162,10 @@
 </div>
 
 <script>
-    // 1. Composite Name Generator
+    // Public free channel key for ScaleDrone signaling
+    const CHANNEL_ID = 'yiS12C5iAgNWIWgm';
+
+    // 1. Composite Animal Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -177,10 +180,11 @@
     let strangerName = "Stranger";
     document.getElementById('identity-display').textContent = `You: ${myName}`;
 
-    let peer = null;
-    let conn = null;
+    let drone = null;
+    let room = null;
+    let pc = null;
+    let dataChannel = null;
     let isConnected = false;
-    let searchTimer = null;
 
     const statusText = document.getElementById('status-text');
     const messagesContainer = document.getElementById('messages');
@@ -188,13 +192,11 @@
     const sendBtn = document.getElementById('send-btn');
     const nextBtn = document.getElementById('next-btn');
 
-    const peerConfig = {
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' }
-            ]
-        }
+    const rtcConfig = {
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
     };
 
     // --- LocalStorage History Handling ---
@@ -225,97 +227,120 @@
         return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    function initPeer() {
-        if (peer) {
-            try { peer.destroy(); } catch(e){}
+    function initSignaling() {
+        statusText.textContent = 'Connecting to signaling network...';
+        
+        drone = new ScaleDrone(CHANNEL_ID);
+
+        drone.on('open', (error) => {
+            if (error) return console.error(error);
+
+            // Join lobby room
+            const roomName = 'observable-lobby-room';
+            room = drone.subscribe(roomName);
+
+            room.on('open', (error) => {
+                if (error) console.error(error);
+                statusText.textContent = 'Searching for partner...';
+                nextBtn.disabled = false;
+            });
+
+            room.on('members', (members) => {
+                // If 2 members in the room, host initiates the call
+                const isOfferer = members.length === 2;
+                startWebRTC(isOfferer);
+            });
+        });
+    }
+
+    function startWebRTC(isOfferer) {
+        pc = new RTCPeerConnection(rtcConfig);
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                sendMessageToSignaling({ candidate: event.candidate });
+            }
+        };
+
+        if (isOfferer) {
+            pc.onnegotiationneeded = async () => {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                sendMessageToSignaling({ sdp: pc.localDescription });
+            };
+            dataChannel = pc.createDataChannel('chat');
+            setupDataChannel();
+        } else {
+            pc.ondatachannel = (event) => {
+                dataChannel = event.channel;
+                setupDataChannel();
+            };
         }
 
-        isConnected = false;
-        statusText.textContent = 'Connecting to network...';
+        // Listen for incoming signaling data from ScaleDrone
+        room.on('data', async (message, member) => {
+            if (member.id === drone.clientId) return;
 
-        // Dynamic slot keying so visitors pair up automatically
-        const roomSlot = Math.floor(Date.now() / 8000) % 5;
-        const myPeerId = `gh-room-${roomSlot}-${Math.random().toString(36).substring(2, 6)}`;
-
-        peer = new Peer(myPeerId, peerConfig);
-
-        peer.on('open', () => {
-            statusText.textContent = 'Searching for partner...';
-            nextBtn.disabled = false;
-            probePeerSlot(roomSlot);
-        });
-
-        peer.on('connection', (incomingConn) => {
-            if (isConnected) {
-                incomingConn.close();
-                return;
+            if (message.sdp) {
+                await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+                if (pc.remoteDescription.type === 'offer') {
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    sendMessageToSignaling({ sdp: pc.localDescription });
+                }
+            } else if (message.candidate) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+                } catch(e) {}
             }
-            setupConnection(incomingConn);
-        });
-
-        peer.on('error', (err) => {
-            console.error("Peer error:", err);
-            setTimeout(findNextPartner, 1500);
         });
     }
 
-    function probePeerSlot(slot) {
-        if (isConnected) return;
-
-        let targetId = `gh-room-${slot}-${Math.random().toString(36).substring(2, 6)}`;
-        const outbound = peer.connect(targetId, { reliable: true });
-
-        let opened = false;
-        outbound.on('open', () => {
-            opened = true;
-            setupConnection(outbound);
+    function sendMessageToSignaling(message) {
+        drone.publish({
+            room: 'observable-lobby-room',
+            message: message
         });
-
-        if (searchTimer) clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => {
-            if (!opened && !isConnected) {
-                statusText.textContent = 'Waiting for stranger to connect...';
-            }
-        }, 3000);
     }
 
-    function setupConnection(connection) {
-        if (isConnected) return;
-        isConnected = true;
-        conn = connection;
+    function setupDataChannel() {
+        dataChannel.onopen = () => {
+            isConnected = true;
+            statusText.textContent = 'Connected!';
+            appendSystemMessage('Connected to a stranger.');
+            toggleInputs(true);
 
-        if (searchTimer) clearTimeout(searchTimer);
-        statusText.textContent = 'Connected!';
-        appendSystemMessage('Connected to a stranger.');
-        toggleInputs(true);
+            // Send composite animal name
+            dataChannel.send(JSON.stringify({ type: 'name', name: myName }));
+        };
 
-        // Exchange name
-        conn.send({ type: 'name', name: myName });
-
-        conn.on('data', (data) => {
-            if (typeof data === 'object' && data.type === 'name') {
-                strangerName = data.name;
-                appendSystemMessage(`You are chatting with: ${strangerName}`);
-            } else if (typeof data === 'string') {
+        dataChannel.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'name') {
+                    strangerName = data.name;
+                    appendSystemMessage(`You are chatting with: ${strangerName}`);
+                } else {
+                    const time = getTimeString();
+                    appendMessageToDOM(strangerName, event.data, time, 'received');
+                    saveMessageToStorage(strangerName, event.data, time, 'received');
+                }
+            } catch {
                 const time = getTimeString();
-                appendMessageToDOM(strangerName, data, time, 'received');
-                saveMessageToStorage(strangerName, data, time, 'received');
+                appendMessageToDOM(strangerName, event.data, time, 'received');
+                saveMessageToStorage(strangerName, event.data, time, 'received');
             }
-        });
+        };
 
-        conn.on('close', () => {
+        dataChannel.onclose = () => {
             handleDisconnect();
-        });
-
-        conn.on('error', () => {
-            handleDisconnect();
-        });
+        };
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (text && conn && conn.open) {
-            conn.send(text);
+        if (text && dataChannel && dataChannel.readyState === 'open') {
+            dataChannel.send(text);
             const time = getTimeString();
             appendMessageToDOM(myName, text, time, 'sent');
             saveMessageToStorage(myName, text, time, 'sent');
@@ -333,21 +358,19 @@
         appendSystemMessage('Stranger disconnected.');
         cleanupConnection();
         statusText.textContent = 'Searching for next partner...';
-        setTimeout(initPeer, 1500);
+        setTimeout(initSignaling, 1500);
     }
 
     function findNextPartner() {
         cleanupConnection();
-        initPeer();
+        initSignaling();
     }
 
     function cleanupConnection() {
         isConnected = false;
-        if (searchTimer) clearTimeout(searchTimer);
-        if (conn) {
-            try { conn.close(); } catch(e){}
-            conn = null;
-        }
+        if (dataChannel) { try { dataChannel.close(); } catch(e){} dataChannel = null; }
+        if (pc) { try { pc.close(); } catch(e){} pc = null; }
+        if (drone) { try { drone.close(); } catch(e){} drone = null; }
         toggleInputs(false);
     }
 
@@ -385,7 +408,7 @@
 
     window.onload = () => {
         loadChatHistory();
-        initPeer();
+        initSignaling();
     };
 </script>
 

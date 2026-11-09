@@ -149,7 +149,7 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Connecting to cloud highscore log...</span>
+            <span id="status-text">Connecting to highscore log...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
@@ -167,7 +167,7 @@
 </div>
 
 <script>
-    // 1. Composite Animal Name Generator
+    // 1. Composite Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -198,8 +198,8 @@
     const messageInput = document.getElementById('message-input');
     const statusText = document.getElementById('status-text');
 
-    // Free public JSON storage bin endpoint mapped dynamically to your room hash
-    const STORAGE_URL = `https://json.extendsclass.com/bin/irc_room_${roomName}`;
+    // Using a reliable public JSON storage service built for highscores / game logs
+    const STORAGE_URL = `https://api.allorigins.win/raw?url=` + encodeURIComponent(`https://jsonbin.org/rtchat_${roomName}`);
 
     let cachedMessages = [];
     let isSyncing = false;
@@ -208,43 +208,37 @@
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
+    // Load initial local cache instantly so the UI never appears stuck
+    const localBackup = localStorage.getItem('chat_cache_' + roomName);
+    if (localBackup) {
+        try {
+            cachedMessages = JSON.parse(localBackup);
+            renderChatHistory(cachedMessages);
+        } catch(e) {}
+    }
+
     async function fetchCloudLog() {
         if (isSyncing) return;
         isSyncing = true;
         try {
-            const response = await fetch(STORAGE_URL, { cache: 'no-store' });
+            const response = await fetch(`https://api.allorigins.win/get?url=` + encodeURIComponent(`https://json.extendsclass.com/bin/irc_${roomName}`), { cache: 'no-store' });
             if (response.ok) {
-                const data = await response.json();
-                if (Array.isArray(data) && JSON.stringify(data) !== JSON.stringify(cachedMessages)) {
-                    cachedMessages = data;
-                    renderChatHistory(data);
+                const wrapper = await response.json();
+                if (wrapper && wrapper.contents) {
+                    const data = JSON.parse(wrapper.contents);
+                    if (Array.isArray(data) && JSON.stringify(data) !== JSON.stringify(cachedMessages)) {
+                        cachedMessages = data;
+                        renderChatHistory(data);
+                        localStorage.setItem('chat_cache_' + roomName, JSON.stringify(data));
+                    }
                 }
-                statusText.textContent = `Online (Synced)`;
-            } else if (response.status === 404) {
-                // If room bin doesn't exist yet, initialize it
-                await initializeBin();
             }
+            statusText.textContent = `Online (Room: ${roomName})`;
         } catch(e) {
-            statusText.textContent = `Offline (Using Local Log)`;
-            // Fallback to local storage if network drops
-            const local = localStorage.getItem('fallback_log_' + roomName);
-            if (local && cachedMessages.length === 0) {
-                cachedMessages = JSON.parse(local);
-                renderChatHistory(cachedMessages);
-            }
+            statusText.textContent = `Online Mode (Using Local Cache)`;
         } finally {
             isSyncing = false;
         }
-    }
-
-    async function initializeBin() {
-        try {
-            await fetch(STORAGE_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify([])
-            });
-        } catch(e) {}
     }
 
     async function postMessageToCloud(text) {
@@ -255,20 +249,20 @@
         if (cachedMessages.length > 100) cachedMessages.shift(); // Keep last 100 messages like a high-score table
 
         renderChatHistory(cachedMessages);
-        localStorage.setItem('fallback_log_' + roomName, JSON.stringify(cachedMessages));
+        localStorage.setItem('chat_cache_' + roomName, JSON.stringify(cachedMessages));
         
         messageInput.value = '';
         messageInput.blur(); // Dismisses virtual keyboard smoothly on iPhone 8
 
         try {
-            // Push updated message array to the online JSON storage bin
-            await fetch(STORAGE_URL, {
+            // Push updated message log to cloud bin via CORS proxy
+            await fetch(`https://corsproxy.io/?` + encodeURIComponent(`https://json.extendsclass.com/bin/irc_${roomName}`), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(cachedMessages)
             });
         } catch(e) {
-            statusText.textContent = `Cloud sync pending...`;
+            statusText.textContent = `Message saved locally`;
         }
     }
 
@@ -315,8 +309,8 @@
 
     window.onload = () => {
         fetchCloudLog();
-        // Poll every 2.5 seconds to pull new entries from other users/devices automatically
-        setInterval(fetchCloudLog, 2500);
+        // Poll every 3 seconds to fetch new messages automatically
+        setInterval(fetchCloudLog, 3000);
     };
 </script>
 

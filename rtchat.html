@@ -199,7 +199,7 @@
     let peer = null;
     let isHub = false;
     const activeConnections = new Map();
-    const processedMessageIds = new Set(); // Tracks unique message hashes to block echoes
+    const processedMessageIds = new Set();
 
     const statusText = document.getElementById('status-text');
     const roomDisplay = document.getElementById('room-display');
@@ -259,12 +259,23 @@
         statusText.textContent = 'Connecting to room...';
 
         const hubId = `${roomName}_hub`;
+        
+        // Clean up any existing peer instance before re-initializing
+        if (peer) {
+            try { peer.destroy(); } catch(e) {}
+        }
+
         peer = new Peer(hubId, rtcConfig);
 
         peer.on('open', () => {
             isHub = true;
             statusText.textContent = 'Room active (Hub ready). Waiting for peers...';
             setupPeerListeners();
+        });
+
+        peer.on('disconnected', () => {
+            statusText.textContent = 'Reconnecting to signaling server...';
+            try { peer.reconnect(); } catch(e) {}
         });
 
         peer.on('error', (err) => {
@@ -281,11 +292,19 @@
                     setupConnection(hubConn);
                 });
 
+                peer.on('disconnected', () => {
+                    statusText.textContent = 'Reconnecting...';
+                    try { peer.reconnect(); } catch(e) {}
+                });
+
                 peer.on('error', (e) => {
                     statusText.textContent = 'Connection error: ' + e.type;
+                    // Auto-retry connection after 3 seconds if handshake fails
+                    setTimeout(initPeer, 3000);
                 });
             } else {
                 statusText.textContent = 'Error: ' + err.type;
+                setTimeout(initPeer, 3000);
             }
         });
     }
@@ -339,7 +358,6 @@
                         return;
                     }
                     if (data.type === 'chat_msg') {
-                        // Drop if message originated from us or has already been processed (prevents duplicates/echoes)
                         if (data.uid === myUniqueId || processedMessageIds.has(data.msgId)) return;
                         
                         processedMessageIds.add(data.msgId);
@@ -348,7 +366,6 @@
                         appendMessageToDOM(data.sender, data.text, time, 'received');
                         saveMessageToStorage(data.msgId, data.sender, data.text, time, 'received');
 
-                        // If we are the hub, safely forward to other peers once
                         if (isHub) {
                             activeConnections.forEach((val, id) => {
                                 if (id !== remoteId && val.conn && val.conn.open) {

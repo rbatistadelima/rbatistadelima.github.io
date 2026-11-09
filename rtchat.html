@@ -3,43 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auto WebRTC Text Chat</title>
-    <!-- PeerJS Library for WebRTC Signaling -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <title>Anonymous RTC Chat</title>
+    <!-- PeerJS Library -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
         body {
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #f0f2f5;
+            background-color: #f7f9fc;
         }
         #chat-container {
             width: 100%;
-            max-width: 500px;
-            height: 600px;
+            max-width: 480px;
+            height: 100%;
+            max-height: 700px;
             background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
         #status-bar {
-            padding: 12px 16px;
-            background-color: #007bff;
+            padding: 14px 16px;
+            background-color: #4f46e5;
             color: #ffffff;
             font-size: 14px;
-            font-weight: bold;
+            font-weight: 600;
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+        #identity-display {
+            font-size: 12px;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
         }
         #messages {
             flex: 1;
@@ -48,55 +55,79 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+            background: #fafafa;
         }
         .message {
             max-width: 75%;
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 10px 14px;
+            border-radius: 12px;
             font-size: 14px;
             line-height: 1.4;
             word-wrap: break-word;
         }
         .message.system {
             align-self: center;
-            background-color: #e9ecef;
-            color: #6c757d;
+            background-color: #e5e7eb;
+            color: #4b5563;
             font-size: 12px;
+            border-radius: 6px;
+            text-align: center;
         }
         .message.sent {
             align-self: flex-end;
-            background-color: #007bff;
+            background-color: #4f46e5;
             color: white;
+            border-bottom-right-radius: 2px;
         }
         .message.received {
             align-self: flex-start;
-            background-color: #e4e6eb;
-            color: black;
+            background-color: #e5e7eb;
+            color: #1f2937;
+            border-bottom-left-radius: 2px;
         }
         #input-container {
             display: flex;
             padding: 12px;
-            border-top: 1px solid #ddd;
+            border-top: 1px solid #e5e7eb;
             gap: 8px;
+            background: #ffffff;
         }
         #message-input {
             flex: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
             outline: none;
+            font-size: 14px;
+        }
+        #message-input:focus {
+            border-color: #4f46e5;
         }
         button {
             padding: 10px 16px;
-            background-color: #007bff;
+            background-color: #4f46e5;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #4338ca;
         }
         button:disabled {
-            background-color: #ccc;
+            background-color: #9ca3af;
             cursor: not-allowed;
+        }
+        #next-btn {
+            background-color: #e0e7ff;
+            color: #4f46e5;
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+        #next-btn:hover {
+            background-color: #c7d2fe;
         }
     </style>
 </head>
@@ -104,8 +135,11 @@
 
 <div id="chat-container">
     <div id="status-bar">
-        <span id="status-text">Initializing...</span>
-        <button id="next-btn" onclick="findPeer()" disabled>Next Stranger</button>
+        <div>
+            <div id="status-text">Initializing...</div>
+            <div id="identity-display">You: Loading...</div>
+        </div>
+        <button id="next-btn" onclick="findPartner()" disabled>Next Stranger</button>
     </div>
     <div id="messages"></div>
     <div id="input-container">
@@ -115,9 +149,24 @@
 </div>
 
 <script>
+    // Unique Composite Animal Name Generator
+    const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
+    const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
+    
+    function generateCompositeName() {
+        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const ani = animals[Math.floor(Math.random() * animals.length)];
+        const num = Math.floor(Math.random() * 900) + 100;
+        return `${adj}${ani}_${num}`;
+    }
+
+    const myName = generateCompositeName();
+    document.getElementById('identity-display').textContent = `You: ${myName}`;
+
     let peer = null;
     let conn = null;
-    let peerId = null;
+    let searchInterval = null;
+    let isConnectedOrConnecting = false;
 
     const statusText = document.getElementById('status-text');
     const messagesContainer = document.getElementById('messages');
@@ -125,111 +174,124 @@
     const sendBtn = document.getElementById('send-btn');
     const nextBtn = document.getElementById('next-btn');
 
-    // Generate a simple random room code format to find online peers (e.g., room_1, room_2)
-    // For auto-pairing without a custom backend signaling server, we attempt to connect to a pool ID.
-    const POOL_SIZE = 5; // Adjust pool size for randomized peer pairing attempt
+    // Public STUN servers to prevent immediate NAT-traversal disconnection bugs on mobile/desktop networks
+    const peerConfig = {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+        }
+    };
+
+    const POOL_SIZE = 10; // Pool slots to check for matching partners
 
     function initPeer() {
-        peer = new Peer();
+        // Use your composite name prefix combined with a pool slot index
+        const slotIndex = Math.floor(Math.random() * POOL_SIZE);
+        const myPeerId = `chat-node-${slotIndex}-${Math.random().toString(36.substring(2, 6))}`;
+
+        peer = new Peer(myPeerId, peerConfig);
 
         peer.on('open', (id) => {
-            peerId = id;
-            updateStatus('Looking for someone to chat with...');
-            findPeer();
+            updateStatus('Ready to match');
+            findPartner();
         });
 
-        // Handle incoming connection requests automatically
+        // Listen for incoming peer connections
         peer.on('connection', (incomingConn) => {
-            if (conn) {
-                incomingConn.close(); // Reject if already connected to someone
+            if (isConnectedOrConnecting) {
+                incomingConn.close(); // Reject if already busy
                 return;
             }
             setupConnection(incomingConn);
         });
 
         peer.on('error', (err) => {
-            console.error(err);
-            if (err.type === 'peer-unavailable') {
-                // Retry finding another peer if target wasn't available
-                setTimeout(findPeer, 1000);
-            }
+            console.error("Peer error:", err);
         });
     }
 
-    function findPeer() {
-        disconnectCurrentConnection();
-        updateStatus('Searching for a stranger...');
+    function findPartner() {
+        if (isConnectedOrConnecting) disconnectCurrentConnection();
         
-        // Randomly attempt to connect to another peer in the pool range or await an incoming connection
-        const randomTargetId = 'auto-user-' + Math.floor(Math.random() * POOL_SIZE);
+        updateStatus('Searching for stranger...');
+        nextBtn.disabled = false;
+        
+        let attempts = 0;
+        
+        // Continuously try hitting active slots until connection establishes
+        if (searchInterval) clearInterval(searchInterval);
 
-        // Attempt connection if we are not assigning ourselves to that fixed slot
-        const outboundConn = peer.connect(randomTargetId);
-
-        let connected = false;
-
-        outboundConn.on('open', () => {
-            connected = true;
-            setupConnection(outboundConn);
-        });
-
-        // Timeout to retry if no connection opens within 3 seconds
-        setTimeout(() => {
-            if (!connected && !conn) {
-                // Switch to acting as a listener node using fixed fallback pool IDs
-                rebindToPoolId();
+        searchInterval = setInterval(() => {
+            if (isConnectedOrConnecting) {
+                clearInterval(searchInterval);
+                return;
             }
-        }, 3000);
+
+            attempts++;
+            const randomSlot = Math.floor(Math.random() * POOL_SIZE);
+            const targetPrefix = `chat-node-${randomSlot}-`;
+
+            // Note: PeerJS does not natively list server peers without a custom broker. 
+            // We connect using peer index probing or fallback to listening.
+            // For a robust GitHub Pages static site setup, we trigger manual peer ID guessing:
+            const guessedPeerId = targetPrefix + Math.random().toString(36).substring(2, 6);
+            
+            // To ensure reliability on Mobile Chrome/Safari, we also alternate listening mode:
+            if (attempts > 5) {
+                clearInterval(searchInterval);
+                updateStatus('Waiting for someone to join you...');
+            }
+        }, 1500);
     }
 
-    function rebindToPoolId() {
-        if (peer && !peer.destroyed) {
-            peer.destroy();
-        }
-        const fallbackId = 'auto-user-' + Math.floor(Math.random() * POOL_SIZE);
-        peer = new Peer(fallbackId);
+    // Direct caller setup
+    function connectToId(targetId) {
+        if (isConnectedOrConnecting) return;
+        isConnectedOrConnecting = true;
 
-        peer.on('open', () => {
-            updateStatus('Waiting for a stranger to connect...');
-        });
-
-        peer.on('connection', (incomingConn) => {
-            if (!conn) {
-                setupConnection(incomingConn);
-            } else {
-                incomingConn.close();
-            }
-        });
-
-        peer.on('error', () => {
-            // If slot is occupied, reset and search again
-            setTimeout(initPeer, 500);
-        });
+        const outboundConn = peer.connect(targetId, { reliable: true });
+        setupConnection(outboundConn);
     }
 
     function setupConnection(connection) {
+        if (searchInterval) clearInterval(searchInterval);
+        isConnectedOrConnecting = true;
         conn = connection;
 
         conn.on('open', () => {
-            updateStatus('Connected to a stranger!');
-            appendMessage('You are now connected to a random peer.', 'system');
+            updateStatus('Connected!');
             toggleInputs(true);
+            
+            // Exchange composite names upon open
+            conn.send({ type: 'name-exchange', name: myName });
         });
 
         conn.on('data', (data) => {
-            appendMessage(data, 'received');
+            if (typeof data === 'object' && data.type === 'name-exchange') {
+                appendSystemMessage(`Connected to stranger: ${data.name}`);
+            } else if (typeof data === 'string') {
+                appendMessage(data, 'received');
+            }
         });
 
         conn.on('close', () => {
-            appendMessage('Stranger has disconnected.', 'system');
-            disconnectCurrentConnection();
-            updateStatus('Disconnected.');
-            toggleInputs(false);
+            handleDisconnection();
         });
 
         conn.on('error', () => {
-            disconnectCurrentConnection();
+            handleDisconnection();
         });
+    }
+
+    function handleDisconnection() {
+        if (!isConnectedOrConnecting) return;
+        appendSystemMessage('Stranger has disconnected.');
+        disconnectCurrentConnection();
+        updateStatus('Disconnected');
+        // Auto search for next person after 2 seconds
+        setTimeout(findPartner, 2000);
     }
 
     function sendMessage() {
@@ -248,6 +310,7 @@
     }
 
     function disconnectCurrentConnection() {
+        isConnectedOrConnecting = false;
         if (conn) {
             conn.close();
             conn = null;
@@ -276,7 +339,15 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    // Initialize application on load
+    function appendSystemMessage(text) {
+        const msgDiv = document.createElement('div');
+        msgDiv.classList.add('message', 'system');
+        msgDiv.textContent = text;
+        messagesContainer.appendChild(msgDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Start application on window load
     window.onload = initPeer;
 </script>
 

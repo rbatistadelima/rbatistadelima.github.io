@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonymous Cloud Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Anonymous IRC Chat</title>
     <style>
         * {
             box-sizing: border-box;
@@ -11,27 +11,29 @@
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+        html, body {
+            height: 100%;
+            overflow: hidden;
             background-color: #f7f9fc;
         }
         #chat-container {
             width: 100%;
-            max-width: 480px;
             height: 100%;
-            max-height: 700px;
+            max-width: 480px;
+            margin: 0 auto;
             background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
+        @media (min-width: 481px) {
+            #chat-container {
+                height: 100vh;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            }
+        }
         #status-bar {
-            padding: 14px 16px;
+            padding: 10px 14px;
             background-color: #4f46e5;
             color: #ffffff;
             font-size: 13px;
@@ -39,6 +41,7 @@
             display: flex;
             flex-direction: column;
             gap: 4px;
+            flex-shrink: 0;
         }
         .status-row {
             display: flex;
@@ -48,7 +51,7 @@
         #identity-display {
             font-size: 11px;
             background: rgba(255,255,255,0.2);
-            padding: 3px 6px;
+            padding: 2px 6px;
             border-radius: 4px;
         }
         #room-controls {
@@ -59,23 +62,24 @@
         }
         #messages {
             flex: 1;
-            padding: 16px;
+            padding: 12px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
             background: #fafafa;
+            -webkit-overflow-scrolling: touch;
         }
         .message {
-            max-width: 80%;
-            padding: 10px 14px;
+            max-width: 85%;
+            padding: 8px 12px;
             border-radius: 12px;
             font-size: 14px;
             line-height: 1.4;
             word-wrap: break-word;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 2px;
         }
         .message.sent {
             align-self: flex-end;
@@ -104,31 +108,32 @@
         }
         #input-container {
             display: flex;
-            padding: 12px;
+            padding: 10px 12px;
             border-top: 1px solid #e5e7eb;
             gap: 8px;
             background: #ffffff;
+            flex-shrink: 0;
         }
         #message-input {
             flex: 1;
-            padding: 10px 14px;
+            padding: 10px 12px;
             border: 1px solid #d1d5db;
             border-radius: 8px;
             outline: none;
-            font-size: 14px;
+            font-size: 16px; /* Prevents iOS auto-zoom on input focus */
         }
         #message-input:focus {
             border-color: #4f46e5;
         }
         button {
-            padding: 6px 12px;
+            padding: 8px 12px;
             background-color: #ffffff;
             color: #4f46e5;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 11px;
+            font-size: 12px;
         }
         button:hover {
             background-color: #f3f4f6;
@@ -144,7 +149,7 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Connecting...</span>
+            <span id="status-text">Local IRC Log Active</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
@@ -152,9 +157,11 @@
             <button onclick="newRoom()">New Room</button>
         </div>
     </div>
+    
     <div id="messages"></div>
+    
     <div id="input-container">
-        <input type="text" id="message-input" placeholder="Type a message and press Enter..." onkeypress="handleKeyPress(event)" autofocus>
+        <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)" autocomplete="off">
         <button id="send-btn" onclick="sendMessage()">Send</button>
     </div>
 </div>
@@ -189,102 +196,49 @@
 
     const messagesContainer = document.getElementById('messages');
     const messageInput = document.getElementById('message-input');
-    const statusText = document.getElementById('status-text');
-
-    let cachedMessages = [];
-    let isFetching = false;
+    const storageKey = 'irc_chat_log_' + roomName;
 
     function getTimeString() {
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    // Load initial local backup immediately so the UI is never stuck loading
-    const localSaved = localStorage.getItem('chat_backup_' + roomName);
-    if (localSaved) {
-        try {
-            cachedMessages = JSON.parse(localSaved);
-            renderChatHistory(cachedMessages);
-        } catch(e) {}
-    }
-
-    statusText.textContent = `Online - Room: ${roomName}`;
-
-    async function fetchCloudLog() {
-        if (isFetching) return;
-        isFetching = true;
-        try {
-            const response = await fetch(`https://api.allorigins.win/get?url=` + encodeURIComponent(`https://json.extendsclass.com/bin/chatlog_${roomName}`), { cache: 'no-store' });
-            if (response.ok) {
-                const wrapper = await response.json();
-                if (wrapper && wrapper.contents) {
-                    const data = JSON.parse(wrapper.contents);
-                    if (Array.isArray(data) && JSON.stringify(data) !== JSON.stringify(cachedMessages)) {
-                        cachedMessages = data;
-                        renderChatHistory(data);
-                        localStorage.setItem('chat_backup_' + roomName, JSON.stringify(data));
-                    }
-                }
-            }
-        } catch(e) {
-            // Network silent fail handled gracefully by local cache
-        } finally {
-            isFetching = false;
-        }
-    }
-
-    async function postMessageToCloud(text) {
-        const time = getTimeString();
-        const newMsg = { sender: myName, uid: myUid, text: text, time: time };
-        
-        cachedMessages.push(newMsg);
-        if (cachedMessages.length > 100) cachedMessages.shift();
-
-        renderChatHistory(cachedMessages);
-        localStorage.setItem('chat_backup_' + roomName, JSON.stringify(cachedMessages));
-        messageInput.value = '';
-        messageInput.focus();
-
-        try {
-            await fetch(`https://corsproxy.io/?` + encodeURIComponent(`https://json.extendsclass.com/bin/chatlog_${roomName}`), {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cachedMessages)
-            });
-        } catch(err) {}
-    }
-
-    function renderChatHistory(messages) {
-        const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop <= messagesContainer.clientHeight + 60;
+    function loadHistory() {
         messagesContainer.innerHTML = '';
-
-        messages.forEach(msg => {
-            const div = document.createElement('div');
-            const isSelf = msg.uid === myUid;
-            div.className = `message ${isSelf ? 'sent' : 'received'}`;
-            div.innerHTML = `
-                <div class="msg-header">
-                    <span>${msg.sender}</span>
-                    <span class="msg-time">${msg.time}</span>
-                </div>
-                <div>${msg.text}</div>
-            `;
-            messagesContainer.appendChild(div);
-        });
-
-        if (isAtBottom || messages.length <= 5) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+            try {
+                const history = JSON.parse(saved);
+                history.forEach(msg => appendMessageToDOM(msg.sender, msg.text, msg.time, msg.uid === myUid ? 'sent' : 'received'));
+            } catch(e) {}
         }
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (text) {
-            postMessageToCloud(text);
+        if (!text) return;
+
+        const time = getTimeString();
+        const msg = { sender: myName, uid: myUid, text: text, time: time };
+
+        // Save to local storage log
+        let history = [];
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+            try { history = JSON.parse(saved); } catch(e) {}
         }
+        history.push(msg);
+        if (history.length > 200) history.shift();
+        localStorage.setItem(storageKey, JSON.stringify(history));
+
+        appendMessageToDOM(myName, text, time, 'sent');
+        messageInput.value = '';
+        messageInput.blur(); // Dismisses virtual keyboard smoothly on iPhone
     }
 
     function handleKeyPress(e) {
-        if (e.key === 'Enter') sendMessage();
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
     }
 
     function newRoom() {
@@ -292,9 +246,22 @@
         location.reload();
     }
 
+    function appendMessageToDOM(sender, text, time, type) {
+        const div = document.createElement('div');
+        div.className = `message ${type}`;
+        div.innerHTML = `
+            <div class="msg-header">
+                <span>${sender}</span>
+                <span class="msg-time">${time}</span>
+            </div>
+            <div>${text}</div>
+        `;
+        messagesContainer.appendChild(div);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
     window.onload = () => {
-        fetchCloudLog();
-        setInterval(fetchCloudLog, 3000);
+        loadHistory();
     };
 </script>
 

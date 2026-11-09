@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonymous RTC Chat</title>
-    <!-- PeerJS Library -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <title>NetplayJS Text Chat</title>
+    <!-- Load NetplayJS from unpkg CDN -->
+    <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -47,6 +47,8 @@
             background: rgba(255,255,255,0.2);
             padding: 4px 8px;
             border-radius: 4px;
+            margin-top: 4px;
+            display: inline-block;
         }
         #messages {
             flex: 1;
@@ -113,9 +115,6 @@
             font-weight: 600;
             font-size: 14px;
         }
-        button:hover {
-            background-color: #4338ca;
-        }
         button:disabled {
             background-color: #9ca3af;
             cursor: not-allowed;
@@ -126,9 +125,6 @@
             padding: 6px 10px;
             font-size: 12px;
         }
-        #next-btn:hover {
-            background-color: #c7d2fe;
-        }
     </style>
 </head>
 <body>
@@ -136,10 +132,10 @@
 <div id="chat-container">
     <div id="status-bar">
         <div>
-            <div id="status-text">Initializing...</div>
-            <div id="identity-display">You: Loading...</div>
+            <div id="status-text">Connecting to NetplayJS...</div>
+            <div id="identity-display">You: Generating...</div>
         </div>
-        <button id="next-btn" onclick="findPartner()" disabled>Next Stranger</button>
+        <button id="next-btn" onclick="nextStranger()" disabled>Next Stranger</button>
     </div>
     <div id="messages"></div>
     <div id="input-container">
@@ -149,7 +145,7 @@
 </div>
 
 <script>
-    // Unique Composite Animal Name Generator
+    // 1. Composite Animal Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -163,192 +159,105 @@
     const myName = generateCompositeName();
     document.getElementById('identity-display').textContent = `You: ${myName}`;
 
-    let peer = null;
-    let conn = null;
-    let searchInterval = null;
-    let isConnectedOrConnecting = false;
-
     const statusText = document.getElementById('status-text');
     const messagesContainer = document.getElementById('messages');
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
     const nextBtn = document.getElementById('next-btn');
 
-    // Public STUN servers to prevent immediate NAT-traversal disconnection bugs on mobile/desktop networks
-    const peerConfig = {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' }
-            ]
-        }
-    };
+    let netplayConn = null;
 
-    const POOL_SIZE = 10; // Pool slots to check for matching partners
-
-    function initPeer() {
-        // Use your composite name prefix combined with a pool slot index
-        const slotIndex = Math.floor(Math.random() * POOL_SIZE);
-        const myPeerId = `chat-node-${slotIndex}-${Math.random().toString(36.substring(2, 6))}`;
-
-        peer = new Peer(myPeerId, peerConfig);
-
-        peer.on('open', (id) => {
-            updateStatus('Ready to match');
-            findPartner();
+    // NetplayJS Matchmaking Connection Setup
+    function initNetplay() {
+        statusText.textContent = "Searching for peer...";
+        
+        // NetplayJS PeerConnection handles public WebRTC room matching and signaling automatically
+        netplayConn = new netplay.PeerConnection({
+            gameID: "auto-text-chat-room",
+            isHost: Math.random() > 0.5
         });
 
-        // Listen for incoming peer connections
-        peer.on('connection', (incomingConn) => {
-            if (isConnectedOrConnecting) {
-                incomingConn.close(); // Reject if already busy
-                return;
-            }
-            setupConnection(incomingConn);
-        });
-
-        peer.on('error', (err) => {
-            console.error("Peer error:", err);
-        });
-    }
-
-    function findPartner() {
-        if (isConnectedOrConnecting) disconnectCurrentConnection();
-        
-        updateStatus('Searching for stranger...');
-        nextBtn.disabled = false;
-        
-        let attempts = 0;
-        
-        // Continuously try hitting active slots until connection establishes
-        if (searchInterval) clearInterval(searchInterval);
-
-        searchInterval = setInterval(() => {
-            if (isConnectedOrConnecting) {
-                clearInterval(searchInterval);
-                return;
-            }
-
-            attempts++;
-            const randomSlot = Math.floor(Math.random() * POOL_SIZE);
-            const targetPrefix = `chat-node-${randomSlot}-`;
-
-            // Note: PeerJS does not natively list server peers without a custom broker. 
-            // We connect using peer index probing or fallback to listening.
-            // For a robust GitHub Pages static site setup, we trigger manual peer ID guessing:
-            const guessedPeerId = targetPrefix + Math.random().toString(36).substring(2, 6);
-            
-            // To ensure reliability on Mobile Chrome/Safari, we also alternate listening mode:
-            if (attempts > 5) {
-                clearInterval(searchInterval);
-                updateStatus('Waiting for someone to join you...');
-            }
-        }, 1500);
-    }
-
-    // Direct caller setup
-    function connectToId(targetId) {
-        if (isConnectedOrConnecting) return;
-        isConnectedOrConnecting = true;
-
-        const outboundConn = peer.connect(targetId, { reliable: true });
-        setupConnection(outboundConn);
-    }
-
-    function setupConnection(connection) {
-        if (searchInterval) clearInterval(searchInterval);
-        isConnectedOrConnecting = true;
-        conn = connection;
-
-        conn.on('open', () => {
-            updateStatus('Connected!');
+        netplayConn.on("open", () => {
+            statusText.textContent = "Connected!";
+            appendSystemMessage("Connected to a stranger via NetplayJS WebRTC.");
             toggleInputs(true);
             
-            // Exchange composite names upon open
-            conn.send({ type: 'name-exchange', name: myName });
+            // Transmit composite name to partner upon connection
+            netplayConn.send({ type: "name", name: myName });
         });
 
-        conn.on('data', (data) => {
-            if (typeof data === 'object' && data.type === 'name-exchange') {
-                appendSystemMessage(`Connected to stranger: ${data.name}`);
-            } else if (typeof data === 'string') {
-                appendMessage(data, 'received');
+        netplayConn.on("data", (data) => {
+            if (typeof data === "object" && data.type === "name") {
+                appendSystemMessage(`Stranger's Name: ${data.name}`);
+            } else if (typeof data === "string") {
+                appendMessage(data, "received");
             }
         });
 
-        conn.on('close', () => {
-            handleDisconnection();
+        netplayConn.on("close", () => {
+            appendSystemMessage("Stranger has disconnected.");
+            statusText.textContent = "Disconnected.";
+            toggleInputs(false);
+            // Auto search for new partner after 2 seconds
+            setTimeout(nextStranger, 2000);
         });
 
-        conn.on('error', () => {
-            handleDisconnection();
+        netplayConn.on("error", (err) => {
+            console.error("NetplayJS Error:", err);
+            statusText.textContent = "Connection error. Retrying...";
+            setTimeout(nextStranger, 3000);
         });
-    }
-
-    function handleDisconnection() {
-        if (!isConnectedOrConnecting) return;
-        appendSystemMessage('Stranger has disconnected.');
-        disconnectCurrentConnection();
-        updateStatus('Disconnected');
-        // Auto search for next person after 2 seconds
-        setTimeout(findPartner, 2000);
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (text && conn && conn.open) {
-            conn.send(text);
-            appendMessage(text, 'sent');
-            messageInput.value = '';
+        if (text && netplayConn) {
+            netplayConn.send(text);
+            appendMessage(text, "sent");
+            messageInput.value = "";
         }
     }
 
     function handleKeyPress(event) {
-        if (event.key === 'Enter') {
+        if (event.key === "Enter") {
             sendMessage();
         }
     }
 
-    function disconnectCurrentConnection() {
-        isConnectedOrConnecting = false;
-        if (conn) {
-            conn.close();
-            conn = null;
+    function nextStranger() {
+        if (netplayConn) {
+            try { netplayConn.close(); } catch(e){}
+            netplayConn = null;
         }
         toggleInputs(false);
+        initNetplay();
     }
 
     function toggleInputs(enabled) {
         messageInput.disabled = !enabled;
         sendBtn.disabled = !enabled;
         nextBtn.disabled = false;
-        if (enabled) {
-            messageInput.focus();
-        }
-    }
-
-    function updateStatus(text) {
-        statusText.textContent = text;
+        if (enabled) messageInput.focus();
     }
 
     function appendMessage(text, type) {
-        const msgDiv = document.createElement('div');
-        msgDiv.classList.add('message', type);
-        msgDiv.textContent = text;
-        messagesContainer.appendChild(msgDiv);
+        const div = document.createElement('div');
+        div.className = `message ${type}`;
+        div.textContent = text;
+        messagesContainer.appendChild(div);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
     function appendSystemMessage(text) {
-        const msgDiv = document.createElement('div');
-        msgDiv.classList.add('message', 'system');
-        msgDiv.textContent = text;
-        messagesContainer.appendChild(msgDiv);
+        const div = document.createElement('div');
+        div.className = 'message system';
+        div.textContent = text;
+        messagesContainer.appendChild(div);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    // Start application on window load
-    window.onload = initPeer;
+    // Initialize application when DOM and scripts are ready
+    window.onload = initNetplay;
 </script>
 
 </body>

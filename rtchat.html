@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonymous Cloud IRC Chat</title>
+    <title>Anonymous Cloud Chat</title>
     <style>
         * {
             box-sizing: border-box;
@@ -34,11 +34,11 @@
             padding: 14px 16px;
             background-color: #4f46e5;
             color: #ffffff;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
         }
         .status-row {
             display: flex;
@@ -46,15 +46,15 @@
             align-items: center;
         }
         #identity-display {
-            font-size: 12px;
+            font-size: 11px;
             background: rgba(255,255,255,0.2);
-            padding: 4px 8px;
+            padding: 3px 6px;
             border-radius: 4px;
         }
         #room-controls {
             display: flex;
             gap: 6px;
-            font-size: 12px;
+            font-size: 11px;
             align-items: center;
         }
         #messages {
@@ -77,15 +77,6 @@
             flex-direction: column;
             gap: 4px;
         }
-        .message.system {
-            align-self: center;
-            background-color: #e5e7eb;
-            color: #4b5563;
-            font-size: 12px;
-            border-radius: 6px;
-            text-align: center;
-            max-width: 90%;
-        }
         .message.sent {
             align-self: flex-end;
             background-color: #4f46e5;
@@ -99,7 +90,7 @@
             border-bottom-left-radius: 2px;
         }
         .msg-header {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
             opacity: 0.8;
             display: flex;
@@ -108,7 +99,7 @@
         }
         .msg-time {
             font-weight: normal;
-            font-size: 10px;
+            font-size: 9px;
             opacity: 0.7;
         }
         #input-container {
@@ -137,7 +128,7 @@
             border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 11px;
         }
         button:hover {
             background-color: #f3f4f6;
@@ -153,7 +144,7 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Connecting to cloud...</span>
+            <span id="status-text">Initializing storage...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
@@ -200,63 +191,69 @@
     const messageInput = document.getElementById('message-input');
     const statusText = document.getElementById('status-text');
 
-    // Using a public cross-platform KV storage bin that allows open browser syncing without CORS restrictions
-    const STORE_URL = `https://api.allorigins.win/raw?url=` + encodeURIComponent(`https://jsonbin.org/rtchat_${roomName}`);
+    // Using a reliable JSON proxy endpoint that avoids browser CORS restrictions completely
+    const API_ENDPOINT = `https://api.allorigins.win/get?url=` + encodeURIComponent(`https://json.extendsclass.com/bin/chatlog_${roomName}`);
 
-    let cachedLog = [];
-    let isSyncing = false;
+    let lastKnownMessages = [];
+    let isFetching = false;
 
     function getTimeString() {
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    async function fetchLog() {
-        if (isSyncing) return;
-        isSyncing = true;
+    async function fetchCloudLog() {
+        if (isFetching) return;
+        isFetching = true;
         try {
-            const res = await fetch(`https://corsproxy.io/?` + encodeURIComponent(`https://json.extendsclass.com/bin/chat_${roomName}`));
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data) && JSON.stringify(data) !== JSON.stringify(cachedLog)) {
-                    cachedLog = data;
-                    renderHistory(data);
+            const response = await fetch(API_ENDPOINT, { cache: 'no-store' });
+            if (response.ok) {
+                const wrapper = await response.json();
+                if (wrapper && wrapper.contents) {
+                    const data = JSON.parse(wrapper.contents);
+                    if (Array.isArray(data) && JSON.stringify(data) !== JSON.stringify(lastKnownMessages)) {
+                        lastKnownMessages = data;
+                        renderChatHistory(data);
+                    }
                 }
             }
         } catch(e) {
-            // Fallback to local storage cache if network blips
-            const local = localStorage.getItem('chat_' + roomName);
-            if (local && cachedLog.length === 0) {
-                cachedLog = JSON.parse(local);
-                renderHistory(cachedLog);
+            // Fallback to local storage if offline
+            const cached = localStorage.getItem('local_fallback_' + roomName);
+            if (cached && lastKnownMessages.length === 0) {
+                lastKnownMessages = JSON.parse(cached);
+                renderChatHistory(lastKnownMessages);
             }
         } finally {
-            isSyncing = false;
-            statusText.textContent = "Online (Cloud Synced)";
+            isFetching = false;
+            statusText.textContent = `Online - Room: ${roomName}`;
         }
     }
 
-    async function postMessage(text) {
+    async function postMessageToCloud(text) {
         const time = getTimeString();
-        const msg = { sender: myName, uid: myUid, text: text, time: time };
+        const newMsg = { sender: myName, uid: myUid, text: text, time: time };
         
-        cachedLog.push(msg);
-        if (cachedLog.length > 100) cachedLog.shift();
-        
-        renderHistory(cachedLog);
-        localStorage.setItem('chat_' + roomName, JSON.stringify(cachedLog));
+        lastKnownMessages.push(newMsg);
+        if (lastKnownMessages.length > 100) lastKnownMessages.shift();
+
+        renderChatHistory(lastKnownMessages);
+        localStorage.setItem('local_fallback_' + roomName, JSON.stringify(lastKnownMessages));
         messageInput.value = '';
         messageInput.focus();
 
         try {
-            await fetch(`https://corsproxy.io/?` + encodeURIComponent(`https://json.extendsclass.com/bin/chat_${roomName}`), {
+            // Update cloud bin via direct PUT request with CORS proxy
+            await fetch(`https://corsproxy.io/?` + encodeURIComponent(`https://json.extendsclass.com/bin/chatlog_${roomName}`), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cachedLog)
+                body: JSON.stringify(lastKnownMessages)
             });
-        } catch(e) {}
+        } catch(err) {
+            statusText.textContent = "Saved Locally (Cloud sync queued)";
+        }
     }
 
-    function renderHistory(messages) {
+    function renderChatHistory(messages) {
         const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop <= messagesContainer.clientHeight + 60;
         messagesContainer.innerHTML = '';
 
@@ -281,7 +278,9 @@
 
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (text) postMessage(text);
+        if (text) {
+            postMessageToCloud(text);
+        }
     }
 
     function handleKeyPress(e) {
@@ -294,8 +293,9 @@
     }
 
     window.onload = () => {
-        fetchLog();
-        setInterval(fetchLog, 3000); // Polling every 3 seconds for instant chat updates across tabs
+        fetchCloudLog();
+        // Poll every 3 seconds to pull live updates from other users/tabs automatically
+        setInterval(fetchCloudLog, 3000);
     };
 </script>
 

@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anonymous Group Chat (Nostr Relays)</title>
-    <!-- Nostr Cryptographic Tools (noble-secp256k1) -->
-    <script src="https://cdn.jsdelivr.net/npm/@noble/curves@1.2.0/secp256k1.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -170,7 +168,9 @@
     </div>
 </div>
 
-<script>
+<script type="module">
+    import { schnorr } from 'https://cdn.jsdelivr.net/npm/@noble/curves@1.2.0/secp256k1.js';
+
     // 1. Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
@@ -205,15 +205,16 @@
     const relayUrls = [
         "wss://relay.damus.io",
         "wss://nos.lol",
-        "wss://relay.nostr.band"
+        "wss://relay.primal.net"
     ];
     const sockets = [];
     let connectedRelays = 0;
 
-    // Generate random Secp256k1 keypair for compliant event signing
-    const privKeyBytes = nobleCurves.secp256k1.utils.randomPrivateKey();
+    // Generate valid Schnorr keypair for Nostr protocol (NIP-01)
+    const privKeyBytes = schnorr.utils.randomPrivateKey();
+    const pubKeyBytes = schnorr.getPublicKey(privKeyBytes);
     const privKeyHex = Array.from(privKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    const pubKeyHex = nobleCurves.secp256k1.getPublicKey(privKeyHex, true).substring(2);
+    const pubKeyHex = Array.from(pubKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
 
     function getTimeString(timestampSec) {
         const date = timestampSec ? new Date(timestampSec * 1000) : new Date();
@@ -229,21 +230,22 @@
     async function createSignedEvent(content) {
         const createdAt = Math.floor(Date.now() / 1000);
         const tags = [["t", roomName], ["name", myName]];
-        const kind = 1; // Standard text event
+        const kind = 1;
 
         const serialized = JSON.stringify([0, pubKeyHex, createdAt, kind, tags, content]);
-        const id = await sha256Hex(serialized);
+        const idHex = await sha256Hex(serialized);
 
-        const sig = nobleCurves.secp256k1.sign(id, privKeyHex).toCompactHex();
+        const sigBytes = schnorr.sign(idHex, privKeyBytes);
+        const sigHex = Array.from(sigBytes).map(b => b.toString(16).padStart(2, '0')).join('');
 
         return {
-            id,
+            id: idHex,
             pubkey: pubKeyHex,
             created_at: createdAt,
             kind,
             tags,
             content,
-            sig
+            sig: sigHex
         };
     }
 
@@ -256,7 +258,6 @@
                     connectedRelays++;
                     statusText.textContent = `Online (${connectedRelays} Relays Synced)`;
                     
-                    // Subscribe to recent 100 room messages
                     const subId = "sub_" + Math.random().toString(36).substring(2, 8);
                     const filter = {
                         kinds: [1],
@@ -309,7 +310,6 @@
 
         const signedEvt = await createSignedEvent(text);
         
-        // Broadcast signed event across all active relays
         let broadcasted = false;
         sockets.forEach(ws => {
             if (ws.readyState === WebSocket.OPEN) {
@@ -327,14 +327,15 @@
         }
     }
 
-    function handleKeyPress(e) {
+    window.sendMessage = sendMessage;
+    window.handleKeyPress = function(e) {
         if (e.key === 'Enter') sendMessage();
-    }
+    };
 
-    function newRoom() {
+    window.newRoom = function() {
         window.location.hash = 'room_' + Math.random().toString(36).substring(2, 8);
         location.reload();
-    }
+    };
 
     function appendMessageToDOM(sender, text, time, type) {
         const div = document.createElement('div');

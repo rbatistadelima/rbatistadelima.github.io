@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonymous Cloud IRC Chat</title>
+    <title>Anonymous Group Chat (Nostr Relays)</title>
+    <!-- Nostr Cryptographic Tools (noble-secp256k1) -->
+    <script src="https://cdn.jsdelivr.net/npm/@noble/curves@1.2.0/secp256k1.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -153,7 +155,7 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Connecting to cloud log...</span>
+            <span id="status-text">Connecting to Nostr network...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
@@ -169,7 +171,7 @@
 </div>
 
 <script>
-    // 1. Composite Animal Name Generator
+    // 1. Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -181,13 +183,7 @@
     }
 
     const myName = generateCompositeName();
-    const myUid = 'u_' + Math.random().toString(36).substring(2, 8);
     document.getElementById('identity-display').textContent = `You: ${myName}`;
-
-    const statusText = document.getElementById('status-text');
-    const roomDisplay = document.getElementById('room-display');
-    const messagesContainer = document.getElementById('messages');
-    const messageInput = document.getElementById('message-input');
 
     function getRoom() {
         let hash = window.location.hash.substring(1);
@@ -199,122 +195,140 @@
     }
 
     const roomName = getRoom();
-    roomDisplay.textContent = roomName;
+    document.getElementById('room-display').textContent = roomName;
 
-    // Public JSON storage bin keyed specifically to the room hash
-    const STORAGE_API_URL = `https://json.extendsclass.com/bin/rtchat_${roomName}`;
+    const messagesContainer = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
+    const statusText = document.getElementById('status-text');
 
-    let cachedMessages = [];
-    let isFetching = false;
+    const seenEventIds = new Set();
+    const relayUrls = [
+        "wss://relay.damus.io",
+        "wss://nos.lol",
+        "wss://relay.nostr.band"
+    ];
+    const sockets = [];
+    let connectedRelays = 0;
 
-    function getTimeString() {
-        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // Generate random Secp256k1 keypair for compliant event signing
+    const privKeyBytes = nobleCurves.secp256k1.utils.randomPrivateKey();
+    const privKeyHex = Array.from(privKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    const pubKeyHex = nobleCurves.secp256k1.getPublicKey(privKeyHex, true).substring(2);
+
+    function getTimeString(timestampSec) {
+        const date = timestampSec ? new Date(timestampSec * 1000) : new Date();
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    async function pollCloudLog() {
-        if (isFetching) return;
-        isFetching = true;
-        try {
-            const response = await fetch(STORAGE_API_URL, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                if (Array.isArray(data)) {
-                    if (JSON.stringify(data) !== JSON.stringify(cachedMessages)) {
-                        cachedMessages = data;
-                        renderChatHistory(data);
-                    }
-                }
-            } else if (response.status === 404) {
-                // If bin doesn't exist yet, initialize it with empty array
-                await initializeCloudBin();
-            }
-        } catch(e) {
-            // Offline fallback to localStorage
-            const localSaved = localStorage.getItem('irc_log_' + roomName);
-            if (localSaved) {
-                const parsed = JSON.parse(localSaved);
-                if (parsed.length !== cachedMessages.length) {
-                    cachedMessages = parsed;
-                    renderChatHistory(parsed);
-                }
-            }
-        } finally {
-            isFetching = false;
-            statusText.textContent = 'IRC Log Online (Synced)';
+    async function sha256Hex(str) {
+        const buf = new TextEncoder().encode(str);
+        const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+        return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function createSignedEvent(content) {
+        const createdAt = Math.floor(Date.now() / 1000);
+        const tags = [["t", roomName], ["name", myName]];
+        const kind = 1; // Standard text event
+
+        const serialized = JSON.stringify([0, pubKeyHex, createdAt, kind, tags, content]);
+        const id = await sha256Hex(serialized);
+
+        const sig = nobleCurves.secp256k1.sign(id, privKeyHex).toCompactHex();
+
+        return {
+            id,
+            pubkey: pubKeyHex,
+            created_at: createdAt,
+            kind,
+            tags,
+            content,
+            sig
+        };
+    }
+
+    function initRelays() {
+        relayUrls.forEach(url => {
+            try {
+                const ws = new WebSocket(url);
+
+                ws.onopen = () => {
+                    connectedRelays++;
+                    statusText.textContent = `Online (${connectedRelays} Relays Synced)`;
+                    
+                    // Subscribe to recent 100 room messages
+                    const subId = "sub_" + Math.random().toString(36).substring(2, 8);
+                    const filter = {
+                        kinds: [1],
+                        "#t": [roomName],
+                        limit: 100
+                    };
+                    ws.send(JSON.stringify(["REQ", subId, filter]));
+                };
+
+                ws.onmessage = (evt) => {
+                    try {
+                        const data = JSON.parse(evt.data);
+                        if (data[0] === "EVENT" && data[2]) {
+                            handleIncomingEvent(data[2]);
+                        }
+                    } catch(e) {}
+                };
+
+                ws.onclose = () => {
+                    connectedRelays = Math.max(0, connectedRelays - 1);
+                    if (connectedRelays === 0) statusText.textContent = 'Reconnecting relays...';
+                };
+
+                sockets.push(ws);
+            } catch(e) {}
+        });
+    }
+
+    function handleIncomingEvent(event) {
+        if (seenEventIds.has(event.id)) return;
+        seenEventIds.add(event.id);
+
+        let sender = "Anonymous";
+        const nameTag = event.tags.find(t => t[0] === "name");
+        if (nameTag && nameTag[1]) {
+            sender = nameTag[1];
+        } else {
+            sender = "User_" + event.pubkey.substring(0, 4);
         }
+
+        const isSelf = event.pubkey === pubKeyHex;
+        const time = getTimeString(event.created_at);
+
+        appendMessageToDOM(sender, event.content, time, isSelf ? 'sent' : 'received');
     }
 
-    async function initializeCloudBin() {
-        try {
-            await fetch(STORAGE_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify([])
-            });
-        } catch(e) {}
-    }
+    async function sendMessage() {
+        const text = messageInput.value.trim();
+        if (!text) return;
 
-    async function postMessageToCloud(text) {
-        const time = getTimeString();
-        const newMsg = { sender: myName, text: text, time: time, uid: myUid };
+        const signedEvt = await createSignedEvent(text);
         
-        // Optimistically add locally
-        cachedMessages.push(newMsg);
-        if (cachedMessages.length > 150) cachedMessages.shift();
-        renderChatHistory(cachedMessages);
-        localStorage.setItem('irc_log_' + roomName, JSON.stringify(cachedMessages));
-
-        // Push update to cloud bin
-        try {
-            await fetch(STORAGE_API_URL, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cachedMessages)
-            });
-        } catch(e) {
-            console.error("Cloud update queued");
-        }
-    }
-
-    function renderChatHistory(messages) {
-        const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop <= messagesContainer.clientHeight + 60;
-        messagesContainer.innerHTML = '';
-
-        messages.forEach(msg => {
-            const div = document.createElement('div');
-            const isSelf = msg.uid === myUid;
-            div.className = `message ${isSelf ? 'sent' : 'received'}`;
-            div.innerHTML = `
-                <div class="msg-header">
-                    <span>${msg.sender}</span>
-                    <span class="msg-time">${msg.time}</span>
-                </div>
-                <div>${msg.text}</div>
-            `;
-            messagesContainer.appendChild(div);
+        // Broadcast signed event across all active relays
+        let broadcasted = false;
+        sockets.forEach(ws => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(["EVENT", signedEvt]));
+                broadcasted = true;
+            }
         });
 
-        if (isAtBottom || messages.length <= 5) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-    }
-
-    function sendMessage() {
-        const text = messageInput.value.trim();
-        if (text) {
-            postMessageToCloud(text);
+        if (broadcasted) {
+            handleIncomingEvent(signedEvt);
             messageInput.value = '';
             messageInput.focus();
+        } else {
+            alert("Still connecting to network. Try again in a moment.");
         }
     }
 
     function handleKeyPress(e) {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
+        if (e.key === 'Enter') sendMessage();
     }
 
     function newRoom() {
@@ -322,11 +336,21 @@
         location.reload();
     }
 
-    window.onload = () => {
-        pollCloudLog();
-        // Poll every 2.5 seconds for instant IRC message updates across all clients
-        setInterval(pollCloudLog, 2500);
-    };
+    function appendMessageToDOM(sender, text, time, type) {
+        const div = document.createElement('div');
+        div.className = `message ${type}`;
+        div.innerHTML = `
+            <div class="msg-header">
+                <span>${sender}</span>
+                <span class="msg-time">${time}</span>
+            </div>
+            <div>${text}</div>
+        `;
+        messagesContainer.appendChild(div);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    window.onload = initRelays;
 </script>
 
 </body>

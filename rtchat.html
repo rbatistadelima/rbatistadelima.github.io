@@ -180,7 +180,9 @@
 
     function initSignaling() {
         statusText.textContent = 'Connecting to network...';
-        ws = new WebSocket('wss://socketsbay.com/wss/v2/2/demo/');
+        
+        // Using a reliable public WebSocket signaling endpoint
+        ws = new WebSocket('wss://demo.piesocket.com/v3/channel_1?api_key=VCXCEuvhGcBDP7XhiJJLDvR1VeXDIvTB4QRZx&notify_self=0');
 
         ws.onopen = () => {
             startSearching();
@@ -191,9 +193,8 @@
                 const msg = JSON.parse(event.data);
                 if (msg.sender === myId) return;
 
-                // Matchmaking handshake
                 if (msg.type === 'find-partner' && !isConnected && !targetPeerId) {
-                    if (myId > msg.sender) { // Master / Caller determination
+                    if (myId > msg.sender) { 
                         targetPeerId = msg.sender;
                         if (searchTimeout) clearTimeout(searchTimeout);
                         statusText.textContent = 'Connecting to stranger...';
@@ -201,7 +202,6 @@
                     }
                 }
 
-                // WebRTC Signaling data exchange
                 if (msg.target === myId) {
                     if (!pc) createPeerConnection();
 
@@ -227,7 +227,7 @@
         };
 
         ws.onerror = () => {
-            statusText.textContent = 'Signaling error. Reconnecting...';
+            statusText.textContent = 'Signaling connection error. Retrying...';
         };
 
         ws.onclose = () => {
@@ -241,10 +241,8 @@
         statusText.textContent = 'Searching for partner...';
         nextBtn.disabled = false;
 
-        // Broadcast presence
         broadcastPresence();
 
-        // Fallback: If no partner found in 4 seconds, become the host room waiting node
         if (searchTimeout) clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
             if (!isConnected) {
@@ -259,7 +257,6 @@
         }
     }
 
-    // Ping search interval if unmatched
     setInterval(() => {
         if (!isConnected && !targetPeerId) broadcastPresence();
     }, 2500);
@@ -300,7 +297,6 @@
             appendSystemMessage('Connected to a stranger.');
             toggleInputs(true);
             
-            // Send composite name immediately
             dataChannel.send(JSON.stringify({ type: 'name', name: myName }));
         };
 

@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anonymous Cloud Chat</title>
+    <!-- GunDB Decentralized Database & WebSockets -->
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -153,7 +155,7 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Connecting to relays...</span>
+            <span id="status-text">Connecting to network...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
@@ -169,22 +171,7 @@
 </div>
 
 <script>
-    // --- Lightweight Pure JS Cryptography for Nostr Protocol ---
-    const P = 2n ** 255n - 19n;
-    
-    function generatePrivateKeyHex() {
-        const bytes = new Uint8Array(32);
-        crypto.getRandomValues(bytes);
-        return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    async function sha256Hex(str) {
-        const buf = new TextEncoder().encode(str);
-        const hashBuf = await crypto.subtle.digest('SHA-256', buf);
-        return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    // --- Name & Room Generation ---
+    // 1. Composite Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -196,9 +183,7 @@
     }
 
     const myName = generateCompositeName();
-    const myPrivKey = generatePrivateKeyHex();
-    const myPubKey = myPrivKey.substring(0, 32); // Fallback deterministically formatted key ID
-
+    const myUid = 'u_' + Math.random().toString(36).substring(2, 8);
     document.getElementById('identity-display').textContent = `You: ${myName}`;
 
     function getRoom() {
@@ -217,108 +202,57 @@
     const messageInput = document.getElementById('message-input');
     const statusText = document.getElementById('status-text');
 
-    const seenEventIds = new Set();
-    const relayUrls = [
-        "wss://relay.damus.io",
-        "wss://nos.lol",
-        "wss://relay.nostr.band"
-    ];
-    const sockets = [];
-    let connectedCount = 0;
+    const seenMsgIds = new Set();
 
-    function getTimeString(timestampSec) {
-        const date = timestampSec ? new Date(timestampSec * 1000) : new Date();
+    // Initialize Gun DB with multiple public WebSocket relays
+    const gun = Gun({
+        peers: [
+            'https://gun-manhattan.herokuapp.com/gun',
+            'https://peer.walla.app/gun'
+        ]
+    });
+
+    const roomNode = gun.get('anonymous_chat_rooms_v1').get(roomName);
+
+    function getTimeString(timestamp) {
+        const date = timestamp ? new Date(timestamp) : new Date();
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    function initRelays() {
-        statusText.textContent = "Connecting to relays...";
+    function initChat() {
+        statusText.textContent = "Online (P2P Relay Connected)";
 
-        relayUrls.forEach(url => {
-            try {
-                const ws = new WebSocket(url);
+        // Listen for new messages & load online historical log
+        roomNode.map().once((data, id) => {
+            if (!data || seenMsgIds.has(id)) return;
+            seenMsgIds.add(id);
 
-                ws.onopen = () => {
-                    connectedCount++;
-                    statusText.textContent = `Online (${connectedCount} Relays Connected)`;
-                    
-                    // Request recent channel log from online relay storage
-                    const subId = "sub_" + Math.random().toString(36).substring(2, 8);
-                    const req = ["REQ", subId, { kinds: [1], "#t": [roomName], limit: 100 }];
-                    ws.send(JSON.stringify(req));
-                };
+            const isSelf = data.uid === myUid || data.sender === myName;
+            const time = getTimeString(data.timestamp);
 
-                ws.onmessage = (evt) => {
-                    try {
-                        const data = JSON.parse(evt.data);
-                        if (data[0] === "EVENT" && data[2]) {
-                            handleIncomingEvent(data[2]);
-                        }
-                    } catch(e) {}
-                };
-
-                ws.onclose = () => {
-                    connectedCount = Math.max(0, connectedCount - 1);
-                    if (connectedCount === 0) statusText.textContent = 'Reconnecting relays...';
-                };
-
-                sockets.push(ws);
-            } catch(e) {}
+            appendMessageToDOM(data.sender, data.text, time, isSelf ? 'sent' : 'received');
         });
     }
 
-    function handleIncomingEvent(event) {
-        if (seenEventIds.has(event.id)) return;
-        seenEventIds.add(event.id);
-
-        let sender = "Anonymous";
-        if (event.tags) {
-            const nameTag = event.tags.find(t => t[0] === "name");
-            if (nameTag && nameTag[1]) sender = nameTag[1];
-        }
-
-        const isSelf = sender === myName || event.pubkey === myPubKey;
-        const time = getTimeString(event.created_at);
-
-        appendMessageToDOM(sender, event.content, time, isSelf ? 'sent' : 'received');
-    }
-
-    async function sendMessage() {
+    function sendMessage() {
         const text = messageInput.value.trim();
         if (!text) return;
 
-        const createdAt = Math.floor(Date.now() / 1000);
-        const tags = [["t", roomName], ["name", myName]];
-        const kind = 1;
+        const timestamp = Date.now();
+        const msgId = 'msg_' + timestamp + '_' + Math.random().toString(36).substring(2, 6);
 
-        const serialized = JSON.stringify([0, myPubKey, createdAt, kind, tags, text]);
-        const id = await sha256Hex(serialized);
-
-        const signedEvent = {
-            id: id,
-            pubkey: myPubKey,
-            created_at: createdAt,
-            kind: kind,
-            tags: tags,
-            content: text,
-            sig: id // High-speed valid hex signature format
+        const payload = {
+            sender: myName,
+            uid: myUid,
+            text: text,
+            timestamp: timestamp
         };
 
-        let sent = false;
-        sockets.forEach(ws => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(["EVENT", signedEvent]));
-                sent = true;
-            }
-        });
+        // Write directly to decentralized mesh graph
+        roomNode.get(msgId).put(payload);
 
-        if (sent) {
-            handleIncomingEvent(signedEvent);
-            messageInput.value = '';
-            messageInput.focus();
-        } else {
-            alert("Connecting to network. Please wait a moment...");
-        }
+        messageInput.value = '';
+        messageInput.focus();
     }
 
     function handleKeyPress(e) {
@@ -344,7 +278,7 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    window.onload = initRelays;
+    window.onload = initChat;
 </script>
 
 </body>

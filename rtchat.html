@@ -132,7 +132,7 @@
             border: 1px solid #d1d5db;
             border-radius: 8px;
             outline: none;
-            font-size: 16px; /* Prevents iOS auto-zoom on focus on iPhone 8 */
+            font-size: 16px;
         }
         #message-input:focus {
             border-color: #4f46e5;
@@ -199,6 +199,7 @@
     let peer = null;
     let isHub = false;
     const activeConnections = new Map();
+    const processedMessageIds = new Set(); // Tracks unique message hashes to block echoes
 
     const statusText = document.getElementById('status-text');
     const roomDisplay = document.getElementById('room-display');
@@ -230,17 +231,20 @@
         const saved = localStorage.getItem('webrtc_' + roomName + '_history');
         if (saved) {
             try {
-                JSON.parse(saved).forEach(item => appendMessageToDOM(item.sender, item.text, item.time, item.type));
+                JSON.parse(saved).forEach(item => {
+                    if (item.msgId) processedMessageIds.add(item.msgId);
+                    appendMessageToDOM(item.sender, item.text, item.time, item.type);
+                });
             } catch(e) {}
         }
     }
 
-    function saveMessageToStorage(sender, text, time, type) {
+    function saveMessageToStorage(msgId, sender, text, time, type) {
         try {
             const key = 'webrtc_' + roomName + '_history';
             const saved = localStorage.getItem(key);
             const history = saved ? JSON.parse(saved) : [];
-            history.push({ sender, text, time, type });
+            history.push({ msgId, sender, text, time, type });
             if (history.length > 150) history.shift();
             localStorage.setItem(key, JSON.stringify(history));
         } catch(e) {}
@@ -335,12 +339,16 @@
                         return;
                     }
                     if (data.type === 'chat_msg') {
-                        if (data.uid === myUniqueId) return;
+                        // Drop if message originated from us or has already been processed (prevents duplicates/echoes)
+                        if (data.uid === myUniqueId || processedMessageIds.has(data.msgId)) return;
+                        
+                        processedMessageIds.add(data.msgId);
 
                         const time = data.time || getTimeString();
                         appendMessageToDOM(data.sender, data.text, time, 'received');
-                        saveMessageToStorage(data.sender, data.text, time, 'received');
+                        saveMessageToStorage(data.msgId, data.sender, data.text, time, 'received');
 
+                        // If we are the hub, safely forward to other peers once
                         if (isHub) {
                             activeConnections.forEach((val, id) => {
                                 if (id !== remoteId && val.conn && val.conn.open) {
@@ -362,13 +370,18 @@
         const text = messageInput.value.trim();
         if (text) {
             const time = getTimeString();
+            const msgId = 'm_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+            
             const payload = {
                 type: 'chat_msg',
+                msgId: msgId,
                 uid: myUniqueId,
                 sender: myName,
                 text: text,
                 time: time
             };
+
+            processedMessageIds.add(msgId);
 
             activeConnections.forEach(({ conn }) => {
                 if (conn && conn.open) {
@@ -377,7 +390,7 @@
             });
 
             appendMessageToDOM(myName, text, time, 'sent');
-            saveMessageToStorage(myName, text, time, 'sent');
+            saveMessageToStorage(msgId, myName, text, time, 'sent');
             messageInput.value = '';
             messageInput.focus();
         }
@@ -423,8 +436,9 @@
 
     function appendSystemMessage(text) {
         const time = getTimeString();
+        const sysId = 'sys_' + Math.random();
         appendMessageToDOM('System', text, time, 'system');
-        saveMessageToStorage('System', text, time, 'system');
+        saveMessageToStorage(sysId, 'System', text, time, 'system');
     }
 
     window.onload = initPeer;

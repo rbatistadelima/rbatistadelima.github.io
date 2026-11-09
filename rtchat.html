@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Anonymous Cloud IRC Chat</title>
+    <title>Anonymous Group WebRTC Chat</title>
+    <!-- PeerJS Library -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -81,6 +83,16 @@
             flex-direction: column;
             gap: 2px;
         }
+        .message.system {
+            align-self: center;
+            background-color: #e5e7eb;
+            color: #4b5563;
+            font-size: 11px;
+            border-radius: 6px;
+            text-align: center;
+            max-width: 90%;
+            padding: 4px 8px;
+        }
         .message.sent {
             align-self: flex-end;
             background-color: #4f46e5;
@@ -120,7 +132,7 @@
             border: 1px solid #d1d5db;
             border-radius: 8px;
             outline: none;
-            font-size: 16px; /* Prevents auto-zoom on iPhone 8 */
+            font-size: 16px; /* Prevents iOS auto-zoom on focus on iPhone 8 */
         }
         #message-input:focus {
             border-color: #4f46e5;
@@ -149,7 +161,7 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Connecting to highscore log...</span>
+            <span id="status-text">Connecting...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
@@ -167,7 +179,7 @@
 </div>
 
 <script>
-    // 1. Composite Name Generator
+    // Composite Animal Name Generator
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -182,6 +194,26 @@
     const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 8);
     document.getElementById('identity-display').textContent = `You: ${myName}`;
 
+    const shortId = Math.random().toString(36).substring(2, 6);
+    
+    let peer = null;
+    let isHub = false;
+    const activeConnections = new Map();
+
+    const statusText = document.getElementById('status-text');
+    const roomDisplay = document.getElementById('room-display');
+    const messagesContainer = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
+
+    const rtcConfig = {
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+        }
+    };
+
     function getRoom() {
         let hash = window.location.hash.substring(1);
         if (!hash.startsWith('room_')) {
@@ -192,107 +224,162 @@
     }
 
     const roomName = getRoom();
-    document.getElementById('room-display').textContent = roomName;
+    roomDisplay.textContent = roomName;
 
-    const messagesContainer = document.getElementById('messages');
-    const messageInput = document.getElementById('message-input');
-    const statusText = document.getElementById('status-text');
+    function loadChatHistory() {
+        const saved = localStorage.getItem('webrtc_' + roomName + '_history');
+        if (saved) {
+            try {
+                JSON.parse(saved).forEach(item => appendMessageToDOM(item.sender, item.text, item.time, item.type));
+            } catch(e) {}
+        }
+    }
 
-    // Using a reliable public JSON storage service built for highscores / game logs
-    const STORAGE_URL = `https://api.allorigins.win/raw?url=` + encodeURIComponent(`https://jsonbin.org/rtchat_${roomName}`);
-
-    let cachedMessages = [];
-    let isSyncing = false;
+    function saveMessageToStorage(sender, text, time, type) {
+        try {
+            const key = 'webrtc_' + roomName + '_history';
+            const saved = localStorage.getItem(key);
+            const history = saved ? JSON.parse(saved) : [];
+            history.push({ sender, text, time, type });
+            if (history.length > 150) history.shift();
+            localStorage.setItem(key, JSON.stringify(history));
+        } catch(e) {}
+    }
 
     function getTimeString() {
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    // Load initial local cache instantly so the UI never appears stuck
-    const localBackup = localStorage.getItem('chat_cache_' + roomName);
-    if (localBackup) {
-        try {
-            cachedMessages = JSON.parse(localBackup);
-            renderChatHistory(cachedMessages);
-        } catch(e) {}
-    }
+    function initPeer() {
+        loadChatHistory();
+        statusText.textContent = 'Connecting to room...';
 
-    async function fetchCloudLog() {
-        if (isSyncing) return;
-        isSyncing = true;
-        try {
-            const response = await fetch(`https://api.allorigins.win/get?url=` + encodeURIComponent(`https://json.extendsclass.com/bin/irc_${roomName}`), { cache: 'no-store' });
-            if (response.ok) {
-                const wrapper = await response.json();
-                if (wrapper && wrapper.contents) {
-                    const data = JSON.parse(wrapper.contents);
-                    if (Array.isArray(data) && JSON.stringify(data) !== JSON.stringify(cachedMessages)) {
-                        cachedMessages = data;
-                        renderChatHistory(data);
-                        localStorage.setItem('chat_cache_' + roomName, JSON.stringify(data));
-                    }
-                }
-            }
-            statusText.textContent = `Online (Room: ${roomName})`;
-        } catch(e) {
-            statusText.textContent = `Online Mode (Using Local Cache)`;
-        } finally {
-            isSyncing = false;
-        }
-    }
+        const hubId = `${roomName}_hub`;
+        peer = new Peer(hubId, rtcConfig);
 
-    async function postMessageToCloud(text) {
-        const time = getTimeString();
-        const newMsg = { sender: myName, uid: myUniqueId, text: text, time: time };
-        
-        cachedMessages.push(newMsg);
-        if (cachedMessages.length > 100) cachedMessages.shift(); // Keep last 100 messages like a high-score table
-
-        renderChatHistory(cachedMessages);
-        localStorage.setItem('chat_cache_' + roomName, JSON.stringify(cachedMessages));
-        
-        messageInput.value = '';
-        messageInput.blur(); // Dismisses virtual keyboard smoothly on iPhone 8
-
-        try {
-            // Push updated message log to cloud bin via CORS proxy
-            await fetch(`https://corsproxy.io/?` + encodeURIComponent(`https://json.extendsclass.com/bin/irc_${roomName}`), {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(cachedMessages)
-            });
-        } catch(e) {
-            statusText.textContent = `Message saved locally`;
-        }
-    }
-
-    function renderChatHistory(messages) {
-        const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop <= messagesContainer.clientHeight + 60;
-        messagesContainer.innerHTML = '';
-
-        messages.forEach(msg => {
-            const div = document.createElement('div');
-            const isSelf = msg.uid === myUniqueId;
-            div.className = `message ${isSelf ? 'sent' : 'received'}`;
-            div.innerHTML = `
-                <div class="msg-header">
-                    <span>${msg.sender}</span>
-                    <span class="msg-time">${msg.time}</span>
-                </div>
-                <div>${msg.text}</div>
-            `;
-            messagesContainer.appendChild(div);
+        peer.on('open', () => {
+            isHub = true;
+            statusText.textContent = 'Room active (Hub ready). Waiting for peers...';
+            setupPeerListeners();
         });
 
-        if (isAtBottom || messages.length <= 5) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
+        peer.on('error', (err) => {
+            if (err.type === 'unavailable-id') {
+                peer.destroy();
+                const clientId = `${roomName.replace('room_', '')}_${shortId}`;
+                peer = new Peer(clientId, rtcConfig);
+
+                peer.on('open', () => {
+                    isHub = false;
+                    statusText.textContent = 'Connected to room. Joining...';
+                    setupPeerListeners();
+                    const hubConn = peer.connect(hubId, { reliable: true });
+                    setupConnection(hubConn);
+                });
+
+                peer.on('error', (e) => {
+                    statusText.textContent = 'Connection error: ' + e.type;
+                });
+            } else {
+                statusText.textContent = 'Error: ' + err.type;
+            }
+        });
+    }
+
+    function setupPeerListeners() {
+        peer.on('connection', (incomingConn) => {
+            setupConnection(incomingConn);
+
+            if (isHub) {
+                setTimeout(() => {
+                    const peerList = Array.from(activeConnections.keys());
+                    activeConnections.forEach(({ conn }) => {
+                        if (conn && conn.open) {
+                            conn.send({ type: 'peer_list', peers: peerList });
+                        }
+                    });
+                }, 500);
+            }
+        });
+    }
+
+    function setupConnection(connection) {
+        const remoteId = connection.peer;
+
+        connection.on('open', () => {
+            activeConnections.set(remoteId, { conn: connection, name: "Peer" });
+            statusText.textContent = `Connected peers: ${activeConnections.size}`;
+            appendSystemMessage(`Participant joined.`);
+            connection.send({ type: 'profile', id: myUniqueId, name: myName });
+        });
+
+        connection.on('data', (data) => {
+            try {
+                if (typeof data === 'object' && data !== null) {
+                    if (data.type === 'profile') {
+                        const p = activeConnections.get(remoteId);
+                        if (p) {
+                            p.name = data.name;
+                            p.uid = data.id;
+                            appendSystemMessage(`${data.name} entered.`);
+                        }
+                        return;
+                    }
+                    if (data.type === 'peer_list' && !isHub) {
+                        data.peers.forEach(peerId => {
+                            if (peerId !== peer.id && !activeConnections.has(peerId)) {
+                                const newConn = peer.connect(peerId, { reliable: true });
+                                setupConnection(newConn);
+                            }
+                        });
+                        return;
+                    }
+                    if (data.type === 'chat_msg') {
+                        if (data.uid === myUniqueId) return;
+
+                        const time = data.time || getTimeString();
+                        appendMessageToDOM(data.sender, data.text, time, 'received');
+                        saveMessageToStorage(data.sender, data.text, time, 'received');
+
+                        if (isHub) {
+                            activeConnections.forEach((val, id) => {
+                                if (id !== remoteId && val.conn && val.conn.open) {
+                                    val.conn.send(data);
+                                }
+                            });
+                        }
+                        return;
+                    }
+                }
+            } catch(e) {}
+        });
+
+        connection.on('close', () => handleDisconnect(remoteId));
+        connection.on('error', () => handleDisconnect(remoteId));
     }
 
     function sendMessage() {
         const text = messageInput.value.trim();
         if (text) {
-            postMessageToCloud(text);
+            const time = getTimeString();
+            const payload = {
+                type: 'chat_msg',
+                uid: myUniqueId,
+                sender: myName,
+                text: text,
+                time: time
+            };
+
+            activeConnections.forEach(({ conn }) => {
+                if (conn && conn.open) {
+                    conn.send(payload);
+                }
+            });
+
+            appendMessageToDOM(myName, text, time, 'sent');
+            saveMessageToStorage(myName, text, time, 'sent');
+            messageInput.value = '';
+            messageInput.focus();
         }
     }
 
@@ -302,16 +389,45 @@
         }
     }
 
+    function handleDisconnect(remoteId) {
+        const p = activeConnections.get(remoteId);
+        const name = p ? p.name : "Peer";
+        activeConnections.delete(remoteId);
+
+        appendSystemMessage(`${name} left.`);
+        statusText.textContent = activeConnections.size > 0 ? `Connected peers: ${activeConnections.size}` : 'Waiting for peers...';
+    }
+
     function newRoom() {
         window.location.hash = 'room_' + Math.random().toString(36).substring(2, 8);
         location.reload();
     }
 
-    window.onload = () => {
-        fetchCloudLog();
-        // Poll every 3 seconds to fetch new messages automatically
-        setInterval(fetchCloudLog, 3000);
-    };
+    function appendMessageToDOM(sender, text, time, type) {
+        const div = document.createElement('div');
+        div.className = `message ${type}`;
+        if (type === 'system') {
+            div.textContent = text;
+        } else {
+            div.innerHTML = `
+                <div class="msg-header">
+                    <span>${sender}</span>
+                    <span class="msg-time">${time}</span>
+                </div>
+                <div>${text}</div>
+            `;
+        }
+        messagesContainer.appendChild(div);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function appendSystemMessage(text) {
+        const time = getTimeString();
+        appendMessageToDOM('System', text, time, 'system');
+        saveMessageToStorage('System', text, time, 'system');
+    }
+
+    window.onload = initPeer;
 </script>
 
 </body>

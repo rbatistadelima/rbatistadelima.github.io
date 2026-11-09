@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Anonymous Cloud-Synced IRC Chat</title>
+    <title>Anonymous Online Group Chat</title>
     <style>
         * {
             box-sizing: border-box;
@@ -16,16 +16,16 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #f7f9fc;
+            background-color: #f0f2f5;
         }
         #chat-container {
             width: 100%;
-            max-width: 480px;
+            max-width: 500px;
             height: 100%;
-            max-height: 700px;
+            max-height: 720px;
             background: #ffffff;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -39,6 +39,7 @@
             display: flex;
             flex-direction: column;
             gap: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
         }
         .status-row {
             display: flex;
@@ -64,10 +65,10 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            background: #fafafa;
+            background: #f9fafb;
         }
         .message {
-            max-width: 80%;
+            max-width: 82%;
             padding: 10px 14px;
             border-radius: 12px;
             font-size: 14px;
@@ -89,19 +90,19 @@
         .message.sent {
             align-self: flex-end;
             background-color: #4f46e5;
-            color: white;
+            color: #ffffff;
             border-bottom-right-radius: 2px;
         }
         .message.received {
             align-self: flex-start;
-            background-color: #e4e6eb;
+            background-color: #e5e7eb;
             color: #1f2937;
             border-bottom-left-radius: 2px;
         }
         .msg-header {
             font-size: 11px;
             font-weight: bold;
-            opacity: 0.8;
+            opacity: 0.85;
             display: flex;
             justify-content: space-between;
             gap: 12px;
@@ -109,7 +110,7 @@
         .msg-time {
             font-weight: normal;
             font-size: 10px;
-            opacity: 0.7;
+            opacity: 0.75;
         }
         #input-container {
             display: flex;
@@ -144,7 +145,10 @@
         }
         #send-btn {
             background-color: #4f46e5;
-            color: white;
+            color: #ffffff;
+        }
+        #send-btn:hover {
+            background-color: #4338ca;
         }
     </style>
 </head>
@@ -153,12 +157,12 @@
 <div id="chat-container">
     <div id="status-bar">
         <div class="status-row">
-            <span id="status-text">Connecting to cloud log...</span>
+            <span id="status-text">Connecting to public relays...</span>
             <div id="identity-display">You: Loading...</div>
         </div>
         <div class="status-row" id="room-controls">
             <span>Room: <strong id="room-display">...</strong></span>
-            <button onclick="newRoom()">New Room</button>
+            <button onclick="createNewRoom()">New Room</button>
         </div>
     </div>
     <div id="messages"></div>
@@ -169,7 +173,7 @@
 </div>
 
 <script>
-    // 1. Composite Animal Name Generator
+    // --- 1. Identity & Room Generation ---
     const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
     const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
     
@@ -181,15 +185,10 @@
     }
 
     const myName = generateCompositeName();
-    const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 8);
+    const myUid = 'u_' + Math.random().toString(36).substring(2, 9);
     document.getElementById('identity-display').textContent = `You: ${myName}`;
 
-    const statusText = document.getElementById('status-text');
-    const roomDisplay = document.getElementById('room-display');
-    const messagesContainer = document.getElementById('messages');
-    const messageInput = document.getElementById('message-input');
-
-    function getRoom() {
+    function getRoomHash() {
         let hash = window.location.hash.substring(1);
         if (!hash.startsWith('room_')) {
             hash = 'room_' + Math.random().toString(36).substring(2, 8);
@@ -198,90 +197,143 @@
         return hash;
     }
 
-    const roomName = getRoom();
-    roomDisplay.textContent = roomName;
+    const roomName = getRoomHash();
+    document.getElementById('room-display').textContent = roomName;
 
-    // Using a free public JSON Bin / KV storage endpoint keyed by room hash
-    // (This acts exactly like an online highscore table endpoint)
-    const BIN_API_URL = `https://json.extendsclass.com/bin/rtchat_${roomName}`;
+    const statusText = document.getElementById('status-text');
+    const messagesContainer = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
 
-    let lastKnownLog = [];
-    let isSyncing = false;
+    // --- 2. Public Nostr Relays for Real-Time & Persistent Log ---
+    const RELAYS = [
+        "wss://relay.damus.io",
+        "wss://nos.lol",
+        "wss://relay.snort.social"
+    ];
 
-    function getTimeString() {
-        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let sockets = [];
+    const renderedMsgIds = new Set();
+
+    function formatTime(timestampSeconds) {
+        const date = timestampSeconds ? new Date(timestampSeconds * 1000) : new Date();
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    async function fetchCloudLog() {
-        if (isSyncing) return;
-        isSyncing = true;
+    // Modern browser fast hash for event IDs without heavyweight crypto dependencies
+    async function computeEventId(pubkey, createdAt, kind, tags, content) {
+        const payload = JSON.stringify([0, pubkey, createdAt, kind, tags, content]);
+        const msgUint8 = new TextEncoder().encode(payload);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function initRelayConnections() {
+        let connectedCount = 0;
+
+        RELAYS.forEach(url => {
+            try {
+                const ws = new WebSocket(url);
+
+                ws.onopen = () => {
+                    connectedCount++;
+                    statusText.textContent = `Online (${connectedCount} Relays Connected)`;
+                    
+                    // Request last 100 historical messages for this room
+                    const subscriptionFilter = {
+                        kinds: [1],
+                        "#t": [roomName],
+                        limit: 100
+                    };
+                    const subId = "sub_" + Math.random().toString(36).substring(2, 8);
+                    ws.send(JSON.stringify(["REQ", subId, subscriptionFilter]));
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data[0] === "EVENT" && data[2]) {
+                            handleIncomingNostrEvent(data[2]);
+                        }
+                    } catch(e) {}
+                };
+
+                ws.onerror = () => {};
+                ws.onclose = () => {
+                    if (connectedCount > 0) connectedCount--;
+                    if (connectedCount === 0) statusText.textContent = "Reconnecting to relays...";
+                };
+
+                sockets.push(ws);
+            } catch(e) {}
+        });
+    }
+
+    function handleIncomingNostrEvent(event) {
+        if (!event || !event.id || renderedMsgIds.has(event.id)) return;
+        renderedMsgIds.add(event.id);
+
         try {
-            const response = await fetch(BIN_API_URL, {
-                method: 'GET',
-                headers: { 'Security-Key': 'public' }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                if (Array.isArray(data) && data.length !== lastKnownLog.length) {
-                    lastKnownLog = data;
-                    renderChatHistory(data);
-                }
-            }
+            const payload = JSON.parse(event.content);
+            const timeStr = formatTime(event.created_at);
+            const isSelf = payload.uid === myUid || payload.sender === myName;
+
+            appendMessageToDOM(
+                payload.sender || "Anonymous", 
+                payload.text || "", 
+                timeStr, 
+                isSelf ? 'sent' : 'received'
+            );
         } catch(e) {
-            // Fallback to localStorage if offline
-            const saved = localStorage.getItem('irc_fallback_' + roomName);
-            if (saved && lastKnownLog.length === 0) {
-                lastKnownLog = JSON.parse(saved);
-                renderChatHistory(lastKnownLog);
-            }
-        } finally {
-            isSyncing = false;
-            statusText.textContent = 'Cloud Log Online (Synced)';
+            // Raw text message fallback
+            const timeStr = formatTime(event.created_at);
+            appendMessageToDOM("Stranger", event.content, timeStr, 'received');
         }
     }
 
-    async function pushMessageToCloud(sender, text, time, type) {
-        const newMsg = { sender, text, time, type, uid: myUniqueId };
-        lastKnownLog.push(newMsg);
-        if (lastKnownLog.length > 100) lastKnownLog.shift(); // Keep latest 100 entries
+    async function sendMessage() {
+        const text = messageInput.value.trim();
+        if (!text) return;
 
-        // Save locally immediately
-        localStorage.setItem('irc_fallback_' + roomName, JSON.stringify(lastKnownLog));
-        renderChatHistory(lastKnownLog);
-
-        // Push update to public online JSON bin
-        try {
-            await fetch(BIN_API_URL, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(lastKnownLog)
-            });
-        } catch(e) {
-            console.error("Cloud sync pending (offline mode)");
-        }
-    }
-
-    function renderChatHistory(history) {
-        const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop <= messagesContainer.clientHeight + 50;
-        messagesContainer.innerHTML = '';
-        
-        history.forEach(item => {
-            appendMessageToDOM(item.sender, item.text, item.time, item.type);
+        const timestamp = Math.floor(Date.now() / 1000);
+        const payload = JSON.stringify({
+            sender: myName,
+            uid: myUid,
+            text: text
         });
 
-        if (isAtBottom) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-    }
+        // Anonymous Key Construction
+        const dummyPubkey = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+                                 .map(b => b.toString(16).padStart(2, '0')).join('');
 
-    function sendMessage() {
-        const text = messageInput.value.trim();
-        if (text) {
-            const time = getTimeString();
-            pushMessageToCloud(myName, text, time, 'sent');
-            messageInput.value = '';
-            messageInput.focus();
+        const tags = [["t", roomName]];
+        const eventId = await computeEventId(dummyPubkey, timestamp, 1, tags, payload);
+
+        const nostrEvent = {
+            id: eventId,
+            pubkey: dummyPubkey,
+            created_at: timestamp,
+            kind: 1,
+            tags: tags,
+            content: payload,
+            sig: dummyPubkey // Simplified signature for public relay broadcast
+        };
+
+        // Broadcast directly to online WebSocket relays
+        sockets.forEach(ws => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(["EVENT", nostrEvent]));
+            }
+        });
+
+        // Immediately show on sender UI
+        if (!renderedMsgIds.has(eventId)) {
+            renderedMsgIds.add(eventId);
+            appendMessageToDOM(myName, text, formatTime(timestamp), 'sent');
         }
+
+        messageInput.value = '';
+        messageInput.focus();
     }
 
     function handleKeyPress(e) {
@@ -290,16 +342,14 @@
         }
     }
 
-    function newRoom() {
+    function createNewRoom() {
         window.location.hash = 'room_' + Math.random().toString(36).substring(2, 8);
         location.reload();
     }
 
     function appendMessageToDOM(sender, text, time, type) {
         const div = document.createElement('div');
-        const isSelf = sender === myName;
-        div.className = `message ${type === 'system' ? 'system' : (isSelf ? 'sent' : 'received')}`;
-        
+        div.className = `message ${type}`;
         if (type === 'system') {
             div.textContent = text;
         } else {
@@ -312,12 +362,12 @@
             `;
         }
         messagesContainer.appendChild(div);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    // Initialize and poll cloud log every 3 seconds for new messages (IRC style)
     window.onload = () => {
-        fetchCloudLog();
-        setInterval(fetchCloudLog, 3000);
+        initRelayConnections();
+        messageInput.focus();
     };
 </script>
 

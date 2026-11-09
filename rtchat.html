@@ -194,8 +194,8 @@
     const myUniqueId = 'u_' + Math.random().toString(36).substring(2, 8);
     document.getElementById('identity-display').textContent = `You: ${myName}`;
 
-    // Unique session token to prevent ID collisions on rapid reloads in Incognito
-    const sessionSalt = Math.random().toString(36).substring(2, 6);
+    // Unique session token combined with timestamp to ensure zero ID collisions on reload
+    const sessionSalt = Math.random().toString(36).substring(2, 6) + Date.now().toString(36).slice(-3);
     
     let peer = null;
     let isHub = false;
@@ -269,13 +269,12 @@
         // Try to claim the Hub ID first
         peer = new Peer(hubId, rtcConfig);
 
-        // Safety timeout: if peer.on('open') or 'error' doesn't fire within 4s, force retry as client
         const initTimeout = setTimeout(() => {
             if (peer && !peer.open && !isHub) {
                 try { peer.destroy(); } catch(e) {}
                 connectAsClient(hubId);
             }
-        }, 4000);
+        }, 3000);
 
         peer.on('open', () => {
             clearTimeout(initTimeout);
@@ -323,7 +322,7 @@
         reconnectTimer = setTimeout(() => {
             reconnectTimer = null;
             initPeer();
-        }, 3000);
+        }, 2500);
     }
 
     function setupPeerListeners() {
@@ -474,6 +473,13 @@
         appendMessageToDOM('System', text, time, 'system');
         saveMessageToStorage(sysId, 'System', text, time, 'system');
     }
+
+    // Force clean teardown when closing or reloading incognito windows
+    window.addEventListener('beforeunload', () => {
+        if (peer) {
+            try { peer.destroy(); } catch(e) {}
+        }
+    });
 
     window.onload = initPeer;
 </script>

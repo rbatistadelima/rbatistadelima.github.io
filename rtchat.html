@@ -257,7 +257,6 @@
     const activeConnections = new Map(); 
     const processedMessageIds = new Set();
     let reconnectTimer = null;
-    let connectionWatchdog = null;
 
     const statusText = document.getElementById('status-text');
     const roomDisplay = document.getElementById('room-display');
@@ -269,10 +268,8 @@
         config: {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ],
-            iceCandidatePoolSize: 10
+                { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
         }
     };
 
@@ -328,57 +325,47 @@
         loadChatHistory();
         statusText.textContent = 'Connecting to room...';
 
-        // Rotate timestamp seed every 10 seconds so stale non-incognito sockets never collide
-        const timeSeed = Math.floor(Date.now() / 10000);
-        const hubId = `${roomName}_hub_${timeSeed}`;
+        const hubId = `${roomName}_hub`;
 
         if (peer) {
             try { peer.destroy(); } catch(e) {}
         }
 
+        // Attempt to claim the deterministic room Hub ID
         peer = new Peer(hubId, rtcConfig);
 
-        if (connectionWatchdog) clearTimeout(connectionWatchdog);
-        connectionWatchdog = setTimeout(() => {
-            if (peer && !peer.open && !isHub) {
-                try { peer.destroy(); } catch(e) {}
-                connectAsClient(hubId);
-            }
-        }, 3000);
-
         peer.on('open', () => {
-            clearTimeout(connectionWatchdog);
             isHub = true;
             statusText.textContent = 'Room active (Hub ready).';
             setupPeerListeners();
         });
 
         peer.on('error', (err) => {
-            clearTimeout(connectionWatchdog);
-            try { peer.destroy(); } catch(e) {}
-            connectAsClient(hubId);
+            if (err.type === 'unavailable-id') {
+                connectAsClient(hubId);
+            } else {
+                statusText.textContent = 'Connection error. Retrying...';
+                scheduleReconnect();
+            }
         });
     }
 
-    function connectAsClient(targetHubId) {
+    function connectAsClient(hubId) {
         if (peer) {
             try { peer.destroy(); } catch(e) {}
         }
 
-        const freshRandomId = `${roomName.replace('room_', '')}_${Math.random().toString(36).substring(2, 10)}`;
-        peer = new Peer(freshRandomId, rtcConfig);
+        const clientId = `${roomName.replace('room_', '')}_${Math.random().toString(36).substring(2, 8)}`;
+        peer = new Peer(clientId, rtcConfig);
 
         peer.on('open', () => {
             isHub = false;
             statusText.textContent = 'Connected to room.';
             setupPeerListeners();
             
-            // Connect to timestamped Hub and standard fallback Hub simultaneously
-            const hubConn = peer.connect(targetHubId, { reliable: true });
+            // Connect strictly to the central room hub
+            const hubConn = peer.connect(hubId, { reliable: true });
             setupConnection(hubConn);
-
-            const stdHubConn = peer.connect(`${roomName}_hub`, { reliable: true });
-            setupConnection(stdHubConn);
         });
 
         peer.on('error', () => {
@@ -392,21 +379,22 @@
         reconnectTimer = setTimeout(() => {
             reconnectTimer = null;
             initPeer();
-        }, 2000);
+        }, 3000);
     }
 
     function setupPeerListeners() {
         peer.on('connection', (incomingConn) => {
             setupConnection(incomingConn);
-            setTimeout(broadcastPeerList, 300);
-        });
-    }
 
-    function broadcastPeerList() {
-        const peerList = Array.from(activeConnections.keys());
-        activeConnections.forEach(({ conn }) => {
-            if (conn && conn.open) {
-                conn.send({ type: 'peer_list', peers: peerList });
+            if (isHub) {
+                setTimeout(() => {
+                    const peerList = Array.from(activeConnections.keys());
+                    activeConnections.forEach(({ conn }) => {
+                        if (conn && conn.open) {
+                            conn.send({ type: 'peer_list', peers: peerList });
+                        }
+                    });
+                }, 500);
             }
         });
     }
@@ -414,8 +402,14 @@
     function setupConnection(connection) {
         const remoteId = connection.peer;
 
+        // Prevent duplicate socket openings to the same peer
+        if (activeConnections.has(remoteId)) {
+            try { connection.close(); } catch(e) {}
+            return;
+        }
+
         connection.on('open', () => {
-            activeConnections.set(remoteId, { conn: connection, name: "Peer", lastSeen: Date.now() });
+            activeConnections.set(remoteId, { conn: connection, name: "Peer" });
             statusText.textContent = `Connected peers: ${activeConnections.size}`;
             connection.send({ type: 'profile', id: myUniqueId, name: myName });
             updateClientListUI();
@@ -424,10 +418,8 @@
         connection.on('data', (data) => {
             try {
                 if (typeof data === 'object' && data !== null) {
-                    const p = activeConnections.get(remoteId);
-                    if (p) p.lastSeen = Date.now();
-
                     if (data.type === 'profile') {
+                        const p = activeConnections.get(remoteId);
                         if (p) {
                             p.name = data.name;
                             p.uid = data.id;
@@ -435,13 +427,9 @@
                         }
                         return;
                     }
-                    if (data.type === 'ping') {
-                        connection.send({ type: 'pong' });
-                        return;
-                    }
-                    if (data.type === 'peer_list') {
+                    if (data.type === 'peer_list' && !isHub) {
                         data.peers.forEach(peerId => {
-                            if (peerId !== peer.id && !activeConnections.has(peerId)) {
+                            if (peerId !== peer.id && peerId !== peer.user && !activeConnections.has(peerId)) {
                                 const newConn = peer.connect(peerId, { reliable: true });
                                 setupConnection(newConn);
                             }
@@ -457,11 +445,13 @@
                         appendMessageToDOM(data.sender, data.text, time, 'received');
                         saveMessageToStorage(data.msgId, data.sender, data.text, time, 'received');
 
-                        activeConnections.forEach((val, id) => {
-                            if (id !== remoteId && val.conn && val.conn.open) {
-                                val.conn.send(data);
-                            }
-                        });
+                        if (isHub) {
+                            activeConnections.forEach((val, id) => {
+                                if (id !== remoteId && val.conn && val.conn.open) {
+                                    val.conn.send(data);
+                                }
+                            });
+                        }
                         return;
                     }
                 }
@@ -513,26 +503,6 @@
         statusText.textContent = activeConnections.size > 0 ? `Connected peers: ${activeConnections.size}` : 'Waiting for peers...';
         updateClientListUI();
     }
-
-    // Active heartbeat monitor
-    setInterval(() => {
-        const now = Date.now();
-        let changed = false;
-        activeConnections.forEach(({ conn, lastSeen }, remoteId) => {
-            if (now - lastSeen > 6000) {
-                try { conn.close(); } catch(e) {}
-                activeConnections.delete(remoteId);
-                changed = true;
-            } else if (conn && conn.open) {
-                conn.send({ type: 'ping' });
-            }
-        });
-        if (changed) {
-            statusText.textContent = activeConnections.size > 0 ? `Connected peers: ${activeConnections.size}` : 'Waiting for peers...';
-            updateClientListUI();
-            broadcastPeerList();
-        }
-    }, 2500);
 
     function newRoom() {
         window.location.hash = 'room_' + Math.random().toString(36).substring(2, 8);

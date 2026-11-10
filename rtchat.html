@@ -356,16 +356,16 @@
             try { peer.destroy(); } catch(e) {}
         }
 
-        logMsg(`Attempting to claim Hub ID: ${hubId}`);
+        logMsg(`Attempting to claim stable Hub ID: ${hubId}`);
         peer = new Peer(hubId, rtcConfig);
 
         const hubTimeout = setTimeout(() => {
             if (peer && !peer.open && !isHub) {
-                logMsg(`Hub timeout. Fallback to client mode...`);
+                logMsg(`Hub claim timeout. Switching to Client mode...`);
                 try { peer.destroy(); } catch(e) {}
                 connectAsClient(hubId);
             }
-        }, 1500);
+        }, 2000);
 
         peer.on('open', (id) => {
             clearTimeout(hubTimeout);
@@ -377,7 +377,7 @@
 
         peer.on('error', (err) => {
             clearTimeout(hubTimeout);
-            logMsg(`Hub claim failed (${err.type}). Switching to client mode...`);
+            logMsg(`Hub claim failed (${err.type}). Switching to Client mode...`);
             try { peer.destroy(); } catch(e) {}
             connectAsClient(hubId);
         });
@@ -555,12 +555,12 @@
         updateClientListUI();
     }
 
-    // Ping/pong heartbeat + isolated Spoke probe check
+    // Ping/pong heartbeat + clean reconnection trigger if a spoke client gets disconnected
     setInterval(() => {
         const now = Date.now();
         let changed = false;
         activeConnections.forEach(({ conn, lastSeen }, remoteId) => {
-            if (now - lastSeen > 7000) {
+            if (now - lastSeen > 8000) {
                 logMsg(`Heartbeat timeout for ${remoteId}. Closing connection.`);
                 try { conn.close(); } catch(e) {}
                 activeConnections.delete(remoteId);
@@ -575,11 +575,11 @@
             if (isHub) broadcastPeerList();
         }
 
-        // Only re-probe if we are a SPOKE client and completely isolated
+        // If we are a spoke client and lost our connection, attempt to rejoin the room smoothly
         if (!isHub && activeConnections.size === 0 && !statusText.textContent.includes('Connecting')) {
-            logMsg(`Spoke isolated. Re-probing room...`);
-            statusText.textContent = 'Re-probing room...';
-            setTimeout(initPeer, 500);
+            logMsg(`Spoke disconnected from Hub. Re-initializing...`);
+            statusText.textContent = 'Reconnecting...';
+            setTimeout(initPeer, 1500);
         }
     }, 3000);
 

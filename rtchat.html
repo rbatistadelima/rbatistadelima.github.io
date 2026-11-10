@@ -350,66 +350,60 @@
         loadChatHistory();
         statusText.textContent = 'Connecting to room...';
 
-        const timeBlock = Math.floor(Date.now() / 6000);
-        const dynamicHubId = `${roomName}_hub_${timeBlock}`;
-        const fallbackHubId = `${roomName}_hub`;
+        const hubId = `${roomName}_hub`;
 
         if (peer) {
             try { peer.destroy(); } catch(e) {}
         }
 
-        logMsg(`Initializing Peer with ID: ${dynamicHubId}`);
-        peer = new Peer(dynamicHubId, rtcConfig);
+        logMsg(`Attempting to claim Hub ID: ${hubId}`);
+        peer = new Peer(hubId, rtcConfig);
 
-        const initTimeout = setTimeout(() => {
+        const hubTimeout = setTimeout(() => {
             if (peer && !peer.open && !isHub) {
-                logMsg(`Hub claim timeout. Falling back to client mode...`);
+                logMsg(`Hub timeout. Fallback to client mode...`);
                 try { peer.destroy(); } catch(e) {}
-                connectAsClient(dynamicHubId, fallbackHubId);
+                connectAsClient(hubId);
             }
-        }, 2000);
+        }, 1500);
 
         peer.on('open', (id) => {
-            clearTimeout(initTimeout);
+            clearTimeout(hubTimeout);
             isHub = true;
-            logMsg(`Successfully claimed Hub ID: ${id}`);
+            logMsg(`Claimed Hub role successfully (${id})`);
             statusText.textContent = 'Room active (Hub ready).';
             setupPeerListeners();
         });
 
         peer.on('error', (err) => {
-            clearTimeout(initTimeout);
-            logMsg(`Peer error (Hub claim failed): ${err.type} - ${err.message}`);
+            clearTimeout(hubTimeout);
+            logMsg(`Hub claim failed (${err.type}). Switching to client mode...`);
             try { peer.destroy(); } catch(e) {}
-            connectAsClient(dynamicHubId, fallbackHubId);
+            connectAsClient(hubId);
         });
     }
 
-    function connectAsClient(primaryHub, fallbackHub) {
+    function connectAsClient(hubId) {
         if (peer) {
             try { peer.destroy(); } catch(e) {}
         }
 
         const clientId = `${roomName.replace('room_', '')}_cl_${Math.random().toString(36).substring(2, 8)}`;
-        logMsg(`Connecting as client with ID: ${clientId}`);
+        logMsg(`Initializing Client ID: ${clientId}`);
         peer = new Peer(clientId, rtcConfig);
 
         peer.on('open', (id) => {
             isHub = false;
-            logMsg(`Client peer open with ID: ${id}`);
+            logMsg(`Client active (${id}). Connecting to Hub ${hubId}...`);
             statusText.textContent = 'Connected to room.';
             setupPeerListeners();
             
-            logMsg(`Connecting to hubs: ${primaryHub}, ${fallbackHub}`);
-            const conn1 = peer.connect(primaryHub, { reliable: true });
-            setupConnection(conn1);
-
-            const conn2 = peer.connect(fallbackHub, { reliable: true });
-            setupConnection(conn2);
+            const hubConn = peer.connect(hubId, { reliable: true });
+            setupConnection(hubConn);
         });
 
         peer.on('error', (err) => {
-            logMsg(`Client peer error: ${err.type}`);
+            logMsg(`Client error (${err.type}). Scheduling retry...`);
             statusText.textContent = 'Retrying connection...';
             scheduleReconnect();
         });
@@ -425,7 +419,7 @@
 
     function setupPeerListeners() {
         peer.on('connection', (incomingConn) => {
-            logMsg(`Incoming connection from peer: ${incomingConn.peer}`);
+            logMsg(`Incoming connection from: ${incomingConn.peer}`);
             setupConnection(incomingConn);
             if (isHub) {
                 setTimeout(broadcastPeerList, 300);
@@ -446,13 +440,12 @@
         const remoteId = connection.peer;
 
         if (activeConnections.has(remoteId)) {
-            logMsg(`Duplicate connection attempt to ${remoteId} blocked.`);
-            try { connection.close(); } catch(e) {}
+            logMsg(`Already connected to ${remoteId}. Ignoring duplicate.`);
             return;
         }
 
         connection.on('open', () => {
-            logMsg(`Data channel OPEN with remote peer: ${remoteId}`);
+            logMsg(`Data channel established with ${remoteId}`);
             activeConnections.set(remoteId, { conn: connection, name: "Peer", lastSeen: Date.now() });
             statusText.textContent = `Connected peers: ${activeConnections.size}`;
             connection.send({ type: 'profile', id: myUniqueId, name: myName });
@@ -466,7 +459,7 @@
                     if (p) p.lastSeen = Date.now();
 
                     if (data.type === 'profile') {
-                        logMsg(`Received profile from ${remoteId}: ${data.name}`);
+                        logMsg(`Profile update from ${remoteId}: ${data.name}`);
                         if (p) {
                             p.name = data.name;
                             p.uid = data.id;
@@ -481,7 +474,7 @@
                     if (data.type === 'peer_list') {
                         data.peers.forEach(peerId => {
                             if (peerId !== peer.id && !activeConnections.has(peerId)) {
-                                logMsg(`Mesh peer list received. Connecting to peer: ${peerId}`);
+                                logMsg(`Mesh connecting to peer: ${peerId}`);
                                 const newConn = peer.connect(peerId, { reliable: true });
                                 setupConnection(newConn);
                             }
@@ -506,16 +499,16 @@
                     }
                 }
             } catch(e) {
-                logMsg(`Error processing data from ${remoteId}: ${e.message}`);
+                logMsg(`Data parsing error from ${remoteId}: ${e.message}`);
             }
         });
 
         connection.on('close', () => {
-            logMsg(`Connection CLOSED with remote peer: ${remoteId}`);
+            logMsg(`Socket closed with ${remoteId}`);
             handleDisconnect(remoteId);
         });
         connection.on('error', (err) => {
-            logMsg(`Connection ERROR with ${remoteId}: ${err}`);
+            logMsg(`Socket error with ${remoteId}: ${err}`);
             handleDisconnect(remoteId);
         });
     }
@@ -562,12 +555,13 @@
         updateClientListUI();
     }
 
+    // Ping/pong heartbeat + isolated Spoke probe check
     setInterval(() => {
         const now = Date.now();
         let changed = false;
         activeConnections.forEach(({ conn, lastSeen }, remoteId) => {
-            if (now - lastSeen > 6000) {
-                logMsg(`Heartbeat timeout for peer ${remoteId}. Closing socket.`);
+            if (now - lastSeen > 7000) {
+                logMsg(`Heartbeat timeout for ${remoteId}. Closing connection.`);
                 try { conn.close(); } catch(e) {}
                 activeConnections.delete(remoteId);
                 changed = true;
@@ -581,12 +575,13 @@
             if (isHub) broadcastPeerList();
         }
 
-        if (activeConnections.size === 0 && !statusText.textContent.includes('Connecting')) {
-            logMsg(`Peer isolated for >6s. Re-probing room...`);
+        // Only re-probe if we are a SPOKE client and completely isolated
+        if (!isHub && activeConnections.size === 0 && !statusText.textContent.includes('Connecting')) {
+            logMsg(`Spoke isolated. Re-probing room...`);
             statusText.textContent = 'Re-probing room...';
             setTimeout(initPeer, 500);
         }
-    }, 2500);
+    }, 3000);
 
     function newRoom() {
         window.location.hash = 'room_' + Math.random().toString(36).substring(2, 8);

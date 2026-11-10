@@ -62,8 +62,26 @@
         .sidebar li {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 6px;
             word-break: break-all;
+        }
+        .peer-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .peer-latency {
+            font-family: monospace;
+            font-size: 10px;
+            color: #64748b;
+            background: #e2e8f0;
+            padding: 1px 4px;
+            border-radius: 4px;
+            flex-shrink: 0;
         }
         .status-dot {
             width: 8px;
@@ -294,7 +312,10 @@
     <div class="sidebar right">
         <h3>Connected Clients</h3>
         <ul id="client-list">
-            <li id="self-client-item"><span class="status-dot"></span> <span id="self-client-name">You (Loading)</span></li>
+            <li id="self-client-item">
+                <div class="peer-info"><span class="status-dot"></span> <span id="self-client-name">You (Loading)</span></div>
+                <span class="peer-latency">0ms</span>
+            </li>
         </ul>
     </div>
 </div>
@@ -359,7 +380,6 @@
 
     function getRoom() {
         let hash = window.location.hash.substring(1);
-        // Ensure short alphanumeric room ID without 'room_' prefix
         if (!hash || hash.length < 3 || hash.startsWith('room_')) {
             hash = Math.random().toString(36).substring(2, 7);
             window.location.hash = hash;
@@ -399,10 +419,19 @@
     }
 
     function updateClientListUI() {
-        clientListEl.innerHTML = `<li id="self-client-item"><span class="status-dot"></span> <span>${myName} (You)</span></li>`;
-        activeConnections.forEach(({ name }) => {
+        clientListEl.innerHTML = `
+            <li>
+                <div class="peer-info"><span class="status-dot"></span> <span>${myName} (You)</span></div>
+                <span class="peer-latency">0ms</span>
+            </li>
+        `;
+        activeConnections.forEach(({ name, latency }) => {
             const li = document.createElement('li');
-            li.innerHTML = `<span class="status-dot"></span> <span>${name || 'Peer'}</span>`;
+            const latText = latency !== undefined ? `${latency}ms` : '...';
+            li.innerHTML = `
+                <div class="peer-info"><span class="status-dot"></span> <span>${name || 'Peer'}</span></div>
+                <span class="peer-latency">${latText}</span>
+            `;
             clientListEl.appendChild(li);
         });
     }
@@ -512,7 +541,13 @@
 
         connection.on('open', () => {
             logMsg(`Data channel established with ${remoteId}`);
-            activeConnections.set(remoteId, { conn: connection, name: "Peer", lastSeen: Date.now() });
+            activeConnections.set(remoteId, { 
+                conn: connection, 
+                name: "Peer", 
+                lastSeen: Date.now(),
+                lastPingTime: 0,
+                latency: undefined
+            });
             statusText.textContent = `Connected peers: ${activeConnections.size}`;
             connection.send({ type: 'profile', id: myUniqueId, name: myName });
             updateClientListUI();
@@ -535,6 +570,13 @@
                     }
                     if (data.type === 'ping') {
                         connection.send({ type: 'pong' });
+                        return;
+                    }
+                    if (data.type === 'pong') {
+                        if (p && p.lastPingTime) {
+                            p.latency = Date.now() - p.lastPingTime;
+                            updateClientListUI();
+                        }
                         return;
                     }
                     if (data.type === 'peer_list') {
@@ -621,17 +663,19 @@
         updateClientListUI();
     }
 
-    // Ping/pong heartbeat + clean reconnection trigger if a spoke client gets disconnected
+    // Ping/pong heartbeat + latency check loop
     setInterval(() => {
         const now = Date.now();
         let changed = false;
-        activeConnections.forEach(({ conn, lastSeen }, remoteId) => {
+        activeConnections.forEach((peerObj, remoteId) => {
+            const { conn, lastSeen } = peerObj;
             if (now - lastSeen > 8000) {
                 logMsg(`Heartbeat timeout for ${remoteId}. Closing connection.`);
                 try { conn.close(); } catch(e) {}
                 activeConnections.delete(remoteId);
                 changed = true;
             } else if (conn && conn.open) {
+                peerObj.lastPingTime = Date.now();
                 conn.send({ type: 'ping' });
             }
         });

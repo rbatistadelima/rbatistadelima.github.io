@@ -3,11 +3,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>project index</title>
 
 <style>
-* { box-sizing: border-box; }
+* {
+    box-sizing: border-box;
+}
 
 body {
     margin: 0;
@@ -40,12 +42,20 @@ h1 {
     box-shadow: 0 2px 12px #0000000d;
     display: flex;
     flex-direction: column;
+    transition: transform .2s, box-shadow .2s;
+}
+
+.project:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 18px #00000015;
 }
 
 .preview {
+    width: 100%;
     height: 190px;
     background: #e8e8e8;
     overflow: hidden;
+    position: relative;
 }
 
 .preview iframe {
@@ -90,16 +100,23 @@ h1 {
     text-decoration: none;
 }
 
-.project a:hover { background: #555; }
+.project a:hover {
+    background: #555;
+}
 
 .status {
     color: #888;
     font-size: 14px;
 }
 
-@media(max-width:600px) {
-    body { padding: 20px; }
-    #fileList { grid-template-columns: 1fr; }
+@media(max-width: 600px) {
+    body {
+        padding: 20px;
+    }
+
+    #fileList {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
 </head>
@@ -116,113 +133,83 @@ h1 {
 const USERNAME = 'rbatistadelima';
 const REPO = 'rbatistadelima.github.io';
 
-// AI configuration
-const AI_MODEL = 'openai';
-const AI_ENDPOINT = 'https://text.pollinations.ai/';
-
-function formatFileName(name) {
-    return name
+function formatFileName(fileName) {
+    return fileName
         .replace(/\.html$/i, '')
         .replace(/[-_]/g, ' ')
         .toLowerCase();
 }
 
+// Fetch all HTML files from GitHub repository.
 async function getHtmlFiles() {
-    const api =
+    const apiUrl =
         `https://api.github.com/repos/${USERNAME}/${REPO}/contents/`;
 
-    const response = await fetch(api);
+    try {
+        const response = await fetch(apiUrl);
 
-    if (!response.ok) {
-        throw new Error('Could not access GitHub repository');
+        if (!response.ok) {
+            throw new Error('Failed to fetch repository contents');
+        }
+
+        const contents = await response.json();
+
+        return contents
+            .filter(item =>
+                item.type === 'file' &&
+                item.name.toLowerCase().endsWith('.html') &&
+                item.name.toLowerCase() !== 'index.html'
+            )
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+    } catch (error) {
+        console.error(error);
+        return [];
     }
-
-    const files = await response.json();
-
-    return files.filter(file =>
-        file.type === 'file' &&
-        file.name.toLowerCase().endsWith('.html') &&
-        file.name.toLowerCase() !== 'index.html'
-    );
 }
 
-// Generate an AI description from actual project source code.
-async function generateAIDescription(html, filename) {
-    // Limit source size to avoid unnecessarily large requests.
-    const source = html.slice(0, 14000);
-
-    const prompt = `
-You are analyzing a web development portfolio.
-
-Analyze the following HTML source code and describe what
-the project actually does.
-
-Filename: ${filename}
-
-Source code:
-${source}
-
-Instructions:
-- Write in English.
-- Use lowercase only.
-- Write 1 to 2 concise sentences.
-- Explain the actual functionality and purpose.
-- Mention interesting features or interactions.
-- Describe it naturally, like a portfolio project.
-- Do not describe the code itself.
-- Do not invent features that are not present.
-- Do not mention that you are an AI.
-- Return ONLY the description.
-`;
-
-    const url = AI_ENDPOINT + encodeURIComponent(prompt) +
-        '?model=' + encodeURIComponent(AI_MODEL);
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-        throw new Error('AI description request failed');
-    }
-
-    const result = await response.text();
-
-    return result
-        .replace(/<[^>]*>/g, '')
-        .replace(/^["'\s]+|["'\s]+$/g, '')
-        .trim()
-        .toLowerCase();
-}
-
+// Read metadata from each HTML page.
 async function getDescription(file) {
-    const fallback =
-        `an interactive web project: ${formatFileName(file.name)}.`;
+    const fallback = formatFileName(file.name);
 
     try {
         const response = await fetch(file.name);
 
-        if (!response.ok) throw new Error('Could not load project');
+        if (!response.ok) {
+            throw new Error('Page unavailable');
+        }
 
         const html = await response.text();
 
-        const description = await generateAIDescription(
+        const doc = new DOMParser().parseFromString(
             html,
-            file.name
+            'text/html'
         );
 
-        return description || fallback;
+        const description =
+            doc.querySelector('meta[name="description"]')?.content ||
+            doc.querySelector('meta[property="og:description"]')?.content ||
+            doc.querySelector('meta[name="twitter:description"]')?.content ||
+            doc.querySelector('title')?.textContent;
+
+        return (description || fallback)
+            .trim()
+            .toLowerCase();
 
     } catch (error) {
-        console.warn('AI description unavailable:', file.name, error);
+        console.warn('Could not read metadata:', file.name);
         return fallback;
     }
 }
 
+// Create individual project card.
 async function createProjectCard(file) {
     const title = formatFileName(file.name);
 
     const li = document.createElement('li');
     li.className = 'project';
 
+    // Preview
     const preview = document.createElement('div');
     preview.className = 'preview';
 
@@ -233,6 +220,7 @@ async function createProjectCard(file) {
 
     preview.appendChild(iframe);
 
+    // Information
     const info = document.createElement('div');
     info.className = 'project-info';
 
@@ -240,17 +228,22 @@ async function createProjectCard(file) {
     heading.textContent = title;
 
     const description = document.createElement('p');
-    description.textContent = 'ai is analyzing this project...';
+    description.textContent = 'loading description...';
 
     const link = document.createElement('a');
     link.href = file.name;
     link.target = '_blank';
-    link.rel = 'noopener';
+    link.rel = 'noopener noreferrer';
     link.textContent = 'open project';
 
-    info.append(heading, description, link);
-    li.append(preview, info);
+    info.appendChild(heading);
+    info.appendChild(description);
+    info.appendChild(link);
 
+    li.appendChild(preview);
+    li.appendChild(info);
+
+    // Load description independently.
     getDescription(file).then(text => {
         description.textContent = text;
     });
@@ -258,35 +251,35 @@ async function createProjectCard(file) {
     return li;
 }
 
+// Display project index.
 async function displayFileList() {
     const fileList = document.getElementById('fileList');
 
-    try {
-        const files = await getHtmlFiles();
+    const files = await getHtmlFiles();
 
-        fileList.innerHTML = '';
+    fileList.innerHTML = '';
 
-        if (!files.length) {
-            fileList.innerHTML =
-                '<li class="status">no html files found.</li>';
-            return;
-        }
-
-        const cards = await Promise.all(
-            files.map(file => createProjectCard(file))
-        );
-
-        cards.forEach(card => fileList.appendChild(card));
-
-    } catch (error) {
-        console.error(error);
-
-        fileList.innerHTML =
-            '<li class="status">could not load projects.</li>';
+    if (files.length === 0) {
+        const message = document.createElement('li');
+        message.className = 'status';
+        message.textContent = 'no html files found.';
+        fileList.appendChild(message);
+        return;
     }
+
+    const cards = await Promise.all(
+        files.map(file => createProjectCard(file))
+    );
+
+    cards.forEach(card => {
+        fileList.appendChild(card);
+    });
 }
 
-document.addEventListener('DOMContentLoaded', displayFileList);
+document.addEventListener(
+    'DOMContentLoaded',
+    displayFileList
+);
 </script>
 
 </body>

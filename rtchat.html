@@ -325,40 +325,38 @@
         loadChatHistory();
         statusText.textContent = 'Connecting to room...';
 
-        // Use a rolling 8-second time block hash for the Hub ID. 
-        // If an Incognito tab reloads, it shifts to the next time block instantly, bypassing old server locks.
-        const timeBlock = Math.floor(Date.now() / 8000);
-        const hubId = `${roomName}_hub_${timeBlock}`;
+        const hubId = `${roomName}_hub`;
 
         if (peer) {
             try { peer.destroy(); } catch(e) {}
         }
 
+        // Step 1: Try to claim the stable room Hub ID
         peer = new Peer(hubId, rtcConfig);
 
-        const initTimeout = setTimeout(() => {
+        const hubTimeout = setTimeout(() => {
             if (peer && !peer.open && !isHub) {
                 try { peer.destroy(); } catch(e) {}
                 connectAsClient(hubId);
             }
-        }, 2000);
+        }, 1500);
 
         peer.on('open', () => {
-            clearTimeout(initTimeout);
+            clearTimeout(hubTimeout);
             isHub = true;
             statusText.textContent = 'Room active (Hub ready).';
             setupPeerListeners();
         });
 
         peer.on('error', (err) => {
-            clearTimeout(initTimeout);
+            clearTimeout(hubTimeout);
             try { peer.destroy(); } catch(e) {}
-            // If hub ID is taken or blocked, automatically try connecting to the previous time block's hub or standard ID
-            connectAsClient(`${roomName}_hub_${timeBlock - 1}`);
+            // Step 2: If hub ID is taken, immediately connect as a spoke client to that hub
+            connectAsClient(hubId);
         });
     }
 
-    function connectAsClient(targetHubId) {
+    function connectAsClient(hubId) {
         if (peer) {
             try { peer.destroy(); } catch(e) {}
         }
@@ -371,12 +369,9 @@
             statusText.textContent = 'Connected to room.';
             setupPeerListeners();
             
-            // Connect to active rolling hub and standard base hub simultaneously
-            const hubConn = peer.connect(targetHubId, { reliable: true });
+            // Connect to the central room hub
+            const hubConn = peer.connect(hubId, { reliable: true });
             setupConnection(hubConn);
-
-            const baseHubConn = peer.connect(`${roomName}_hub`, { reliable: true });
-            setupConnection(baseHubConn);
         });
 
         peer.on('error', () => {
@@ -396,7 +391,9 @@
     function setupPeerListeners() {
         peer.on('connection', (incomingConn) => {
             setupConnection(incomingConn);
-            setTimeout(broadcastPeerList, 300);
+            if (isHub) {
+                setTimeout(broadcastPeerList, 300);
+            }
         });
     }
 
@@ -442,7 +439,7 @@
                         connection.send({ type: 'pong' });
                         return;
                     }
-                    if (data.type === 'peer_list') {
+                    if (data.type === 'peer_list' && !isHub) {
                         data.peers.forEach(peerId => {
                             if (peerId !== peer.id && !activeConnections.has(peerId)) {
                                 const newConn = peer.connect(peerId, { reliable: true });
@@ -460,11 +457,13 @@
                         appendMessageToDOM(data.sender, data.text, time, 'received');
                         saveMessageToStorage(data.msgId, data.sender, data.text, time, 'received');
 
-                        activeConnections.forEach((val, id) => {
-                            if (id !== remoteId && val.conn && val.conn.open) {
-                                val.conn.send(data);
-                            }
-                        });
+                        if (isHub) {
+                            activeConnections.forEach((val, id) => {
+                                if (id !== remoteId && val.conn && val.conn.open) {
+                                    val.conn.send(data);
+                                }
+                            });
+                        }
                         return;
                     }
                 }
@@ -533,13 +532,7 @@
         if (changed) {
             statusText.textContent = activeConnections.size > 0 ? `Connected peers: ${activeConnections.size}` : 'Waiting for peers...';
             updateClientListUI();
-            broadcastPeerList();
-        }
-
-        // If we are isolated (0 connected peers) for more than 5 seconds, trigger a silent re-initialization
-        if (activeConnections.size === 0 && statusText.textContent.includes('Connected')) {
-            statusText.textContent = 'Re-syncing room...';
-            setTimeout(initPeer, 1000);
+            if (isHub) broadcastPeerList();
         }
     }, 2500);
 

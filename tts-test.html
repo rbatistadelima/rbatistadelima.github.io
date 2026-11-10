@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Demo TTS - meSpeak + SAM</title>
+  <!-- meSpeak -->
+  <script src="https://cdn.jsdelivr.net/npm/mespeak/mespeak.full.min.js"></script>
+
+  <!-- Tentativa 1: UMD build via jsDelivr -->
+  <script src="https://cdn.jsdelivr.net/npm/sam-js@0.3.1/dist/sam.umd.js"></script>
+
+  <!-- Tentativa 2: minified ESM via unpkg (precisa type="module") -->
+  <script type="module">
+    import SamJs from "https://unpkg.com/sam-js@0.3.1/dist/samjs.esm.min.js";
+    window.samModule = new SamJs({ pitch:64, speed:72, mouth:128, throat:128 });
+  </script>
+
+  <!-- Tentativa 3: pacote 'sam' (pode não expor global) -->
+  <script src="https://cdn.jsdelivr.net/npm/sam@0.1.0/sam.js"></script>
+</head>
+<body>
+  <h1>Demo TTS</h1>
+  <textarea id="texto" rows="4" cols="50">Texto padrão para teste</textarea><br>
+
+  <button onclick="falarMeSpeak()">meSpeak</button>
+  <button onclick="falarSAM()">SAM.js (UMD)</button>
+  <button onclick="falarSAMModule()">SAM.js (ESM)</button>
+  <button onclick="falarSAMOriginal()">SAM (pacote)</button>
+
+  <script>
+    // --- meSpeak ---
+    meSpeak.loadConfig("https://cdn.jsdelivr.net/npm/mespeak/mespeak_config.json");
+    meSpeak.loadVoice("https://cdn.jsdelivr.net/npm/mespeak/voices/pt.json");
+
+    function falarMeSpeak() {
+      const t=document.getElementById("texto").value;
+      const b64=meSpeak.speak(t,{rawdata:"base64"});
+      new Audio("data:audio/wav;base64,"+b64).play();
+    }
+
+    // --- SAM.js via UMD ---
+    function falarSAM() {
+      const t=document.getElementById("texto").value;
+      if (typeof SamJs !== "undefined") {
+        const sam = new SamJs({ pitch:64, speed:72, mouth:128, throat:128 });
+        sam.speak(t);
+      } else {
+        alert("SamJs (UMD) não carregou.");
+      }
+    }
+
+    // --- SAM.js via ESM ---
+    function falarSAMModule() {
+      const t=document.getElementById("texto").value;
+      if (window.samModule) {
+        window.samModule.speak(t);
+      } else {
+        alert("SamJs (ESM) não carregou.");
+      }
+    }
+
+    // --- SAM via pacote 'sam' ---
+    function falarSAMOriginal() {
+      const t=document.getElementById("texto").value;
+      if (typeof speak !== "undefined") {
+        speak(t);
+      } else {
+        alert("Pacote 'sam' não carregou.");
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lo-Fi Piseiro - Chill Brazilian Grooves</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+</head>
+<body class="bg-indigo-950 text-indigo-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-xl w-full bg-indigo-900/80 backdrop-blur-md p-8 rounded-3xl shadow-2xl border border-indigo-700/50">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-amber-300 tracking-wide">☕ Lo-Fi Piseiro Beats</h1>
+            <p class="text-indigo-300 text-sm mt-1">Chill, relaxed Brazilian grooves with mellow electric piano, soft bass, and vinyl dust drums.</p>
+        </div>
+
+        <div class="space-y-6">
+            <div>
+                <label for="tempo" class="block text-sm font-medium text-indigo-200 mb-2">Tempo (BPM)</label>
+                <input type="number" id="tempo" value="88" min="70" max="120" 
+                    class="w-full bg-indigo-950 border border-indigo-700 rounded-lg px-4 py-2.5 text-indigo-100 focus:outline-none focus:border-amber-400 font-mono">
+                <span class="text-xs text-indigo-400 mt-1 block">Lower BPM (75-95) for that lazy, nostalgic vibe</span>
+            </div>
+
+            <div>
+                <label for="chords" class="block text-sm font-medium text-indigo-200 mb-2">Chords (Space-separated)</label>
+                <input type="text" id="chords" value="Cmaj7 Am7 Dm7 G7" 
+                    class="w-full bg-indigo-950 border border-indigo-700 rounded-lg px-4 py-2.5 text-indigo-100 focus:outline-none focus:border-amber-400 font-mono">
+                <span class="text-xs text-indigo-400 mt-1 block">Jazz/Lo-fi extensions like Cmaj7, Am7, Dm7, G7</span>
+            </div>
+
+            <div class="flex gap-4 pt-2">
+                <button id="playBtn" onclick="togglePlay()" disabled
+                    class="flex-1 bg-slate-600 text-indigo-200 font-bold py-3 px-6 rounded-lg transition shadow-lg flex items-center justify-center gap-2 cursor-not-allowed">
+                    ⏳ Loading Lo-Fi Soundfonts...
+                </button>
+            </div>
+        </div>
+
+        <div id="status" class="mt-6 text-center text-sm text-amber-300 font-mono">
+            Status: Initializing mellow audio instruments...
+        </div>
+    </div>
+
+    <script>
+        // Chord library tuned for mellow, extended jazz/lo-fi voicings
+        const chordLibrary = {
+            'C':     ['C3', 'E3', 'G3', 'C4'],
+            'CM':    ['C3', 'E3', 'G3', 'C4'],
+            'CMIN':  ['C3', 'D#3', 'G3', 'C4'],
+            'D':     ['D3', 'F#3', 'A3', 'D4'],
+            'DM':    ['D3', 'F3', 'A3', 'D4'],
+            'E':     ['E3', 'G#3', 'B3', 'E4'],
+            'EM':    ['E3', 'G3', 'B3', 'E4'],
+            'F':     ['F3', 'A3', 'C4', 'F4'],
+            'FM':    ['F3', 'G#3', 'C4', 'F4'],
+            'G':     ['G3', 'B3', 'D4', 'G4'],
+            'GM':    ['G3', 'A#3', 'D4', 'G4'],
+            'A':     ['A3', 'C#4', 'E4', 'A4'],
+            'AM':    ['A3', 'C4', 'E4', 'A4'],
+            'BB':    ['A#3', 'D4', 'F4', 'A#4'],
+            'B':     ['B3', 'D#4', 'F#4', 'B4'],
+            'EM7':   ['E3', 'G3', 'B3', 'D4'],         
+            'EM9':   ['E3', 'G3', 'B3', 'D4', 'F#4'],   
+            'CMAJ7': ['C3', 'E3', 'G3', 'B3'],          
+            'AM7':   ['A3', 'C4', 'E4', 'G4'],          
+            'DM7':   ['D3', 'F3', 'A3', 'C4'],
+            'GM7':   ['G3', 'B3', 'D4', 'F#4'],
+            'G7':    ['G3', 'B3', 'D4', 'F4'],
+            'FM7':   ['F3', 'A3', 'C4', 'E4']
+        };
+
+        let isPlaying = false;
+        let epianoInstrument, bassInstrument;
+        let audioContext = null;
+        let loFiKick, loFiSnare, vinylNoise;
+
+        async function initSoundfonts() {
+            audioContext = Tone.context.rawContext;
+            const statusEl = document.getElementById('status');
+            const playBtn = document.getElementById('playBtn');
+
+            statusEl.innerText = "Loading Rhodes Electric Piano & Acoustic Bass soundfonts...";
+            
+            try {
+                // Load warm Rhodes Electric Piano and upright/electric finger bass
+                epianoInstrument = await Soundfont.instrument(audioContext, 'electric_piano_1', { soundfont: 'FluidR3_GM' });
+                bassInstrument = await Soundfont.instrument(audioContext, 'electric_bass_finger', { soundfont: 'FluidR3_GM' });
+                
+                // Muffled, warm lo-fi drums setup
+                loFiKick = new Tone.MembraneSynth({ pitchDecay: 0.1, octaves: 2, oscillator: { type: "sine" } }).toDestination();
+                loFiKick.volume.value = -3;
+                
+                loFiSnare = new Tone.NoiseSynth({ 
+                    noise: { type: "pink" }, // Pink noise sounds warmer/softer than white noise
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0 } 
+                }).toDestination();
+                loFiSnare.volume.value = -6;
+
+                // Subtle vinyl crackle/noise simulation loop
+                vinylNoise = new Tone.Noise("brown").toDestination();
+                vinylNoise.volume.value = -32; // Very quiet background texture
+
+                statusEl.innerText = "Status: Ready to chill!";
+                playBtn.disabled = false;
+                playBtn.className = "flex-1 bg-amber-400 hover:bg-amber-500 text-indigo-950 font-bold py-3 px-6 rounded-lg transition shadow-lg flex items-center justify-center gap-2 cursor-pointer";
+                playBtn.innerHTML = "▶ Play Lo-Fi Groove";
+            } catch (err) {
+                console.error(err);
+                statusEl.innerText = "Error loading soundfonts. Check network.";
+            }
+        }
+
+        window.addEventListener('load', () => {
+            initSoundfonts();
+        });
+
+        function getBassNote(chordName) {
+            const rootMatch = chordName.replace(/[^A-G#b]/g, '');
+            const base = rootMatch.length > 0 ? rootMatch[0] : 'C';
+            const accidental = rootMatch.length > 1 ? rootMatch[1] : '';
+            return base + accidental + '2';
+        }
+
+        async function togglePlay() {
+            await Tone.start();
+            const playBtn = document.getElementById('playBtn');
+            const status = document.getElementById('status');
+            const tempoInput = document.getElementById('tempo');
+            const chordsInput = document.getElementById('chords');
+
+            if (isPlaying) {
+                Tone.Transport.stop();
+                Tone.Transport.cancel();
+                if (vinylNoise) vinylNoise.stop();
+                isPlaying = false;
+                playBtn.innerHTML = "▶ Play Lo-Fi Groove";
+                playBtn.classList.replace('bg-rose-600', 'bg-amber-400');
+                playBtn.classList.replace('hover:bg-rose-700', 'hover:bg-amber-500');
+                status.innerText = "Status: Stopped";
+                return;
+            }
+
+            const bpm = parseInt(tempoInput.value) || 88;
+            const rawChords = chordsInput.value.trim().split(/\s+/);
+            const chordNames = rawChords.map(c => c.toUpperCase());
+            
+            Tone.Transport.bpm.value = bpm;
+            Tone.Transport.cancel();
+
+            if (vinylNoise) vinylNoise.start();
+
+            let step = 0;
+            let currentChordIndex = 0;
+
+            // Using "16n" steps with a relaxed, slightly swung feel
+            Tone.Transport.scheduleRepeat((time) => {
+                const chordName = chordNames[currentChordIndex];
+                const chordNotes = chordLibrary[chordName] || chordLibrary['CMAJ7'];
+                const bassNote = getBassNote(chordName);
+
+                // 1. Muffled Lo-fi Kick on beat 1 and relaxed offbeat 3.5
+                if (step % 8 === 0 || step % 8 === 6) {
+                    loFiKick.triggerAttackRelease("C1", "4n", time);
+                }
+
+                // 2. Soft, dusty snare/rim hit on beat 3 (Classic half-time lo-fi feel)
+                if (step % 8 === 4) {
+                    loFiSnare.triggerAttackRelease("8n", time);
+                }
+
+                // 3. Warm Bass on downbeats
+                if (step % 8 === 0) {
+                    if (bassInstrument) {
+                        bassInstrument.play(bassNote, time, { duration: 0.4 });
+                    }
+                }
+
+                // 4. Mellow Rhodes Electric Piano Chords (Laid-back syncopated stabs)
+                if (step % 8 === 0 || step % 8 === 3 || step % 8 === 6) {
+                    chordNotes.forEach(note => {
+                        if (epianoInstrument) {
+                            epianoInstrument.play(note, time, { duration: 0.3, gain: 0.7 });
+                        }
+                    });
+                }
+
+                step++;
+                if (step % 8 === 0) {
+                    currentChordIndex = (currentChordIndex + 1) % chordNames.length;
+                }
+            }, "16n");
+
+            Tone.Transport.start();
+            isPlaying = true;
+            playBtn.innerHTML = "⏹ Stop Lo-Fi Groove";
+            playBtn.classList.replace('bg-amber-400', 'bg-rose-600');
+            playBtn.classList.replace('hover:bg-amber-500', 'hover:bg-rose-700');
+            status.innerText = `Status: Vibing at ${bpm} BPM...`;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Loading...</title>
+
+<link id="favicon" rel="icon" type="image/png">
+
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    background:#111;
+    color:#fff;
+    font-family:system-ui,sans-serif;
+}
+
+body{
+    display:grid;
+    place-items:center;
+}
+
+.card{
+    background:#222;
+    border-radius:16px;
+    padding:40px;
+    text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+<h2>Pokémon Auto Trainer Demo</h2>
+<p>Click once to enable sound.</p>
+</div>
+
+<script>
+
+const favicon=document.getElementById("favicon");
+
+const faviconFrames=[
+"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAALVJREFUOI2NU8sNgzAMTaJK9UgZoTcYoUdGypEVcmMERnJP7oE2iuNnwBISTng/4sQAKwpel2i+RGDOTwin/WNIBgIf7JEkY/v9ugAPkk25THpn3S4IDhddhMNBHwEpjgS9GUEPl1m4zO19PKGEGLlMwURyKulW2+pJPEI4BxC0bjfn4AeipQI9O4lGnTMJZ9I/svW2HmblP0h7DdoNVh8IJNJSnYsU5UYEHaWP4MU4YUSZrYMvwNdlLLcVR4wAAAAASUVORK5CYII=",
+
+"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAALVJREFUOI2lkr0NxCAMhYEmjMQI6ZIRUmYkyqyQLiPcSL7KV4CIsR+iOCQk/t7nZ2zn/hx+cMz4nM17APBMaYHy+PkaiAKMxSNIMLaPdSJWIVvkvPU31zMBFBciheJApoAiaoA0w2hS3pny3ta6QgERKW/OpDQYod/2tiRkBIR9AEXXA/vAiN88PVOK6k+mDmolauR43q0qqIRONxLswmNtYkpLBUI3xbK0rdfvfpKC/Sgp6u9+5ERs2hHRe68AAAAASUVORK5CYII="
+];
+
+const logs=[
+["Game initialized. Region: KANTO (Gen 1).","system"],
+["Selected Starter: CHARMANDER (Lv. 5).","system"],
+["Assigned Active Zone: ROUTE 1.","travel"],
+["Auto-clearing encounters...","system"],
+["Wild PIDGEY (Lv. 2) defeated! +12 XP","battle"],
+["Wild RATTATA (Lv. 3) defeated! +18 XP","battle"],
+["Wild PIDGEY (Lv. 3) defeated! +15 XP","battle"],
+["CHARMANDER reached Lv. 7! Learned SCRATCH, GROWL.","level"],
+["Oak's Parcel delivered to PROF. OAK.","item"],
+["UNLOCKED: POKÉ MART & AUTO-CATCH SYSTEM.","system"],
+["Auto-Buyer Rule set: Maintain x10 POKÉBALLS in bag.","item"],
+["POKÉBALLS purchased (-200 Pokédollars).","item"],
+["Route 22 -> Target: MANKEY (Catch Mode: ON).","travel"],
+["Reassigned Active Zone: ROUTE 22.","travel"],
+["Encountered Wild MANKEY (Lv. 4)!","battle"],
+["Throwing POKÉBALL...","capture"],
+["Gotcha! MANKEY (Lv. 4) captured. Added to Party slot #2.","capture"],
+["Encountered RIVAL GARY (Tactical Boss Encounter).","gym"],
+["RIVAL GARY defeated! +120 Pokédollars.","battle"],
+["Viridian Forest -> Target: XP Farming / Auto-Heal at 20% HP.","travel"],
+["Reassigned Active Zone: VIRIDIAN FOREST.","travel"],
+["Auto-clearing encounters...","system"],
+["Wild CATERPIE (Lv. 4) defeated! +24 XP","battle"],
+["Wild WEEDLE (Lv. 5) defeated! CHARMANDER was POISONED.","battle"],
+["CHARMANDER HP critical (18%). Retreating to Viridian Poké Center...","heal"],
+["Party fully restored. Resuming Viridian Forest loop...","heal"],
+["Wild PIKACHU (Lv. 5) encountered! (Rare Spawn: 5%)","battle"],
+["Throwing POKÉBALL...","capture"],
+["Gotcha! PIKACHU (Lv. 5) captured. Added to Party slot #3.","capture"],
+["MANKEY reached Lv. 9! Learned LOW KICK.","level"],
+["Arrived at PEWTER CITY.","travel"],
+["Challenging PEWTER GYM.","gym"],
+["Gym Minion: JR. TRAINER (DIGLETT Lv. 11) defeated!","gym"],
+["GYM LEADER BROCK initiated!","gym"],
+["> BROCK sends out GEODUDE (Lv. 12).","gym"],
+["> Player auto-switches to MANKEY (Lv. 9).","gym"],
+["> MANKEY used LOW KICK! Super Effective! GEODUDE fainted!","battle"],
+["> BROCK sends out ONIX (Lv. 14).","gym"],
+["> MANKEY used LOW KICK! Super Effective! ONIX fainted!","battle"],
+["BROCK defeated!","gym"],
+["RECEIVED: BOULDER BADGE!","gym"],
+["UNLOCKED: Level Cap increased to 20. HM05 (FLASH) usable.","system"],
+["NEW ZONE UNLOCKED: ROUTE 3.","travel"]
+];
+
+const SPEED=100;
+
+// AUDIO ENGINE
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+document.addEventListener("click",()=>{
+    if(audioCtx.state==="suspended"){
+        audioCtx.resume();
+    }
+},{once:true});
+
+
+const melodies={
+
+system:[
+523,659,784
+],
+
+battle:[
+880,660,440
+],
+
+capture:[
+523,659,784,1046
+],
+
+level:[
+659,784,988,1318
+],
+
+item:[
+784,988
+],
+
+gym:[
+220,330,440,660
+],
+
+travel:[
+392,523
+],
+
+heal:[
+523,659,523
+]
+
+};
+
+
+function playMelody(type){
+
+    if(audioCtx.state!=="running")
+        return;
+
+    const notes=melodies[type] || melodies.system;
+
+
+    notes.forEach((freq,i)=>{
+
+        setTimeout(()=>{
+
+            const osc=audioCtx.createOscillator();
+            const gain=audioCtx.createGain();
+
+
+            osc.type="square";
+            osc.frequency.value=freq;
+
+
+            gain.gain.setValueAtTime(
+                0.04,
+                audioCtx.currentTime
+            );
+
+
+            gain.gain.exponentialRampToValueAtTime(
+                0.001,
+                audioCtx.currentTime+0.08
+            );
+
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+
+            osc.start();
+
+            osc.stop(
+                audioCtx.currentTime+0.08
+            );
+
+
+        },i*90);
+
+    });
+}
+
+
+
+// WORKER
+
+const workerCode=`
+
+const logs=${JSON.stringify(logs)};
+const SPEED=${SPEED};
+
+let line=0;
+let pos=0;
+let icon=0;
+
+
+function tick(){
+
+    const text=logs[line][0];
+    const type=logs[line][1];
+
+
+    postMessage({
+
+        title:text.substring(pos)||text,
+
+        icon:icon,
+
+        line:line,
+
+        type:type
+
+    });
+
+
+    icon++;
+
+    if(icon>=2)
+        icon=0;
+
+
+    pos++;
+
+
+    if(pos>text.length){
+
+        line++;
+
+        if(line>=logs.length)
+            line=0;
+
+        pos=0;
+
+    }
+
+
+    setTimeout(tick,SPEED);
+
+}
+
+
+tick();
+
+`;
+
+
+
+const worker=new Worker(
+
+    URL.createObjectURL(
+
+        new Blob(
+
+            [workerCode],
+
+            {type:"application/javascript"}
+
+        )
+
+    )
+
+);
+
+
+
+let lastLine=-1;
+
+
+
+worker.onmessage=e=>{
+
+
+    document.title=e.data.title;
+
+
+    favicon.href=faviconFrames[e.data.icon];
+
+
+
+    if(e.data.line!==lastLine){
+
+        lastLine=e.data.line;
+
+        playMelody(e.data.type);
+
+    }
+
+
+};
+
+
+
+</script>
+
+</body>
+</html>

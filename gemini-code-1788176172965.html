@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Screen 360 Web Player</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar and utilities */
+        .grid-screen {
+            position: relative;
+            overflow: hidden;
+            background: #111;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-white h-screen flex flex-col justify-between overflow-hidden">
+
+    <header class="bg-zinc-900 border-b border-zinc-800 px-6 py-3 flex items-center justify-between">
+        <h1 class="text-xl font-bold tracking-wider text-amber-500">BECK 360 // MULTI-SCREEN PLAYER</h1>
+        <div class="text-xs text-zinc-400">Screens 1-3: 360° View | Screen 4: Standard Video</div>
+    </header>
+
+    <main class="flex-1 grid grid-cols-2 grid-rows-2 gap-2 p-2 bg-zinc-950">
+        
+        <div class="grid-screen rounded-lg border border-zinc-800 flex flex-col group relative" id="screen-1" ondragover="allowDrop(event)" ondrop="dropFile(event, 1)">
+            <div class="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur px-2 py-1 rounded text-xs font-semibold text-amber-400 pointer-events-none">Screen 1 [3D/360°]</div>
+            <div class="flex-1 relative cursor-grab active:cursor-grabbing flex items-center justify-center overflow-hidden" onmousedown="startDrag(event, 1)">
+                <video id="vid-1" src="" loop muted playsinline class="pointer-events-none transform scale-125 transition-transform duration-75"></video>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none drop-zone-text">
+                    <span class="text-xs text-zinc-500 bg-black/70 px-3 py-1.5 rounded border border-zinc-800">Drag & Drop Video Here</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-screen rounded-lg border border-zinc-800 flex flex-col group relative" id="screen-2" ondragover="allowDrop(event)" ondrop="dropFile(event, 2)">
+            <div class="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur px-2 py-1 rounded text-xs font-semibold text-amber-400 pointer-events-none">Screen 2 [3D/360°]</div>
+            <div class="flex-1 relative cursor-grab active:cursor-grabbing flex items-center justify-center overflow-hidden" onmousedown="startDrag(event, 2)">
+                <video id="vid-2" src="" loop muted playsinline class="pointer-events-none transform scale-125 transition-transform duration-75"></video>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none drop-zone-text">
+                    <span class="text-xs text-zinc-500 bg-black/70 px-3 py-1.5 rounded border border-zinc-800">Drag & Drop Video Here</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-screen rounded-lg border border-zinc-800 flex flex-col group relative" id="screen-3" ondragover="allowDrop(event)" ondrop="dropFile(event, 3)">
+            <div class="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur px-2 py-1 rounded text-xs font-semibold text-amber-400 pointer-events-none">Screen 3 [3D/360°]</div>
+            <div class="flex-1 relative cursor-grab active:cursor-grabbing flex items-center justify-center overflow-hidden" onmousedown="startDrag(event, 3)">
+                <video id="vid-3" src="" loop muted playsinline class="pointer-events-none transform scale-125 transition-transform duration-75"></video>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none drop-zone-text">
+                    <span class="text-xs text-zinc-500 bg-black/70 px-3 py-1.5 rounded border border-zinc-800">Drag & Drop Video Here</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-screen rounded-lg border border-zinc-800 flex flex-col group relative" id="screen-4" ondragover="allowDrop(event)" ondrop="dropFile(event, 4)">
+            <div class="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur px-2 py-1 rounded text-xs font-semibold text-sky-400 pointer-events-none">Screen 4 [Standard Video]</div>
+            <div class="flex-1 relative flex items-center justify-center overflow-hidden">
+                <video id="vid-4" src="" loop muted playsinline class="object-contain"></video>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none drop-zone-text">
+                    <span class="text-xs text-zinc-500 bg-black/70 px-3 py-1.5 rounded border border-zinc-800">Drag & Drop Video Here</span>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="bg-zinc-900 border-t border-zinc-800 px-6 py-4 flex flex-col gap-3">
+        <audio id="master-audio" preload="auto"></audio>
+
+        <div class="flex items-center gap-3">
+            <span id="current-time" class="text-xs text-zinc-400 w-10 text-right">0:00</span>
+            <input type="range" id="seek-bar" value="0" max="100" step="0.1" class="flex-1 accent-amber-500 bg-zinc-800 rounded-lg h-2 cursor-pointer">
+            <span id="duration" class="text-xs text-zinc-400 w-10">0:00</span>
+        </div>
+
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <button onclick="togglePlay()" id="play-btn" class="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold px-5 py-2 rounded transition-colors text-sm">
+                    Play All
+                </button>
+                <button onclick="resetVideos()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-2 rounded text-sm transition-colors">
+                    Sync Reset
+                </button>
+            </div>
+
+            <div class="flex items-center gap-4 bg-zinc-950 px-4 py-2 rounded-lg border border-zinc-800" ondragover="allowDrop(event)" ondrop="dropAudio(event)">
+                <div class="text-xs text-zinc-400">Master Audio File: <span id="audio-filename" class="text-amber-400 font-medium">None Loaded (Drop MP3/WAV here)</span></div>
+                <input type="file" id="audio-file-input" accept="audio/*" class="hidden" onchange="loadAudioFile(this.files[0])">
+                <button onclick="document.getElementById('audio-file-input').click()" class="text-xs bg-zinc-800 hover:bg-zinc-700 px-2 py-1 rounded text-zinc-200">Browse</button>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-zinc-400">Audio Vol</span>
+                <input type="range" id="volume-bar" min="0" max="1" step="0.01" value="1" oninput="setVolume(this.value)" class="accent-amber-500 w-24 bg-zinc-800 rounded-lg h-2 cursor-pointer">
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Global variables for 3D/360 view panning simulation on screens 1-3
+        const rotationState = { 
+            1: { x: 0, y: 0, isDragging: false, startX: 0, startY: 0 },
+            2: { x: 0, y: 0, isDragging: false, startX: 0, startY: 0 },
+            3: { x: 0, y: 0, isDragging: false, startX: 0, startY: 0 }
+        };
+
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        // Handle video drag and drop into specific screens
+        function dropFile(ev, screenNum) {
+            ev.preventDefault();
+            const file = ev.dataTransfer.files[0];
+            if (file && file.type.startsWith('video/')) {
+                const videoURL = URL.createObjectURL(file);
+                const vidElement = document.getElementById(`vid-${screenNum}`);
+                vidElement.src = videoURL;
+                vidElement.load();
+                
+                // Hide instruction text overlay
+                const dropText = ev.currentTarget.querySelector('.drop-zone-text');
+                if(dropText) dropText.style.display = 'none';
+            }
+        }
+
+        // Handle master audio drag and drop
+        function dropAudio(ev) {
+            ev.preventDefault();
+            const file = ev.dataTransfer.files[0];
+            if (file && file.type.startsWith('audio/')) {
+                loadAudioFile(file);
+            }
+        }
+
+        function loadAudioFile(file) {
+            if (!file) return;
+            const audioURL = URL.createObjectURL(file);
+            const audioElement = document.getElementById('master-audio');
+            audioElement.src = audioURL;
+            document.getElementById('audio-filename').innerText = file.name;
+        }
+
+        // 3D/360 Pan Drag Logic for Screens 1, 2, and 3
+        function startDrag(e, screenId) {
+            if(e.button !== 0) return; // Only left click
+            rotationState[screenId].isDragging = true;
+            rotationState[screenId].startX = e.clientX - rotationState[screenId].x;
+            rotationState[screenId].startY = e.clientY - rotationState[screenId].y;
+
+            function onMouseMove(moveEvent) {
+                if (!rotationState[screenId].isDragging) return;
+                rotationState[screenId].x = moveEvent.clientX - rotationState[screenId].startX;
+                rotationState[screenId].y = moveEvent.clientY - rotationState[screenId].startY;
+
+                const vid = document.getElementById(`vid-${screenId}`);
+                // Apply subtle panning transform to mimic 360 viewport movement
+                vid.style.transform = `scale(1.3) translate(${rotationState[screenId].x * 0.4}px, ${rotationState[screenId].y * 0.4}px)`;
+            }
+
+            function onMouseUp() {
+                rotationState[screenId].isDragging = false;
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+            }
+
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+        }
+
+        // Master playback synchronization
+        const masterAudio = document.getElementById('master-audio');
+        const playBtn = document.getElementById('play-btn');
+        const seekBar = document.getElementById('seek-bar');
+
+        function togglePlay() {
+            const vids = [1, 2, 3, 4].map(id => document.getElementById(`vid-${id}`));
+            
+            if (masterAudio.paused) {
+                masterAudio.play().catch(e => console.log("Audio play deferred or missing file"));
+                vids.forEach(v => v.play().catch(e => {}));
+                playBtn.innerText = "Pause All";
+                playBtn.classList.replace('bg-amber-500', 'bg-zinc-700');
+                playBtn.classList.add('text-white');
+            } else {
+                masterAudio.pause();
+                vids.forEach(v => v.pause());
+                playBtn.innerText = "Play All";
+                playBtn.classList.replace('bg-zinc-700', 'bg-amber-500');
+                playBtn.classList.remove('text-white');
+            }
+        }
+
+        function resetVideos() {
+            masterAudio.currentTime = 0;
+            [1, 2, 3, 4].forEach(id => {
+                const v = document.getElementById(`vid-${id}`);
+                v.currentTime = 0;
+            });
+        }
+
+        masterAudio.addEventListener('loadedmetadata', () => {
+            document.getElementById('duration').innerText = formatTime(masterAudio.duration);
+            seekBar.max = masterAudio.duration;
+        });
+
+        masterAudio.addEventListener('timeupdate', () => {
+            seekBar.value = masterAudio.currentTime;
+            document.getElementById('current-time').innerText = formatTime(masterAudio.currentTime);
+            
+            // Keep videos synced to master audio timeline within a tiny drift tolerance
+            [1, 2, 3, 4].forEach(id => {
+                const v = document.getElementById(`vid-${id}`);
+                if (v.src && Math.abs(v.currentTime - masterAudio.currentTime) > 0.3) {
+                    v.currentTime = masterAudio.currentTime;
+                }
+            });
+        });
+
+        seekBar.addEventListener('input', (e) => {
+            const time = parseFloat(e.target.value);
+            masterAudio.currentTime = time;
+            [1, 2, 3, 4].forEach(id => {
+                const v = document.getElementById(`vid-${id}`);
+                if(v.src) v.currentTime = time;
+            });
+        });
+
+        function setVolume(val) {
+            masterAudio.volume = val;
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+    </script>
+</body>
+</html>

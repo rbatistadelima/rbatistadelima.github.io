@@ -1,0 +1,573 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pixel Paths</title><style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#202124;color:#ddd;font:13px Arial}#bar{height:44px;background:#303236;border-bottom:1px solid #111;display:flex;align-items:center;gap:7px;padding:0 9px;position:relative;z-index:10}button{background:#414449;color:#eee;border:1px solid #151619;border-radius:3px;padding:5px 9px;cursor:pointer}button:hover{background:#50545a}button.active{background:#626871}input{background:#202124;color:#eee;border:1px solid #111;border-radius:3px;padding:4px}input[type=number]{width:55px}#stage{position:absolute;left:0;right:0;top:44px;bottom:0;overflow:hidden;background:#18191b}canvas{position:absolute;image-rendering:pixelated}
+#miniPreviewContainer{position:absolute;bottom:16px;right:16px;background:#292b2f;border:1px solid #111;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;box-shadow:0 4px 12px rgba(0,0,0,0.5);cursor:pointer}
+#miniCanvas{background:#111;image-rendering:pixelated;border:1px solid #222}
+#info{position:absolute;bottom:7px;left:7px;background:#202124dd;padding:5px 7px;font:11px monospace;pointer-events:none;z-index:5}</style></head><body><div id="bar"><b>PIXEL PATHS</b><button id="new">New</button><button id="undo">Undo</button><button id="redo">Redo</button><button id="gridBtn" class="active">Grid</button><button id="selectBtn">Select</button><button id="lineBtn" class="active">Line</button><button id="deleteBtn">Delete</button><label>W <input id="w" type="number" min="1" max="1024" value="64"></label><label>H <input id="h" type="number" min="1" max="1024" value="64"></label><label>Zoom <input id="zoom" type="number" min="1" max="32" value="10"></label><label>Color <input id="color" type="color" value="#ffffff"></label><button id="invertBtn">Invert Colors</button><button id="png">PNG (24px Border)</button></div><div id="stage"><canvas id="raster"></canvas><canvas id="grid"></canvas><canvas id="paths"></canvas><canvas id="handles"></canvas><canvas id="hit"></canvas><div id="miniPreviewContainer"><canvas id="miniCanvas" width="120" height="120"></canvas></div><div id="info"></div></div><script>const raster=document.querySelector("#raster");const grid=document.querySelector("#grid");const pathsCanvas=document.querySelector("#paths");const handles=document.querySelector("#handles");const hit=document.querySelector("#hit");const miniCanvas=document.querySelector("#miniCanvas");const miniContainer=document.querySelector("#miniPreviewContainer");const rc=raster.getContext("2d");const gc=grid.getContext("2d");const pc=pathsCanvas.getContext("2d");const hc=handles.getContext("2d");const mc=miniCanvas.getContext("2d");let W=64,H=64,Z=10,ox=0,oy=0;let paths=[];let selected=-1;let mode="line";let showGrid=true;let dragging=null;let isPanning=false,panStart={x:0,y:0};let history=[],redoHistory=[];let color="#ffffff";let previewSize=120;function updateLayout(){
+  const stage = document.querySelector("#stage");
+  const sw = stage.clientWidth;
+  const sh = stage.clientHeight;
+  for(const c of [raster,grid,pathsCanvas,handles,hit]){
+    c.width=sw;c.height=sh;
+    c.style.width=sw+"px";
+    c.style.height=sh+"px";
+    c.style.left="0px";
+    c.style.top="0px";
+  }
+  rc.imageSmoothingEnabled=false;
+  mc.imageSmoothingEnabled=false;
+}function setup(){
+  updateLayout();
+  const stage = document.querySelector("#stage");
+  ox = Math.floor((stage.clientWidth - W * Z) / 2);
+  oy = Math.floor((stage.clientHeight - H * Z) / 2);
+  render();
+}function snapshot(){
+  history.push(JSON.stringify(paths));
+  if(history.length>50)history.shift();
+  redoHistory=[];
+}function undo(){
+  if(!history.length)return;
+  redoHistory.push(JSON.stringify(paths));
+  paths=JSON.parse(history.pop());
+  selected=-1;render();
+}function redo(){
+  if(!redoHistory.length)return;
+  history.push(JSON.stringify(paths));
+  paths=JSON.parse(redoHistory.pop());
+  selected=-1;render();
+}function pixelLine(x0,y0,x1,y1,fn){
+  let dx=Math.abs(x1-x0),sx=x0<x1?1:-1;
+  let dy=-Math.abs(y1-y0),sy=y0<y1?1:-1;
+  let err=dx+dy;
+  for(;;){
+    fn(x0,y0);
+    if(x0===x1&&y0===y1)break;
+    const e=2*err;
+    if(e>=dy){err+=dy;x0+=sx}
+    if(e<=dx){err+=dx;y0+=sy}
+  }
+}function getBezierPoint(p0,p1,p2,t){
+  const u = 1 - t;
+  return {
+    x: u*u*p0.x + 2*u*t*p1.x + t*t*p2.x,
+    y: u*u*p0.y + 2*u*t*p1.y + t*t*p2.y
+  };
+}function getSegmentPoints(a, c, b){
+  return {
+    p0: {x: a.x + 0.5, y: a.y + 0.5},
+    p1: {x: c.x, y: c.y},
+    p2: {x: b.x + 0.5, y: b.y + 0.5}
+  };
+}function isSegmentStraight(a, c, b){
+  const seg = getSegmentPoints(a, c, b);
+  return Math.abs(seg.p1.x - (seg.p0.x + seg.p2.x)/2) <= 0.05 && Math.abs(seg.p1.y - (seg.p0.y + seg.p2.y)/2) <= 0.05;
+}function getPointScreenPos(q, isAnchor){
+  if(isAnchor){
+    return {
+      x: ox + (q.x + 0.5) * Z,
+      y: oy + (q.y + 0.5) * Z
+    };
+  } else {
+    return {
+      x: ox + q.x * Z,
+      y: oy + q.y * Z
+    };
+  }
+}function renderMiniPreview(){
+  miniContainer.style.width = (previewSize + 8) + "px";
+  miniContainer.style.height = (previewSize + 8) + "px";
+  miniCanvas.width = previewSize;
+  miniCanvas.height = previewSize;
+  mc.imageSmoothingEnabled = false;
+
+  mc.clearRect(0,0,miniCanvas.width,miniCanvas.height);
+  mc.fillStyle="#18191b";
+  mc.fillRect(0,0,miniCanvas.width,miniCanvas.height);
+  
+  const scale = Math.max(1, Math.floor(Math.min(miniCanvas.width / W, miniCanvas.height / H)));
+  const mw = W * scale;
+  const mh = H * scale;
+  const mx = Math.floor((miniCanvas.width - mw) / 2);
+  const my = Math.floor((miniCanvas.height - mh) / 2);
+
+  mc.save();
+  mc.translate(mx, my);
+
+  for(const p of paths){
+    mc.fillStyle=p.color;
+    for(let i=0; i<p.points.length-1; i+=2){
+      const seg = getSegmentPoints(p.points[i], p.points[i+1], p.points[i+2]);
+      let prev = {x: Math.floor(seg.p0.x), y: Math.floor(seg.p0.y)};
+      const steps = Math.max(Math.abs(p.points[i+2].x - p.points[i].x), Math.abs(p.points[i+2].y - p.points[i].y), 4);
+      for(let s=1; s<=steps; s++){
+        const t = s/steps;
+        const pt = getBezierPoint(seg.p0, seg.p1, seg.p2, t);
+        const cur = {x: Math.floor(pt.x), y: Math.floor(pt.y)};
+        pixelLine(prev.x, prev.y, cur.x, cur.y, (x,y)=>mc.fillRect(x * scale, y * scale, scale, scale));
+        prev = cur;
+      }
+    }
+  }
+  mc.restore();
+}function rasterize(){
+  rc.clearRect(0,0,raster.width,raster.height);
+  for(const p of paths){
+    rc.fillStyle=p.color;
+    for(let i=0; i<p.points.length-1; i+=2){
+      const seg = getSegmentPoints(p.points[i], p.points[i+1], p.points[i+2]);
+      let prev = {x: Math.floor(seg.p0.x), y: Math.floor(seg.p0.y)};
+      const steps = Math.max(Math.abs(p.points[i+2].x - p.points[i].x), Math.abs(p.points[i+2].y - p.points[i].y), 4);
+      for(let s=1; s<=steps; s++){
+        const t = s/steps;
+        const pt = getBezierPoint(seg.p0, seg.p1, seg.p2, t);
+        const cur = {x: Math.floor(pt.x), y: Math.floor(pt.y)};
+        pixelLine(prev.x, prev.y, cur.x, cur.y, (x,y)=>{
+          rc.fillRect(ox + x * Z, oy + y * Z, Z, Z);
+        });
+        prev = cur;
+      }
+    }
+  }
+}function renderGrid(){
+  gc.clearRect(0,0,grid.width,grid.height);
+  if(!showGrid)return;
+  
+  gc.strokeStyle="rgba(255,255,255,.13)";
+  gc.lineWidth=1;
+  const sw = grid.width, sh = grid.height;
+  
+  for(let x=ox; x<=sw; x+=Z){
+    gc.beginPath();gc.moveTo(x+.5,0);gc.lineTo(x+.5,sh);gc.stroke();
+  }
+  for(let x=ox-Z; x>=0; x-=Z){
+    gc.beginPath();gc.moveTo(x+.5,0);gc.lineTo(x+.5,sh);gc.stroke();
+  }
+  for(let y=oy; y<=sh; y+=Z){
+    gc.beginPath();gc.moveTo(0,y+.5);gc.lineTo(sw,y+.5);gc.stroke();
+  }
+  for(let y=oy-Z; y>=0; y-=Z){
+    gc.beginPath();gc.moveTo(0,y+.5);gc.lineTo(sw,y+.5);gc.stroke();
+  }
+}function renderPaths(){
+  pc.clearRect(0,0,pathsCanvas.width,pathsCanvas.height);
+  for(let i=0;i<paths.length;i++){
+    const p=paths[i];
+    if(i===selected)continue;
+    pc.strokeStyle=p.color;
+    pc.globalAlpha=.3;
+    pc.lineWidth=1;
+    pc.beginPath();
+    for(let j=0; j<p.points.length-1; j+=2){
+      const seg = getSegmentPoints(p.points[j], p.points[j+1], p.points[j+2]);
+      if(j===0) pc.moveTo(ox * 0 + seg.p0.x * Z, oy * 0 + seg.p0.y * Z); // wait, let's use exact ox + seg.p0.x * Z
+      const s0 = getPointScreenPos(p.points[j], true);
+      if(j===0) pc.moveTo(s0.x, s0.y);
+      const steps = 10;
+      for(let s=1; s<=steps; s++){
+        const pt = getBezierPoint(seg.p0, seg.p1, seg.p2, s/steps);
+        pc.lineTo(ox + pt.x*Z, oy + pt.y*Z);
+      }
+    }
+    pc.stroke();
+  }
+  pc.globalAlpha=1;
+}function renderHandles(){
+  hc.clearRect(0,0,handles.width,handles.height);
+  if(selected<0||!paths[selected])return;
+  const p=paths[selected];
+  hc.lineWidth=1.5;
+  for(let i=0; i<p.points.length-1; i+=2){
+    const seg = getSegmentPoints(p.points[i], p.points[i+1], p.points[i+2]);
+    const sA = getPointScreenPos(p.points[i], true);
+    const sC = getPointScreenPos(p.points[i+1], false);
+    const sB = getPointScreenPos(p.points[i+2], true);
+
+    hc.strokeStyle="rgba(0,216,255,0.4)";
+    hc.beginPath();
+    hc.moveTo(sA.x, sA.y);
+    hc.lineTo(sC.x, sC.y);
+    hc.lineTo(sB.x, sB.y);
+    hc.stroke();
+
+    hc.strokeStyle="#00d8ff";
+    hc.beginPath();
+    hc.moveTo(sA.x, sA.y);
+    const steps = 20;
+    for(let s=1; s<=steps; s++){
+      const pt = getBezierPoint(seg.p0, seg.p1, seg.p2, s/steps);
+      hc.lineTo(ox + pt.x*Z, oy + pt.y*Z);
+    }
+    hc.stroke();
+  }
+  for(let i=0; i<p.points.length; i++){
+    const q = p.points[i];
+    const isAnchor = (i % 2 === 0);
+    const sp = getPointScreenPos(q, isAnchor);
+    hc.fillStyle = isAnchor ? "#202124" : "#ffaa00";
+    hc.strokeStyle = "#00d8ff";
+    hc.lineWidth = 1.5;
+    if(isAnchor){
+      hc.fillRect(ox + q.x*Z+2, oy + q.y*Z+2, Z-4, Z-4);
+      hc.strokeRect(ox + q.x*Z+2, oy + q.y*Z+2, Z-4, Z-4);
+    } else {
+      hc.beginPath();
+      hc.arc(sp.x, sp.y, Math.max(6, Z/3), 0, Math.PI*2);
+      hc.fill();
+      hc.stroke();
+    }
+  }
+}function render(){
+  updateLayout();
+  rasterize();renderGrid();renderPaths();renderHandles();renderMiniPreview();
+  document.querySelector("#info").textContent=
+    `${W}×${H}  ${paths.length} paths  ${selected>=0?"selected: path "+(selected+1):"no selection"}  ${mode}  Zoom: ${Z}`;
+  document.querySelector("#zoom").value = Z;
+}function point(e){
+  const r=hit.getBoundingClientRect();
+  return {
+    x:(e.clientX - r.left - ox)/Z,
+    y:(e.clientY - r.top - oy)/Z
+  };
+}function distPointCurve(px,py,a,c,b){
+  const seg = getSegmentPoints(a, c, b);
+  let best = Infinity;
+  const steps = 15;
+  for(let s=0; s<=steps; s++){
+    const pt = getBezierPoint(seg.p0, seg.p1, seg.p2, s/steps);
+    best = Math.min(best, Math.hypot(px - pt.x, py - pt.y));
+  }
+  return best;
+}function hitPath(p){
+  let best=Infinity;
+  for(let i=0; i<p.points.length-1; i+=2){
+    const a=p.points[i], c=p.points[i+1], b=p.points[i+2];
+    best=Math.min(best, distPointCurve(cursor.x, cursor.y, a, c, b));
+  }
+  return best<=Math.max(1.5,4/Z);
+}let cursor={x:0,y:0};
+
+hit.addEventListener("pointerdown",e=>{
+  if(e.button === 1 || e.buttons === 4){
+    isPanning = true;
+    panStart = {x: e.clientX, y: e.clientY};
+    hit.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    return;
+  }
+
+  const r = hit.getBoundingClientRect();
+  const mouseX = e.clientX - r.left;
+  const mouseY = e.clientY - r.top;
+  const p=point(e);cursor=p;
+
+  // 1. Check if clicking any point (anchor / control point) across all paths using precise screen-pixel distance
+  let foundPoint = null;
+  let bestScore = Infinity;
+
+  const testPathPoints = (pathIndex) => {
+    const sp = paths[pathIndex];
+    for(let j = 0; j < sp.points.length; j++){
+      const q = sp.points[j];
+      const isAnchor = (j % 2 === 0);
+      const screenPos = getPointScreenPos(q, isAnchor);
+      const pixelDist = Math.hypot(screenPos.x - mouseX, screenPos.y - mouseY);
+      const hitRadius = Math.max(16, Z * 0.9);
+
+      if(pixelDist <= hitRadius){
+        let score = pixelDist;
+        if(!isAnchor) score -= 15; // strongly prioritize control points (yellow circles)
+        if(pathIndex === selected) score -= 25; // prioritize currently selected path
+
+        if(score < bestScore){
+          bestScore = score;
+          foundPoint = {pathIndex, pointIndex: j};
+        }
+      }
+    }
+  };
+
+  // Check selected path first
+  if(selected >= 0 && selected < paths.length){
+    testPathPoints(selected);
+  }
+  // Check remaining paths top-most first
+  for(let i = paths.length - 1; i >= 0; i--){
+    if(i === selected) continue;
+    testPathPoints(i);
+  }
+
+  if(foundPoint){
+    selected = foundPoint.pathIndex;
+    const sp = paths[selected];
+    const idx = foundPoint.pointIndex;
+
+    // Shift-click to remove control point
+    if(e.shiftKey && idx % 2 !== 0 && sp.points.length > 3){
+      snapshot();
+      sp.points[idx] = {
+        x: (sp.points[idx-1].x + sp.points[idx+1].x)/2,
+        y: (sp.points[idx-1].y + sp.points[idx+1].y)/2
+      };
+      render();
+      return;
+    }
+
+    snapshot();
+
+    let isStraight = false;
+    let isStraightLeft = false;
+    let isStraightRight = false;
+
+    if(idx === 0 && sp.points.length >= 3){
+      isStraight = isSegmentStraight(sp.points[0], sp.points[1], sp.points[2]);
+    } else if(idx === sp.points.length - 1 && sp.points.length >= 3){
+      isStraight = isSegmentStraight(sp.points[sp.points.length - 3], sp.points[sp.points.length - 2], sp.points[sp.points.length - 1]);
+    } else if(idx > 0 && idx < sp.points.length - 1){
+      isStraightLeft = isSegmentStraight(sp.points[idx-2], sp.points[idx-1], sp.points[idx]);
+      isStraightRight = isSegmentStraight(sp.points[idx], sp.points[idx+1], sp.points[idx+2]);
+      isStraight = isStraightLeft || isStraightRight;
+    }
+
+    dragging = {type: "point", index: idx, base: {...p}, isStraight, isStraightLeft, isStraightRight};
+    hit.setPointerCapture(e.pointerId);
+    render();
+    return;
+  }
+
+  // 2. Check if clicking body of any existing path (selects path to move)
+  let foundPath = -1;
+  for(let i = paths.length - 1; i >= 0; i--){
+    if(hitPath(paths[i])){
+      foundPath = i;
+      break;
+    }
+  }
+
+  if(foundPath >= 0){
+    selected = foundPath;
+    snapshot();
+    dragging = {type: "move", base: {...p}, original: paths[foundPath].points.map(q=>({...q}))};
+    hit.setPointerCapture(e.pointerId);
+    render();
+    return;
+  }
+
+  // 3. Empty space click
+  if(mode==="line"){
+    snapshot();
+    const anchor = {x: Math.floor(p.x), y: Math.floor(p.y)};
+    paths.push({points:[anchor, {x: p.x, y: p.y}, {...anchor}], color});
+    selected=paths.length-1;
+    dragging={type:"new"};
+    hit.setPointerCapture(e.pointerId);
+    render();
+  } else {
+    selected = -1;
+    render();
+  }
+});
+
+hit.addEventListener("dblclick", e => {
+  const p = point(e);
+  for(let i = paths.length - 1; i >= 0; i--){
+    const sp = paths[i];
+    for(let j=0; j<sp.points.length-1; j+=2){
+      const a = sp.points[j], c = sp.points[j+1], b = sp.points[j+2];
+      if(distPointCurve(p.x, p.y, a, c, b) <= 2) {
+        snapshot();
+        selected = i;
+        const seg = getSegmentPoints(a, c, b);
+        const newAnchor = {x: Math.floor(p.x), y: Math.floor(p.y)};
+        const newControl1 = {x: (seg.p0.x + (newAnchor.x + 0.5))/2, y: (seg.p0.y + (newAnchor.y + 0.5))/2};
+        const newControl2 = {x: ((newAnchor.x + 0.5) + seg.p2.x)/2, y: ((newAnchor.y + 0.5) + seg.p2.y)/2};
+        
+        sp.points.splice(j, 3, a, newControl1, newAnchor, newControl2, b);
+        render();
+        return;
+      }
+    }
+  }
+});
+
+hit.addEventListener("pointermove",e=>{
+  if(isPanning){
+    ox += e.clientX - panStart.x;
+    oy += e.clientY - panStart.y;
+    panStart = {x: e.clientX, y: e.clientY};
+    render();
+    return;
+  }
+
+  const p=point(e);cursor=p;
+  if(!dragging)return;
+
+  if(dragging.type==="new"){
+    const start = paths[selected].points[0];
+    const endAnchor = {x: Math.floor(p.x), y: Math.floor(p.y)};
+    paths[selected].points[2] = endAnchor;
+    paths[selected].points[1] = {
+      x: (start.x + 0.5 + endAnchor.x + 0.5) / 2,
+      y: (start.y + 0.5 + endAnchor.y + 0.5) / 2
+    };
+  }else if(dragging.type==="point"){
+    const sp = paths[selected];
+    const idx = dragging.index;
+    if(idx % 2 === 0){
+      sp.points[idx] = {x: Math.floor(p.x), y: Math.floor(p.y)};
+    } else {
+      sp.points[idx] = {x: p.x, y: p.y};
+    }
+
+    if(dragging.isStraight){
+      if(idx === 0 && sp.points.length >= 3){
+        const a = sp.points[0], b = sp.points[2];
+        sp.points[1] = {
+          x: (a.x + 1 + b.x + 1) / 4, // midpoint between centers
+          y: (a.y + 1 + b.y + 1) / 4
+        };
+      }else if(idx === sp.points.length - 1 && sp.points.length >= 3){
+        const a = sp.points[sp.points.length - 3], b = sp.points[sp.points.length - 1];
+        sp.points[sp.points.length - 2] = {
+          x: (a.x + 1 + b.x + 1) / 4,
+          y: (a.y + 1 + b.y + 1) / 4
+        };
+      }else if(idx > 0 && idx < sp.points.length - 1){
+        if(dragging.isStraightLeft && idx >= 2){
+          const a = sp.points[idx-2], b = sp.points[idx];
+          sp.points[idx-1] = {
+            x: (a.x + 1 + b.x) / 2,
+            y: (a.y + 1 + b.y) / 2
+          };
+        }
+        if(dragging.isStraightRight && idx <= sp.points.length - 3){
+          const a = sp.points[idx], b = sp.points[idx+2];
+          sp.points[idx+1] = {
+            x: (a.x + b.x + 1) / 2,
+            y: (a.y + b.y + 1) / 2
+          };
+        }
+      }
+    }
+  }else if(dragging.type==="move"){
+    const dx=Math.round(p.x-dragging.base.x), dy=Math.round(p.y-dragging.base.y);
+    paths[selected].points=dragging.original.map((q, i)=>({
+      x: q.x + (i % 2 === 0 ? dx : (p.x - dragging.base.x)),
+      y: q.y + (i % 2 === 0 ? dy : (p.y - dragging.base.y))
+    }));
+  }
+  render();
+});
+
+hit.addEventListener("pointerup",e=>{
+  if(isPanning){
+    isPanning = false;
+    return;
+  }
+  if(!dragging)return;
+  dragging=null;
+  render();
+});
+
+hit.addEventListener("wheel", e => {
+  e.preventDefault();
+  const r = hit.getBoundingClientRect();
+  const mx = e.clientX - r.left;
+  const my = e.clientY - r.top;
+
+  const oldZ = Z;
+  if(e.deltaY < 0){
+    Z = Math.min(32, Z + 1);
+  } else {
+    Z = Math.max(1, Z - 1);
+  }
+
+  if(Z !== oldZ){
+    ox = mx - (mx - ox) * (Z / oldZ);
+    oy = my - (my - oy) * (Z / oldZ);
+    render();
+  }
+}, {passive: false});
+
+miniContainer.addEventListener("wheel", e => {
+  e.preventDefault();
+  if(e.deltaY < 0){
+    previewSize = Math.min(400, previewSize + 20);
+  } else {
+    previewSize = Math.max(60, previewSize - 20);
+  }
+  renderMiniPreview();
+}, {passive: false});
+
+function updateButtons(){
+  document.querySelector("#selectBtn").classList.toggle("active",mode==="select");
+  document.querySelector("#lineBtn").classList.toggle("active",mode==="line");
+  document.querySelector("#gridBtn").classList.toggle("active",showGrid);
+}document.querySelector("#selectBtn").onclick=()=>{
+  mode="select";updateButtons();
+};document.querySelector("#lineBtn").onclick=()=>{
+  mode="line";selected=-1;updateButtons();render();
+};document.querySelector("#gridBtn").onclick=()=>{
+  showGrid=!showGrid;updateButtons();renderGrid();
+};document.querySelector("#deleteBtn").onclick=()=>{
+  if(selected<0)return;
+  snapshot();paths.splice(selected,1);selected=-1;render();
+};document.querySelector("#undo").onclick=undo;document.querySelector("#redo").onclick=redo;document.querySelector("#color").oninput=e=>color=e.target.value;
+
+document.querySelector("#invertBtn").onclick = () => {
+  snapshot();
+  paths.forEach(p => {
+    let hex = p.color.replace("#", "");
+    if(hex.length === 3) hex = hex.split("").map(c=>c+c).join("");
+    let num = parseInt(hex, 16);
+    let inv = 0xffffff ^ num;
+    p.color = "#" + inv.toString(16).padStart(6, "0");
+  });
+  render();
+};
+
+document.querySelector("#zoom").oninput=e=>{
+  Z=Math.max(1,Math.min(32,+e.target.value||1));
+  render();
+};document.querySelector("#new").onclick=()=>{
+  W=Math.max(1,+document.querySelector("#w").value||64);
+  H=Math.max(1,+document.querySelector("#h").value||64);
+  paths=[];selected=-1;history=[];redoHistory=[];
+  const stage = document.querySelector("#stage");
+  ox = Math.floor((stage.clientWidth - W * Z) / 2);
+  oy = Math.floor((stage.clientHeight - H * Z) / 2);
+  setup();
+};
+
+document.querySelector("#png").onclick=()=>{
+  const border = 24;
+  const out=document.createElement("canvas");
+  out.width = W + border * 2;
+  out.height = H + border * 2;
+  const x=out.getContext("2d");
+  x.imageSmoothingEnabled=false;
+
+  for(const p of paths){
+    x.fillStyle=p.color;
+    for(let i=0; i<p.points.length-1; i+=2){
+      const seg = getSegmentPoints(p.points[i], p.points[i+1], p.points[i+2]);
+      let prev = {x: Math.floor(seg.p0.x), y: Math.floor(seg.p0.y)};
+      const steps = Math.max(Math.abs(p.points[i+2].x - p.points[i].x), Math.abs(p.points[i+2].y - p.points[i].y), 4);
+      for(let s=1; s<=steps; s++){
+        const t = s/steps;
+        const pt = getBezierPoint(seg.p0, seg.p1, seg.p2, s/steps);
+        const cur = {x: Math.floor(pt.x), y: Math.floor(pt.y)};
+        pixelLine(prev.x, prev.y, cur.x, cur.y, (px,py)=>x.fillRect(px + border, py + border, 1, 1));
+        prev = cur;
+      }
+    }
+  }
+  const a=document.createElement("a");
+  a.download=`pixel-paths-${W}x${H}-border24.png`;
+  a.href=out.toDataURL("image/png");
+  a.click();
+};window.addEventListener("resize",()=>setup());window.addEventListener("keydown",e=>{
+  if(e.ctrlKey&&e.key.toLowerCase()==="z"){e.preventDefault();undo()}
+  if(e.ctrlKey&&e.key.toLowerCase()==="y"){e.preventDefault();redo()}
+  if(e.key.toLowerCase()==="v"){mode="select";updateButtons()}
+  if(e.key.toLowerCase()==="l"){mode="line";updateButtons()}
+  if(e.key==="Delete"||e.key==="Backspace")document.querySelector("#deleteBtn").click();
+});setup();</script></body></html>

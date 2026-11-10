@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Video Subtitle Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#090d16',
+                        cardBg: '#111827',
+                        borderCol: '#1f2937'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090d16;
+            color: #f1f5f9;
+        }
+        .progress-bar-fill {
+            transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col justify-between">
+    <div class="max-w-4xl mx-auto w-full space-y-6">
+        <header class="text-center space-y-2 py-4">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight">Local Video Subtitle Generator</h1>
+            <p class="text-slate-400 text-sm md:text-base">100% Private, browser-based speech recognition using Whisper Base & Transformers.js</p>
+        </header>
+
+        <div id="modelLoadCard" class="bg-cardBg p-6 rounded-2xl shadow-xl border border-borderCol space-y-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div id="modelStatusIcon" class="w-3.5 h-3.5 rounded-full bg-amber-500 animate-pulse"></div>
+                    <span id="modelStatusTitle" class="font-semibold text-slate-200">Downloading AI Model (Whisper-Base)...</span>
+                </div>
+                <span id="modelProgressText" class="text-sm font-medium text-slate-400">0%</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-700">
+                <div id="modelProgressBar" class="bg-amber-500 h-3 rounded-full progress-bar-fill" style="width: 0%"></div>
+            </div>
+            <p id="modelStatusSub" class="text-xs text-slate-400">Downloading model weights (~75-150MB) and caching them in your browser. Please wait...</p>
+        </div>
+
+        <div id="uploadCard" class="bg-cardBg p-6 rounded-2xl shadow-xl border border-borderCol space-y-5">
+            <div>
+                <label for="videoFile" class="block text-sm font-semibold text-slate-200 mb-2">Select Video File (Auto-starts transcription)</label>
+                <input type="file" id="videoFile" accept="video/*" class="block w-full text-sm text-slate-400 file:mr-4 file:py-3 file:px-5 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 transition-colors border border-slate-700 rounded-xl p-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-slate-900/50">
+            </div>
+
+            <div id="inlineWarning" class="text-xs text-amber-400 hidden font-medium bg-amber-950/40 p-3.5 rounded-xl border border-amber-800/60"></div>
+
+            <div id="progressContainer" class="hidden space-y-2 pt-2">
+                <div class="flex justify-between text-sm font-medium text-slate-300">
+                    <span id="statusText">Initializing processing pipeline...</span>
+                    <span id="transcriptionProgressText">0%</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-700">
+                    <div id="progressBar" class="bg-blue-600 h-3 rounded-full progress-bar-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultsCard" class="bg-cardBg rounded-2xl shadow-xl border border-borderCol overflow-hidden hidden">
+            <div class="bg-slate-900/80 px-6 py-4 border-b border-borderCol flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">📝</span>
+                    <div>
+                        <h3 class="font-bold text-white">Transcription Result</h3>
+                        <p class="text-xs text-slate-400" id="detectedLangInfo">Detected Language: Analyzing...</p>
+                    </div>
+                </div>
+                <div>
+                    <button id="exportSrtBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Export Word-by-Word SRT
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <!-- Straight continuous text block output without line breaks or selectable items -->
+                <div id="transcriptionOutput" class="max-h-[500px] overflow-y-auto border border-borderCol rounded-xl p-6 bg-slate-900/60 text-slate-200 leading-relaxed text-base font-normal select-text">
+                    <!-- Continuous text populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center py-6 text-xs text-slate-500">
+        Local Video Subtitle Generator &bull; Powered by Transformers.js & Whisper Base
+    </footer>
+
+    <script type="module">
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1';
+        
+        env.allowLocalModels = false;
+        const MODEL_NAME = 'Xenova/whisper-base';
+
+        const modelLoadCard = document.getElementById('modelLoadCard');
+        const modelStatusIcon = document.getElementById('modelStatusIcon');
+        const modelStatusTitle = document.getElementById('modelStatusTitle');
+        const modelProgressText = document.getElementById('modelProgressText');
+        const modelProgressBar = document.getElementById('modelProgressBar');
+        const modelStatusSub = document.getElementById('modelStatusSub');
+
+        const uploadCard = document.getElementById('uploadCard');
+        const fileInput = document.getElementById('videoFile');
+        const inlineWarning = document.getElementById('inlineWarning');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const statusText = document.getElementById('statusText');
+        const transcriptionProgressText = document.getElementById('transcriptionProgressText');
+        const resultsCard = document.getElementById('resultsCard');
+        const detectedLangInfo = document.getElementById('detectedLangInfo');
+        const exportSrtBtn = document.getElementById('exportSrtBtn');
+        const transcriptionOutput = document.getElementById('transcriptionOutput');
+
+        let transcriber = null;
+        let isModelLoaded = false;
+        let modelFileProgress = {};
+        let currentResult = null;
+        let pendingFile = null;
+        let originalVideoFilename = 'video.mp4';
+
+        // Model loading progress handler
+        function updateModelProgress(info) {
+            if (info.status === 'init') {
+                modelFileProgress[info.file] = 0;
+            } else if (info.status === 'progress') {
+                modelFileProgress[info.file] = info.progress;
+                const files = Object.keys(modelFileProgress);
+                const avgProgress = files.reduce((acc, file) => acc + modelFileProgress[file], 0) / files.length;
+                const roundedModel = Math.round(avgProgress);
+                
+                modelProgressBar.style.width = `${roundedModel}%`;
+                modelProgressText.innerText = `${roundedModel}%`;
+                modelStatusSub.innerText = `Downloading model weights... (${files.length} files tracked)`;
+            } else if (info.status === 'done') {
+                modelFileProgress[info.file] = 100;
+            }
+        }
+
+        async function loadModel() {
+            try {
+                transcriber = await pipeline('automatic-speech-recognition', MODEL_NAME, {
+                    progress_callback: updateModelProgress
+                });
+
+                modelProgressBar.style.width = '100%';
+                modelProgressText.innerText = '100%';
+                modelProgressBar.className = 'bg-emerald-500 h-3 rounded-full progress-bar-fill';
+                modelStatusIcon.className = 'w-3.5 h-3.5 rounded-full bg-emerald-500';
+                modelStatusTitle.innerText = 'AI Model Ready & Loaded!';
+                
+                isModelLoaded = true;
+
+                setTimeout(() => {
+                    modelLoadCard.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                    modelLoadCard.style.opacity = '0';
+                    modelLoadCard.style.transform = 'translateY(-10px)';
+                    setTimeout(() => {
+                        modelLoadCard.style.display = 'none';
+                    }, 400);
+                }, 400);
+
+                if (pendingFile) {
+                    const fileToProcess = pendingFile;
+                    pendingFile = null;
+                    inlineWarning.classList.add('hidden');
+                    processVideoFile(fileToProcess);
+                }
+
+            } catch (error) {
+                console.error(error);
+                modelStatusIcon.className = 'w-3.5 h-3.5 rounded-full bg-rose-500';
+                modelStatusTitle.innerText = 'Failed to load model';
+                modelStatusSub.innerText = 'Please check your connection and refresh the page to try again.';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadModel();
+        });
+
+        function setProgress(percent, message) {
+            const clamped = Math.min(100, Math.max(0, Math.round(percent)));
+            progressBar.style.width = `${clamped}%`;
+            transcriptionProgressText.innerText = `${clamped}%`;
+            if (message) {
+                statusText.innerText = message;
+            }
+        }
+
+        async function extractAudioWithProgress(file) {
+            setProgress(5, 'Reading video file into memory...');
+            const arrayBuffer = await file.arrayBuffer();
+            
+            setProgress(15, 'Decoding audio track...');
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            
+            setProgress(25, 'Resampling audio to 16kHz standard...');
+            const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * 16000, 16000);
+            const source = offlineCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(offlineCtx.destination);
+            source.start();
+            
+            const resampledBuffer = await offlineCtx.startRendering();
+            setProgress(35, 'Audio extraction complete.');
+
+            return {
+                channelData: resampledBuffer.getChannelData(0),
+                duration: audioBuffer.duration
+            };
+        }
+
+        function deduplicateWhisperResult(result) {
+            if (!result) return result;
+
+            if (result.chunks && Array.isArray(result.chunks)) {
+                const cleanedChunks = [];
+                let seenPhrases = new Set();
+
+                for (let chunk of result.chunks) {
+                    let chunkText = (chunk.text || '').trim();
+                    if (!chunkText) continue;
+
+                    chunkText = removeRepeatingPatterns(chunkText);
+                    if (!chunkText) continue;
+
+                    const lowerText = chunkText.toLowerCase();
+                    if (seenPhrases.has(lowerText)) {
+                        continue;
+                    }
+                    seenPhrases.add(lowerText);
+
+                    chunk.text = chunkText;
+
+                    if (chunk.words && Array.isArray(chunk.words)) {
+                        const uniqueWords = [];
+                        let lastWordLower = '';
+                        let wordRepeatCount = 0;
+
+                        for (let w of chunk.words) {
+                            const wText = (w.text || '').trim();
+                            const wLower = wText.toLowerCase();
+                            if (!wText) continue;
+
+                            if (wLower === lastWordLower) {
+                                wordRepeatCount++;
+                                if (wordRepeatCount > 1) continue;
+                            } else {
+                                lastWordLower = wLower;
+                                wordRepeatCount = 0;
+                            }
+                            uniqueWords.push(w);
+                        }
+                        chunk.words = uniqueWords;
+                    }
+
+                    cleanedChunks.push(chunk);
+                }
+                result.chunks = cleanedChunks;
+            }
+
+            if (result.text) {
+                result.text = removeRepeatingPatterns(result.text);
+            }
+
+            return result;
+        }
+
+        function removeRepeatingPatterns(str) {
+            if (!str) return '';
+            const words = str.split(/\s+/);
+            if (words.length < 4) return str;
+
+            const filtered = [];
+            for (let i = 0; i < words.length; i++) {
+                if (i >= 6 && 
+                    words[i] === words[i-3] && 
+                    words[i-1] === words[i-4] && 
+                    words[i-2] === words[i-5]) {
+                    continue;
+                }
+                filtered.push(words[i]);
+            }
+            return filtered.join(' ');
+        }
+
+        function renderTranscriptionAsStraightText(result) {
+            let text = '';
+            if (result.chunks && result.chunks.length > 0) {
+                text = result.chunks.map(c => c.text ? c.text.trim() : '').filter(Boolean).join(' ');
+            } else if (result.text) {
+                text = result.text.trim();
+            }
+            transcriptionOutput.innerText = text || 'No speech detected.';
+        }
+
+        async function processVideoFile(file) {
+            originalVideoFilename = file.name || 'video.mp4';
+            fileInput.disabled = true;
+            progressContainer.classList.remove('hidden');
+            progressBar.className = 'bg-blue-600 h-3 rounded-full progress-bar-fill';
+            resultsCard.classList.add('hidden');
+
+            try {
+                // Step 1: Audio Extraction (0% to 35%)
+                const { channelData, duration } = await extractAudioWithProgress(file);
+
+                // Step 2: Time-Based Progress Estimation & Countdown (35% to 95%)
+                setProgress(36, 'Starting local Whisper transcription...');
+                
+                // Estimate transcription time based on audio duration (approx 350ms processing per 1s of audio in WASM)
+                const estimatedTotalMs = Math.max(4000, duration * 350);
+                const startTime = Date.now();
+                
+                const progressInterval = setInterval(() => {
+                    const elapsed = Date.now() - startTime;
+                    const fraction = Math.min(0.95, elapsed / estimatedTotalMs);
+                    const currentPct = 36 + fraction * (95 - 36);
+                    
+                    const remainingMs = Math.max(0, estimatedTotalMs - elapsed);
+                    const remainingSecs = Math.ceil(remainingMs / 1000);
+                    
+                    setProgress(currentPct, `Transcribing locally... Approx. ${remainingSecs}s remaining`);
+                }, 200);
+
+                let rawResult = await transcriber(channelData, {
+                    return_timestamps: 'word',
+                    chunk_length_s: 30,
+                    stride_length_s: 5,
+                    temperature: 0.0,
+                    no_repeat_ngram_size: 3
+                });
+
+                clearInterval(progressInterval);
+
+                setProgress(97, 'Cleaning and formatting transcripts...');
+                const result = deduplicateWhisperResult(rawResult);
+                currentResult = result;
+                
+                const lang = result.language || 'Auto-Detected';
+                const chunkCount = result.chunks ? result.chunks.length : 1;
+                detectedLangInfo.innerText = `Auto-Detected Language: ${lang} | Segments: ${chunkCount}`;
+                
+                renderTranscriptionAsStraightText(result);
+                
+                setProgress(100, 'Transcription complete!');
+                resultsCard.classList.remove('hidden');
+                
+                // Completely remove the video selection card when subtitles are ready
+                setTimeout(() => {
+                    uploadCard.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    uploadCard.style.opacity = '0';
+                    uploadCard.style.transform = 'translateY(-10px)';
+                    setTimeout(() => {
+                        uploadCard.style.display = 'none';
+                    }, 500);
+                }, 300);
+
+            } catch (error) {
+                console.error(error);
+                statusText.innerText = 'Error during transcription.';
+                progressBar.className = 'bg-rose-600 h-3 rounded-full progress-bar-fill';
+                fileInput.disabled = false;
+            }
+        }
+
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!isModelLoaded) {
+                pendingFile = file;
+                inlineWarning.innerText = 'AI Model is still downloading in the background. Your video has been queued and will automatically start transcribing as soon as model loading completes!';
+                inlineWarning.classList.remove('hidden');
+                fileInput.value = '';
+                return;
+            }
+
+            inlineWarning.classList.add('hidden');
+            await processVideoFile(file);
+        });
+
+        function formatTimeSRT(seconds) {
+            if (isNaN(seconds)) seconds = 0;
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 1000);
+            return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
+        }
+
+        exportSrtBtn.addEventListener('click', () => {
+            if (!currentResult) return;
+            
+            let srtContent = '';
+            let subtitleIndex = 1;
+            const chunks = currentResult.chunks || [];
+
+            if (chunks.length === 0 && currentResult.text) {
+                const text = currentResult.text.trim();
+                const words = text.split(/\s+/);
+                words.forEach((w, i) => {
+                    const start = i * 0.3;
+                    const end = start + 0.3;
+                    srtContent += `${subtitleIndex}\n${formatTimeSRT(start)} --> ${formatTimeSRT(end)}\n${w}\n\n`;
+                    subtitleIndex++;
+                });
+            } else {
+                chunks.forEach(chunk => {
+                    if (chunk.words && Array.isArray(chunk.words) && chunk.words.length > 0) {
+                        chunk.words.forEach(wordObj => {
+                            const start = wordObj.start ?? 0;
+                            const end = wordObj.end ?? start + 0.25;
+                            const text = wordObj.text ? wordObj.text.trim() : '';
+                            if (text) {
+                                srtContent += `${subtitleIndex}\n${formatTimeSRT(start)} --> ${formatTimeSRT(end)}\n${text}\n\n`;
+                                subtitleIndex++;
+                            }
+                        });
+                    } else if (chunk.text) {
+                        const words = chunk.text.trim().split(/\s+/);
+                        const chunkStart = chunk.timestamp ? chunk.timestamp[0] : 0;
+                        const chunkEnd = chunk.timestamp && chunk.timestamp[1] ? chunk.timestamp[1] : chunkStart + 1;
+                        const duration = (chunkEnd - chunkStart) / Math.max(words.length, 1);
+                        
+                        words.forEach((w, i) => {
+                            const start = chunkStart + (i * duration);
+                            const end = start + duration;
+                            srtContent += `${subtitleIndex}\n${formatTimeSRT(start)} --> ${formatTimeSRT(end)}\n${w}\n\n`;
+                            subtitleIndex++;
+                        });
+                    }
+                });
+            }
+
+            // Generate dynamic filename matching the original video file name (e.g., video.mp4 -> video.srt)
+            const lastDotIndex = originalVideoFilename.lastIndexOf('.');
+            const baseName = lastDotIndex !== -1 ? originalVideoFilename.substring(0, lastDotIndex) : originalVideoFilename;
+            const srtFilename = `${baseName}.srt`;
+
+            const blob = new Blob([srtContent], { type: 'text/srt;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = srtFilename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>

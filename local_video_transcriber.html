@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Video Transcriber & Translator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .progress-bar-fill {
+            transition: width 0.3s ease;
+        }
+        /* Custom Scrollbar for Textareas */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+            border-radius: 4px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 text-slate-800">
+
+    <div class="max-w-5xl mx-auto space-y-6">
+        
+        <header class="text-center space-y-2">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Local Video Transcriber</h1>
+            <p class="text-slate-500">100% Private. Runs directly in your browser via WebAssembly.</p>
+        </header>
+
+        <!-- Warning Alert -->
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 shadow-sm flex items-start gap-3">
+            <svg class="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+                <h3 class="text-amber-800 font-semibold">Important Notice</h3>
+                <p class="text-sm text-amber-700 mt-1">
+                    Models (~150MB to ~300MB) are downloaded to your browser on the first run and cached. 
+                    Processing happens locally via WebAssembly, so <strong>the page may freeze temporarily</strong> on large files during heavy computation.
+                </p>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-5">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <!-- File Input -->
+                <div>
+                    <label for="videoFile" class="block text-sm font-medium text-slate-700 mb-1">Select Video</label>
+                    <input type="file" id="videoFile" accept="video/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors border border-slate-200 rounded-md p-1 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <!-- Source Language Selection -->
+                <div>
+                    <label for="sourceLang" class="block text-sm font-medium text-slate-700 mb-1">Source Language</label>
+                    <select id="sourceLang" class="block w-full text-sm border border-slate-300 rounded-md p-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="en">English</option>
+                        <option value="pt">Portuguese</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Process Button -->
+            <div>
+                <button id="processBtn" class="w-full md:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white font-medium rounded-lg shadow-sm transition-colors flex justify-center items-center gap-2">
+                    <svg id="btnSpinner" class="hidden animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span id="btnText">Extract & Process Video</span>
+                </button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="progressContainer" class="hidden space-y-2">
+                <div class="flex justify-between text-sm font-medium text-slate-600">
+                    <span id="statusText">Downloading model...</span>
+                    <span id="progressText">0%</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                    <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full progress-bar-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- English Output -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+                <div class="bg-blue-50 px-4 py-3 border-b border-blue-100 flex items-center gap-2">
+                    <span class="text-xl">🇺🇸</span>
+                    <h3 class="font-semibold text-blue-900">English Transcript</h3>
+                </div>
+                <div class="p-4 flex-grow">
+                    <textarea id="enOutput" class="w-full h-64 p-3 text-slate-700 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y" readonly placeholder="English output will appear here..."></textarea>
+                </div>
+            </div>
+
+            <!-- Portuguese Output -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+                <div class="bg-green-50 px-4 py-3 border-b border-green-100 flex items-center gap-2">
+                    <span class="text-xl">🇧🇷</span>
+                    <h3 class="font-semibold text-green-900">Portuguese Transcript</h3>
+                </div>
+                <div class="p-4 flex-grow">
+                    <textarea id="ptOutput" class="w-full h-64 p-3 text-slate-700 bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 resize-y" readonly placeholder="Portuguese output will appear here..."></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1';
+        
+        // Ensure models are fetched from remote Hugging Face hub (and cached locally)
+        env.allowLocalModels = false;
+
+        // UI Elements
+        const fileInput = document.getElementById('videoFile');
+        const sourceLangSelect = document.getElementById('sourceLang');
+        const processBtn = document.getElementById('processBtn');
+        const btnText = document.getElementById('btnText');
+        const btnSpinner = document.getElementById('btnSpinner');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const statusText = document.getElementById('statusText');
+        const progressText = document.getElementById('progressText');
+        const enOutput = document.getElementById('enOutput');
+        const ptOutput = document.getElementById('ptOutput');
+
+        // Track download progress for multiple model files
+        const modelProgress = {};
+
+        function updateProgress(info) {
+            progressContainer.classList.remove('hidden');
+            
+            if (info.status === 'init') {
+                modelProgress[info.file] = 0;
+            } else if (info.status === 'progress') {
+                modelProgress[info.file] = info.progress;
+                
+                // Calculate average progress across all downloading files
+                const files = Object.keys(modelProgress);
+                const avgProgress = files.reduce((acc, file) => acc + modelProgress[file], 0) / files.length;
+                
+                progressBar.style.width = `${avgProgress}%`;
+                progressText.innerText = `${Math.round(avgProgress)}%`;
+                statusText.innerText = `Downloading model weights... (${files.length} files)`;
+            } else if (info.status === 'done') {
+                modelProgress[info.file] = 100;
+            }
+        }
+
+        function setStatus(message, showSpinner = true) {
+            statusText.innerText = message;
+            if (showSpinner) {
+                btnSpinner.classList.remove('hidden');
+            } else {
+                btnSpinner.classList.add('hidden');
+            }
+        }
+
+        // Extract and resample audio from video file to 16kHz Float32Array (Required by Whisper)
+        async function extractAudio(file) {
+            setStatus('Extracting audio from video...', true);
+            const arrayBuffer = await file.arrayBuffer();
+            
+            // Standard AudioContext
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            
+            // Resample to 16000 Hz using OfflineAudioContext
+            const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * 16000, 16000);
+            const source = offlineCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(offlineCtx.destination);
+            source.start();
+            
+            const resampledBuffer = await offlineCtx.startRendering();
+            return resampledBuffer.getChannelData(0); // Return Float32Array
+        }
+
+        processBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            const sourceLang = sourceLangSelect.value;
+            
+            if (!file) {
+                alert("Please select a video file first.");
+                return;
+            }
+
+            // Lock UI
+            processBtn.disabled = true;
+            btnText.innerText = "Processing...";
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            progressText.innerText = '';
+            enOutput.value = '';
+            ptOutput.value = '';
+            
+            try {
+                // 1. Audio Extraction
+                const audioData = await extractAudio(file);
+
+                // 2. Load Whisper Pipeline
+                setStatus('Loading Whisper model (This might take a while on first run)...', true);
+                const asr = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
+                    progress_callback: updateProgress
+                });
+
+                // Small delay to allow UI to render status before heavy synchronous-like computation
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                if (sourceLang === 'pt') {
+                    // Source: Portuguese
+                    // Transcribe PT
+                    setStatus('Transcribing Portuguese (Browser may freeze)...', true);
+                    const ptResult = await asr(audioData, { 
+                        language: 'pt', task: 'transcribe', chunk_length_s: 30, stride_length_s: 5 
+                    });
+                    ptOutput.value = ptResult.text;
+
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    // Translate to EN using Whisper's built-in translation task
+                    setStatus('Translating to English (Browser may freeze)...', true);
+                    const enResult = await asr(audioData, { 
+                        language: 'pt', task: 'translate', chunk_length_s: 30, stride_length_s: 5 
+                    });
+                    enOutput.value = enResult.text;
+
+                } else {
+                    // Source: English
+                    // Transcribe EN
+                    setStatus('Transcribing English (Browser may freeze)...', true);
+                    const enResult = await asr(audioData, { 
+                        language: 'en', task: 'transcribe', chunk_length_s: 30, stride_length_s: 5 
+                    });
+                    enOutput.value = enResult.text;
+
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    // Translate to PT using Opus-MT
+                    setStatus('Loading Translation model (Opus-MT)...', true);
+                    const translator = await pipeline('translation', 'Xenova/opus-mt-en-ROMANCE', {
+                        progress_callback: updateProgress
+                    });
+
+                    setStatus('Translating to Portuguese (Browser may freeze)...', true);
+                    
+                    // Split text into sentences for better translation results and to avoid length limits
+                    const sentences = enResult.text.split(/(?<=[.?!])\s+/).filter(s => s.trim().length > 0);
+                    let ptTranslatedArray = [];
+                    
+                    for (let i = 0; i < sentences.length; i++) {
+                        progressBar.style.width = `${Math.round(((i+1)/sentences.length) * 100)}%`;
+                        progressText.innerText = `${i+1}/${sentences.length}`;
+                        
+                        // Opus-MT EN->ROMANCE requires the language tag prepended
+                        const res = await translator(`>>por<< ${sentences[i]}`);
+                        ptTranslatedArray.push(res[0].translation_text);
+                        
+                        // Update output progressively
+                        ptOutput.value = ptTranslatedArray.join(' ');
+                        
+                        // Yield to main thread briefly to allow UI updates
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                    }
+                }
+
+                setStatus('Processing complete!', false);
+                progressBar.style.width = '100%';
+                progressText.innerText = '100%';
+                
+            } catch (error) {
+                console.error(error);
+                setStatus('An error occurred. Check console for details.', false);
+                alert(`Error: ${error.message}`);
+            } finally {
+                // Restore UI
+                processBtn.disabled = false;
+                btnText.innerText = "Extract & Process Video";
+            }
+        });
+    </script>
+</body>
+</html>

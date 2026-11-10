@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piseiro Brasileiro - Authentic MIDI Band</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-xl w-full bg-slate-900 p-8 rounded-3xl shadow-2xl border border-slate-800">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-amber-400 tracking-wide">🇧🇷 Piseiro Forró Machine</h1>
+            <p class="text-slate-400 text-sm mt-1">High-energy Brazilian Forró with Electronic Keyboard, Bass, and Piseiro Drums.</p>
+        </div>
+
+        <div class="space-y-6">
+            <div>
+                <label for="tempo" class="block text-sm font-medium text-slate-300 mb-2">Tempo (BPM)</label>
+                <input type="number" id="tempo" value="138" min="110" max="170" 
+                    class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-400 font-mono">
+                <span class="text-xs text-slate-500 mt-1 block">Fast dance tempo (130 - 150 BPM)</span>
+            </div>
+
+            <div>
+                <label for="chords" class="block text-sm font-medium text-slate-300 mb-2">Chords (Space-separated)</label>
+                <input type="text" id="chords" value="Em7 Em9 Cmaj7 Am7" 
+                    class="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-400 font-mono">
+                <span class="text-xs text-slate-500 mt-1 block">Supports complex chords like Em7, Em9, Cmaj7, Am7</span>
+            </div>
+
+            <div class="flex gap-4 pt-2">
+                <button id="playBtn" onclick="togglePlay()" disabled
+                    class="flex-1 bg-slate-700 text-slate-300 font-bold py-3 px-6 rounded-lg transition shadow-lg flex items-center justify-center gap-2 cursor-not-allowed">
+                    ⏳ Loading Piseiro Soundfonts...
+                </button>
+            </div>
+        </div>
+
+        <div id="status" class="mt-6 text-center text-sm text-amber-300 font-mono">
+            Status: Initializing accordion and electronic rhythm section...
+        </div>
+    </div>
+
+    <script>
+        // Chord library supporting extended voicings
+        const chordLibrary = {
+            'C':     ['C3', 'E3', 'G3', 'C4'],
+            'CM':    ['C3', 'E3', 'G3', 'C4'],
+            'CMIN':  ['C3', 'D#3', 'G3', 'C4'],
+            'D':     ['D3', 'F#3', 'A3', 'D4'],
+            'DM':    ['D3', 'F3', 'A3', 'D4'],
+            'E':     ['E3', 'G#3', 'B3', 'E4'],
+            'EM':    ['E3', 'G3', 'B3', 'E4'],
+            'F':     ['F3', 'A3', 'C4', 'F4'],
+            'FM':    ['F3', 'G#3', 'C4', 'F4'],
+            'G':     ['G3', 'B3', 'D4', 'G4'],
+            'GM':    ['G3', 'A#3', 'D4', 'G4'],
+            'A':     ['A3', 'C#4', 'E4', 'A4'],
+            'AM':    ['A3', 'C4', 'E4', 'A4'],
+            'BB':    ['A#3', 'D4', 'F4', 'A#4'],
+            'B':     ['B3', 'D#4', 'F#4', 'B4'],
+            'EM7':   ['E3', 'G3', 'B3', 'D4'],         
+            'EM9':   ['E3', 'G3', 'B3', 'D4', 'F#4'],   
+            'CMAJ7': ['C3', 'E3', 'G3', 'B3'],          
+            'AM7':   ['A3', 'C4', 'E4', 'G4'],          
+            'DM7':   ['D3', 'F3', 'A3', 'C4'],
+            'GM7':   ['G3', 'B3', 'D4', 'F#4'],
+            'G7':    ['G3', 'B3', 'D4', 'F4'],
+            'FM7':   ['F3', 'A3', 'C4', 'E4']
+        };
+
+        let isPlaying = false;
+        let accordionInstrument, bassInstrument;
+        let audioContext = null;
+        let piseiroKick, piseiroSnare, piseiroHihat;
+
+        async function initSoundfonts() {
+            audioContext = Tone.context.rawContext;
+            const statusEl = document.getElementById('status');
+            const playBtn = document.getElementById('playBtn');
+
+            statusEl.innerText = "Loading Accordion and Electric Bass soundfonts...";
+            
+            try {
+                // Load Accordion (Program 22 in General MIDI represents accordion) and Synth Bass/Electric Bass
+                accordionInstrument = await Soundfont.instrument(audioContext, 'accordion', { soundfont: 'FluidR3_GM' });
+                bassInstrument = await Soundfont.instrument(audioContext, 'synth_bass_1', { soundfont: 'FluidR3_GM' });
+                
+                // Crisp, punchy electronic drum kit tailored for high-energy Piseiro
+                piseiroKick = new Tone.MembraneSynth({ pitchDecay: 0.04, octaves: 5, oscillator: { type: "sine" } }).toDestination();
+                piseiroKick.volume.value = 0;
+                
+                piseiroSnare = new Tone.NoiseSynth({ 
+                    noise: { type: "white" }, 
+                    envelope: { attack: 0.002, decay: 0.12, sustain: 0 } 
+                }).toDestination();
+                piseiroSnare.volume.value = 1;
+
+                piseiroHihat = new Tone.MetalSynth({
+                    frequency: 250,
+                    envelope: { attack: 0.001, decay: 0.04, release: 0.01 },
+                    harmonicity: 5.1,
+                    modulationIndex: 32,
+                    resonance: 4000
+                }).toDestination();
+                piseiroHihat.volume.value = -8;
+
+                statusEl.innerText = "Status: Ready to play Piseiro!";
+                playBtn.disabled = false;
+                playBtn.className = "flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 px-6 rounded-lg transition shadow-lg flex items-center justify-center gap-2 cursor-pointer";
+                playBtn.innerHTML = "▶ Play Piseiro Groove";
+            } catch (err) {
+                console.error(err);
+                statusEl.innerText = "Error loading soundfonts. Check network connection.";
+            }
+        }
+
+        window.addEventListener('load', () => {
+            initSoundfonts();
+        });
+
+        function getBassNote(chordName) {
+            const rootMatch = chordName.replace(/[^A-G#b]/g, '');
+            const base = rootMatch.length > 0 ? rootMatch[0] : 'C';
+            const accidental = rootMatch.length > 1 ? rootMatch[1] : '';
+            return base + accidental + '1'; // Lower octave for powerful bass presence
+        }
+
+        async function togglePlay() {
+            await Tone.start();
+            const playBtn = document.getElementById('playBtn');
+            const status = document.getElementById('status');
+            const tempoInput = document.getElementById('tempo');
+            const chordsInput = document.getElementById('chords');
+
+            if (isPlaying) {
+                Tone.Transport.stop();
+                Tone.Transport.cancel();
+                isPlaying = false;
+                playBtn.innerHTML = "▶ Play Piseiro Groove";
+                playBtn.classList.replace('bg-rose-600', 'bg-amber-500');
+                playBtn.classList.replace('hover:bg-rose-700', 'hover:bg-amber-600');
+                status.innerText = "Status: Stopped";
+                return;
+            }
+
+            const bpm = parseInt(tempoInput.value) || 138;
+            const rawChords = chordsInput.value.trim().split(/\s+/);
+            const chordNames = rawChords.map(c => c.toUpperCase());
+            
+            Tone.Transport.bpm.value = bpm;
+            Tone.Transport.cancel();
+
+            let step = 0;
+            let currentChordIndex = 0;
+
+            // Using "8n" timing for standard fast Piseiro subdivisions
+            Tone.Transport.scheduleRepeat((time) => {
+                const chordName = chordNames[currentChordIndex];
+                const chordNotes = chordLibrary[chordName] || chordLibrary['AM7'];
+                const bassNote = getBassNote(chordName);
+
+                // 1. Kick on main downbeats (1 and 3)
+                if (step % 4 === 0) {
+                    piseiroKick.triggerAttackRelease("C1", "8n", time);
+                }
+
+                // 2. Heavy Backbeat Snare on beats 2 and 4 (The core signature of Piseiro)
+                if (step % 4 === 2) {
+                    piseiroSnare.triggerAttackRelease("16n", time);
+                }
+
+                // 3. Continuous 16th-note Hi-hat drive
+                piseiroHihat.triggerAttackRelease("32n", time);
+
+                // 4. Punchy Synth Bass on every beat for electronic bounce
+                if (bassInstrument) {
+                    bassInstrument.play(bassNote, time, { duration: 0.15 });
+                }
+
+                // 5. Accordion syncopated chord stabs (driving upbeat pattern)
+                if (step % 4 === 0 || step % 4 === 1 || step % 4 === 3) {
+                    chordNotes.forEach(note => {
+                        if (accordionInstrument) {
+                            accordionInstrument.play(note, time, { duration: 0.12, gain: 1.1 });
+                        }
+                    });
+                }
+
+                step++;
+                if (step % 4 === 0) {
+                    currentChordIndex = (currentChordIndex + 1) % chordNames.length;
+                }
+            }, "8n");
+
+            Tone.Transport.start();
+            isPlaying = true;
+            playBtn.innerHTML = "⏹ Stop Groove";
+            playBtn.classList.replace('bg-amber-500', 'bg-rose-600');
+            playBtn.classList.replace('hover:bg-amber-600', 'hover:bg-rose-700');
+            status.innerText = `Status: Playing Piseiro forró at ${bpm} BPM...`;
+        }
+    </script>
+</body>
+</html>

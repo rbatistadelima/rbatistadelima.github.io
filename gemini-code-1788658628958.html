@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piseiro Brasileiro MIDI Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-xl w-full bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-amber-400 tracking-wide">🇧🇷 Piseiro Machine</h1>
+            <p class="text-slate-400 text-sm mt-1">Input your tempo and chords (space-separated) to generate a groove.</p>
+        </div>
+
+        <div class="space-y-6">
+            <div>
+                <label for="tempo" class="block text-sm font-medium text-slate-300 mb-2">Tempo (BPM)</label>
+                <input type="number" id="tempo" value="138" min="100" max="180" 
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-400 font-mono">
+                <span class="text-xs text-slate-500 mt-1 block">Typical Piseiro is fast (130 - 150 BPM)</span>
+            </div>
+
+            <div>
+                <label for="chords" class="block text-sm font-medium text-slate-300 mb-2">Chords (Space-separated)</label>
+                <input type="text" id="chords" value="Em7 Em9 Cmaj7 Am7" 
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:border-amber-400 font-mono">
+                <span class="text-xs text-slate-500 mt-1 block">Supports extended chords like Em7, Em9, Cmaj7, Am7</span>
+            </div>
+
+            <div class="flex gap-4 pt-2">
+                <button id="playBtn" onclick="togglePlay()" 
+                    class="flex-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 px-6 rounded-lg transition shadow-lg flex items-center justify-center gap-2">
+                    ▶ Play Groove
+                </button>
+                <button id="exportBtn" onclick="exportMIDI()" 
+                    class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-3 px-6 rounded-lg transition">
+                    Export MIDI
+                </button>
+            </div>
+        </div>
+
+        <div id="status" class="mt-6 text-center text-sm text-slate-400 font-mono">
+            Status: Ready
+        </div>
+    </div>
+
+    <script>
+        // Expanded chord library supporting major, minor, and extended seventh/ninth voicings
+        const chordLibrary = {
+            // Basic Triads
+            'C':     ['C3', 'E3', 'G3', 'C4'],
+            'CM':    ['C3', 'E3', 'G3', 'C4'],
+            'CMIN':  ['C3', 'D#3', 'G3', 'C4'],
+            'D':     ['D3', 'F#3', 'A3', 'D4'],
+            'DM':    ['D3', 'F3', 'A3', 'D4'],
+            'E':     ['E3', 'G#3', 'B3', 'E4'],
+            'EM':    ['E3', 'G3', 'B3', 'E4'],
+            'F':     ['F3', 'A3', 'C4', 'F4'],
+            'FM':    ['F3', 'G#3', 'C4', 'F4'],
+            'G':     ['G3', 'B3', 'D4', 'G4'],
+            'GM':    ['G3', 'A#3', 'D4', 'G4'],
+            'A':     ['A3', 'C#4', 'E4', 'A4'],
+            'AM':    ['A3', 'C4', 'E4', 'A4'],
+            'BB':    ['A#3', 'D4', 'F4', 'A#4'],
+            'B':     ['B3', 'D#4', 'F#4', 'B4'],
+
+            // Requested Extended Chords
+            'EM7':   ['E3', 'G3', 'B3', 'D4'],         // Em7
+            'EM9':   ['E3', 'G3', 'B3', 'D4', 'F#4'],   // Em9
+            'CMAJ7': ['C3', 'E3', 'G3', 'B3'],          // Cmaj7
+            'AM7':   ['A3', 'C4', 'E4', 'G4'],          // Am7
+            
+            // Extra common extensions
+            'G7':    ['G3', 'B3', 'D4', 'F4'],
+            'DM7':   ['D3', 'F3', 'A3', 'C4'],
+            'FM7':   ['F3', 'A3', 'C4', 'E4']
+        };
+
+        let isPlaying = false;
+        let synth, kick, snare, hihat;
+
+        // Initialize Tone.js instruments
+        function initAudio() {
+            if (synth) return;
+
+            // Electronic Organ / Keyboard Synth
+            synth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "sawtooth" },
+                envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.1 }
+            }).toDestination();
+            synth.volume.value = -6;
+
+            // Piseiro Kick
+            kick = new Tone.MembraneSynth({
+                pitchDecay: 0.05,
+                octaves: 4,
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 }
+            }).toDestination();
+
+            // Piseiro Backbeat Snare (Accents beats 2 and 4)
+            snare = new Tone.NoiseSynth({
+                noise: { type: "white" },
+                envelope: { attack: 0.005, decay: 0.15, sustain: 0 }
+            }).toDestination();
+            snare.volume.value = -2;
+
+            // Hi-hat Driving Groove
+            hihat = new Tone.MetalSynth({
+                frequency: 200,
+                envelope: { attack: 0.001, decay: 0.05, release: 0.01 },
+                harmonicity: 5.1,
+                modulationIndex: 32,
+                resonance: 4000,
+                octaves: 1.5
+            }).toDestination();
+            hihat.volume.value = -12;
+        }
+
+        async function togglePlay() {
+            await Tone.start();
+            initAudio();
+
+            const playBtn = document.getElementById('playBtn');
+            const status = document.getElementById('status');
+            const tempoInput = document.getElementById('tempo');
+            const chordsInput = document.getElementById('chords');
+
+            if (isPlaying) {
+                Tone.Transport.stop();
+                Tone.Transport.cancel();
+                isPlaying = false;
+                playBtn.innerHTML = "▶ Play Groove";
+                playBtn.classList.replace('bg-rose-600', 'bg-amber-500');
+                playBtn.classList.replace('hover:bg-rose-700', 'hover:bg-amber-600');
+                status.innerText = "Status: Stopped";
+                return;
+            }
+
+            // Parse inputs using whitespace separation instead of commas
+            const bpm = parseInt(tempoInput.value) || 138;
+            const rawChords = chordsInput.value.trim().split(/\s+/);
+            const chordNames = rawChords.map(c => c.toUpperCase());
+            
+            Tone.Transport.bpm.value = bpm;
+            Tone.Transport.cancel();
+
+            let step = 0;
+            let currentChordIndex = 0;
+
+            Tone.Transport.scheduleRepeat((time) => {
+                const chordName = chordNames[currentChordIndex];
+                // Fallback to Am7 if chord lookup fails
+                const notes = chordLibrary[chordName] || chordLibrary['AM7'];
+
+                // 1. Kick on beats 1 and 3
+                if (step % 4 === 0) {
+                    kick.triggerAttackRelease("C1", "8n", time);
+                }
+
+                // 2. Snare accenting beats 2 and 4 (Piseiro signature feel)
+                if (step % 4 === 2) {
+                    snare.triggerAttackRelease("16n", time);
+                }
+
+                // 3. Hi-hat 16th notes
+                hihat.triggerAttackRelease("32n", time);
+
+                // 4. Keyboard syncopated chord stabs
+                if (step % 4 === 0 || step % 4 === 1 || step % 4 === 3) {
+                    synth.triggerAttackRelease(notes, "8n", time);
+                }
+
+                step++;
+                // Advance chord every measure block
+                if (step % 4 === 0) {
+                    currentChordIndex = (currentChordIndex + 1) % chordNames.length;
+                }
+            }, "8n");
+
+            Tone.Transport.start();
+            isPlaying = true;
+            playBtn.innerHTML = "⏹ Stop Groove";
+            playBtn.classList.replace('bg-amber-500', 'bg-rose-600');
+            playBtn.classList.replace('hover:bg-amber-600', 'hover:bg-rose-700');
+            status.innerText = `Status: Playing groove at ${bpm} BPM with chords [${chordNames.join(', ')}]...`;
+        }
+
+        function exportMIDI() {
+            alert("MIDI export framework is set. You can plug in libraries like '@tonejs/midi' to download files directly.");
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Word-by-Word Subtitle Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .progress-bar-fill {
+            transition: width 0.3s ease;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 text-slate-800">
+    <div class="max-w-5xl mx-auto space-y-6">
+        <header class="text-center space-y-2">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Local Word-by-Word Subtitle Generator</h1>
+            <p class="text-slate-500">100% Private. Runs directly in your browser using Transformers.js & WebAssembly.</p>
+        </header>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 shadow-sm flex items-start gap-3">
+            <svg class="h-6 w-6 text-blue-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+                <h3 class="text-blue-900 font-semibold text-sm">Completely Local & Offline</h3>
+                <p class="text-xs text-blue-700 mt-0.5">
+                    Whisper models (~75MB–150MB) are downloaded and cached in your browser on first run. Audio extraction and speech recognition run entirely on your device with zero data sent to external servers.
+                </p>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div class="md:col-span-2">
+                    <label for="videoFile" class="block text-sm font-semibold text-slate-700 mb-1.5">Select Video File</label>
+                    <input type="file" id="videoFile" accept="video/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors border border-slate-200 rounded-xl p-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="modelSelect" class="block text-sm font-semibold text-slate-700 mb-1.5">Whisper Model</label>
+                    <select id="modelSelect" class="block w-full text-sm border border-slate-300 rounded-xl p-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="Xenova/whisper-tiny">Whisper Tiny (~75MB, Fastest)</option>
+                        <option value="Xenova/whisper-base">Whisper Base (~150MB, Accurate)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <button id="processBtn" class="w-full md:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-semibold rounded-xl shadow-md transition-all flex justify-center items-center gap-2">
+                    <svg id="btnSpinner" class="hidden animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span id="btnText">Extract & Transcribe Word-by-Word</span>
+                </button>
+            </div>
+
+            <div id="progressContainer" class="hidden space-y-2 pt-2">
+                <div class="flex justify-between text-sm font-medium text-slate-600">
+                    <span id="statusText">Initializing model...</span>
+                    <span id="progressText">0%</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
+                    <div id="progressBar" class="bg-blue-600 h-3 rounded-full progress-bar-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultsCard" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hidden">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">📝</span>
+                    <div>
+                        <h3 class="font-bold text-slate-800">Word-by-Word Subtitles</h3>
+                        <p class="text-xs text-slate-500" id="detectedLangInfo">Detected Language: Analyzing...</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="exportSrtBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-xl shadow-sm transition-colors flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Download .srt
+                    </button>
+                    <button id="exportJsonBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-xl shadow-sm transition-colors flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Download JSON
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <div class="mb-4 flex items-center justify-between">
+                    <input type="text" id="searchInput" placeholder="Search transcribed words..." class="w-full md:w-72 px-4 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <span id="wordCountBadge" class="text-xs font-semibold px-3 py-1 bg-slate-100 text-slate-600 rounded-full">0 words</span>
+                </div>
+                <div id="subtitlesList" class="max-h-96 overflow-y-auto space-y-2 pr-2 border border-slate-100 rounded-xl p-4 bg-slate-50/50">
+                    <!-- Word list populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1';
+        
+        env.allowLocalModels = false;
+
+        const fileInput = document.getElementById('videoFile');
+        const modelSelect = document.getElementById('modelSelect');
+        const processBtn = document.getElementById('processBtn');
+        const btnText = document.getElementById('btnText');
+        const btnSpinner = document.getElementById('btnSpinner');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const statusText = document.getElementById('statusText');
+        const progressText = document.getElementById('progressText');
+        const resultsCard = document.getElementById('resultsCard');
+        const detectedLangInfo = document.getElementById('detectedLangInfo');
+        const exportSrtBtn = document.getElementById('exportSrtBtn');
+        const exportJsonBtn = document.getElementById('exportJsonBtn');
+        const searchInput = document.getElementById('searchInput');
+        const wordCountBadge = document.getElementById('wordCountBadge');
+        const subtitlesList = document.getElementById('subtitlesList');
+
+        let modelProgress = {};
+        let currentChunks = [];
+
+        function updateProgress(info) {
+            progressContainer.classList.remove('hidden');
+            if (info.status === 'init') {
+                modelProgress[info.file] = 0;
+            } else if (info.status === 'progress') {
+                modelProgress[info.file] = info.progress;
+                const files = Object.keys(modelProgress);
+                const avgProgress = files.reduce((acc, file) => acc + modelProgress[file], 0) / files.length;
+                progressBar.style.width = `${avgProgress}%`;
+                progressText.innerText = `${Math.round(avgProgress)}%`;
+                statusText.innerText = `Downloading model weights... (${files.length} files)`;
+            } else if (info.status === 'done') {
+                modelProgress[info.file] = 100;
+            }
+        }
+
+        function setStatus(message, showSpinner = true) {
+            statusText.innerText = message;
+            if (showSpinner) {
+                btnSpinner.classList.remove('hidden');
+            } else {
+                btnSpinner.classList.add('hidden');
+            }
+        }
+
+        async function extractAudio(file) {
+            setStatus('Extracting audio from video file...', true);
+            const arrayBuffer = await file.arrayBuffer();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            
+            // Resample to 16000Hz required by Whisper
+            const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * 16000, 16000);
+            const source = offlineCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(offlineCtx.destination);
+            source.start();
+            
+            const resampledBuffer = await offlineCtx.startRendering();
+            return resampledBuffer.getChannelData(0);
+        }
+
+        function formatTimestamp(seconds) {
+            if (isNaN(seconds)) return "00:00.000";
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 1000);
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+        }
+
+        function formatTimeSRT(seconds) {
+            if (isNaN(seconds)) seconds = 0;
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 1000);
+            return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
+        }
+
+        function renderSubtitles(chunks) {
+            subtitlesList.innerHTML = '';
+            wordCountBadge.innerText = `${chunks.length} words`;
+            
+            if (chunks.length === 0) {
+                subtitlesList.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">No words detected.</p>';
+                return;
+            }
+
+            chunks.forEach((chunk, index) => {
+                const start = chunk.timestamp ? chunk.timestamp[0] : 0;
+                const end = chunk.timestamp && chunk.timestamp[1] ? chunk.timestamp[1] : start + 0.5;
+                
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between p-3 bg-white border border-slate-200/80 rounded-xl hover:border-blue-300 transition-colors shadow-2xs';
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-mono font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">#${index + 1}</span>
+                        <span class="text-sm font-medium text-slate-800">${escapeHtml(chunk.text)}</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs font-mono text-slate-500">
+                        <span class="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg">${formatTimestamp(start)} → ${formatTimestamp(end)}</span>
+                    </div>
+                `;
+                subtitlesList.appendChild(item);
+            });
+        }
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        processBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            const modelName = modelSelect.value;
+
+            if (!file) {
+                statusText.innerText = 'Please select a video file first.';
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = '100%';
+                progressBar.className = 'bg-amber-500 h-3 rounded-full progress-bar-fill';
+                return;
+            }
+
+            processBtn.disabled = true;
+            btnText.innerText = 'Processing...';
+            progressContainer.classList.remove('hidden');
+            progressBar.className = 'bg-blue-600 h-3 rounded-full progress-bar-fill';
+            progressBar.style.width = '0%';
+            progressText.innerText = '0%';
+            resultsCard.classList.add('hidden');
+            modelProgress = {};
+
+            try {
+                const audioData = await extractAudio(file);
+
+                setStatus(`Loading ${modelName} model...`, true);
+                const transcriber = await pipeline('automatic-speech-recognition', modelName, {
+                    progress_callback: updateProgress
+                });
+
+                setStatus('Transcribing audio & detecting language...', true);
+                await new Promise(resolve => setTimeout(resolve, 50));
+
+                const result = await transcriber(audioData, {
+                    return_timestamps: 'word',
+                    chunk_length_s: 30,
+                    stride_length_s: 5
+                });
+
+                currentChunks = result.chunks || [];
+                
+                if (currentChunks.length === 0 && result.text) {
+                    const words = result.text.trim().split(/\s+/);
+                    const duration = audioData.length / 16000;
+                    const step = duration / words.length;
+                    currentChunks = words.map((w, i) => ({
+                        text: w,
+                        timestamp: [i * step, (i + 1) * step]
+                    }));
+                }
+
+                detectedLangInfo.innerText = `Auto-Detected Language: ${result.language || 'Detected'} | Total Words: ${currentChunks.length}`;
+                renderSubtitles(currentChunks);
+                resultsCard.classList.remove('hidden');
+                
+                setStatus('Transcription complete!', false);
+                progressBar.style.width = '100%';
+                progressText.innerText = '100%';
+
+            } catch (error) {
+                console.error(error);
+                setStatus('Error during transcription.', false);
+                progressBar.className = 'bg-rose-600 h-3 rounded-full progress-bar-fill';
+            } finally {
+                processBtn.disabled = false;
+                btnText.innerText = 'Extract & Transcribe Word-by-Word';
+            }
+        });
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = currentChunks.filter(c => c.text.toLowerCase().includes(query));
+            renderSubtitles(filtered);
+        });
+
+        exportSrtBtn.addEventListener('click', () => {
+            if (currentChunks.length === 0) return;
+            
+            let srtContent = '';
+            const groupSize = 6;
+            let srtIndex = 1;
+
+            for (let i = 0; i < currentChunks.length; i += groupSize) {
+                const group = currentChunks.slice(i, i + groupSize);
+                const startTime = group[0].timestamp ? group[0].timestamp[0] : 0;
+                const lastItem = group[group.length - 1];
+                const endTime = lastItem.timestamp ? (lastItem.timestamp[1] || lastItem.timestamp[0] + 0.5) : startTime + 1;
+                
+                const text = group.map(g => g.text).join(' ');
+                
+                srtContent += `${srtIndex}\n${formatTimeSRT(startTime)} --> ${formatTimeSRT(endTime)}\n${text}\n\n`;
+                srtIndex++;
+            }
+
+            const blob = new Blob([srtContent], { type: 'text/srt;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'subtitles.srt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        exportJsonBtn.addEventListener('click', () => {
+            if (currentChunks.length === 0) return;
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentChunks, null, 2));
+            const a = document.createElement('a');
+            a.href = dataStr;
+            a.download = 'word_subtitles.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+    </script>
+</body>
+</html>

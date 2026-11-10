@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beck - Sound & Vision 360 Player (Spatial Audio)</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: sans-serif;
+            touch-action: none;
+            cursor: default;
+        }
+        body.playing {
+            cursor: none;
+        }
+        #webgl-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #drop-zone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+            color: white;
+            transition: opacity 0.3s ease;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            cursor: default;
+        }
+        #drop-zone.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .drop-box {
+            border: 3px dashed #fff;
+            padding: 40px 60px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            max-width: 500px;
+        }
+        button {
+            background: #fff;
+            border: none;
+            color: #000;
+            padding: 10px 20px;
+            font-weight: bold;
+            border-radius: 15px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        button:hover {
+            background: #ccc;
+        }
+        .file-status {
+            color: #aaa;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="drop-zone">
+        <div class="drop-box">
+            <h1>Drop 360 Video & Audio</h1>
+            <p>Drag and drop your video file (.mp4) and audio file (.mp3/.wav) here together, or browse.</p>
+            <input type="file" id="file-input" accept="video/*,audio/*" multiple style="display: none;">
+            <button id="browse-btn">Browse Files</button>
+            <div class="file-status" id="drop-status">Waiting for files...</div>
+        </div>
+    </div>
+
+    <div id="webgl-container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        let camera, scene, renderer, video, videoTexture, audio;
+        let audioCtx, pannerNode, audioSourceNode;
+        let lon = 0, lat = 0;
+        let phi = 0, theta = 0;
+
+        init();
+        animate();
+
+        function init() {
+            const container = document.getElementById('webgl-container');
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1000);
+
+            video = document.createElement('video');
+            video.crossOrigin = 'anonymous';
+            video.loop = true;
+            video.muted = true; 
+            video.playsInline = true;
+
+            audio = document.createElement('audio');
+            audio.crossOrigin = 'anonymous';
+            audio.loop = true;
+
+            videoTexture = new THREE.VideoTexture(video);
+            videoTexture.minFilter = THREE.LinearFilter;
+            videoTexture.magFilter = THREE.LinearFilter;
+            videoTexture.generateMipmaps = false;
+
+            const geometry = new THREE.SphereGeometry(500, 60, 40);
+            geometry.scale(-1, 1, 1);
+
+            const material = new THREE.MeshBasicMaterial({ map: videoTexture });
+            const sphere = new THREE.Mesh(geometry, material);
+            scene.add(sphere);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            renderer.domElement.addEventListener('click', () => {
+                if (!document.getElementById('drop-zone').classList.contains('hidden')) return;
+                renderer.domElement.requestPointerLock();
+                // Resume Web Audio context if suspended by browser policy
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            });
+
+            document.addEventListener('mousemove', (event) => {
+                if (document.pointerLockElement === renderer.domElement) {
+                    const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+                    const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+
+                    lon += movementX * 0.15; 
+                    lat -= movementY * 0.15;
+                }
+            });
+
+            const dropZone = document.getElementById('drop-zone');
+            const fileInput = document.getElementById('file-input');
+            const browseBtn = document.getElementById('browse-btn');
+            const dropStatus = document.getElementById('drop-status');
+
+            browseBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+            window.addEventListener('dragover', (e) => e.preventDefault());
+            window.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleFiles(e.dataTransfer.files);
+                }
+            });
+
+            function setupSpatialAudio() {
+                if (audioCtx) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+
+                audioSourceNode = audioCtx.createMediaElementSource(audio);
+                pannerNode = audioCtx.createPanner();
+
+                // Configure spatial positioning style
+                pannerNode.panningModel = 'HRTF';
+                pannerNode.distanceModel = 'inverse';
+                pannerNode.refDistance = 1;
+                pannerNode.maxDistance = 10000;
+                pannerNode.rolloffFactor = 1;
+
+                // Connect audio graph: Source -> Panner -> Destination (Speakers)
+                audioSourceNode.connect(pannerNode);
+                pannerNode.connect(audioCtx.destination);
+            }
+
+            function handleFiles(files) {
+                let videoLoaded = false;
+                let audioLoaded = false;
+
+                for (let file of files) {
+                    const fileURL = URL.createObjectURL(file);
+
+                    if (file.type.startsWith('video/')) {
+                        video.src = fileURL;
+                        video.load();
+                        videoLoaded = true;
+                    } else

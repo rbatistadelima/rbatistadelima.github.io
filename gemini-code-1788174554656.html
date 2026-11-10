@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beck - Sound & Vision 360 Player (High Visibility Spheres)</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: sans-serif;
+            touch-action: none;
+            cursor: default;
+        }
+        body.playing {
+            cursor: none;
+        }
+        #webgl-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #hud {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: monospace;
+            white-space: nowrap;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        #drop-zone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+            color: white;
+            transition: opacity 0.3s ease;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            cursor: default;
+        }
+        #drop-zone.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .drop-box {
+            border: 3px dashed #fff;
+            padding: 40px 60px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            max-width: 600px;
+        }
+        button {
+            background: #fff;
+            border: none;
+            color: #000;
+            padding: 10px 20px;
+            font-weight: bold;
+            border-radius: 15px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        button:hover {
+            background: #ccc;
+        }
+        .file-status {
+            color: #aaa;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="drop-zone">
+        <div class="drop-box">
+            <h1>Drop 3 Videos & 1 Audio Track</h1>
+            <p>Select or drag and drop 3 video files (.mp4) and 1 master audio file (.mp3/.wav) together.</p>
+            <input type="file" id="file-input" accept="video/*,audio/*" multiple style="display: none;">
+            <button id="browse-btn">Browse Files</button>
+            <div class="file-status" id="drop-status">Waiting for files (0/3 videos loaded)...</div>
+        </div>
+    </div>
+
+    <div id="hud">Controls: [1][2][3] Select Sphere | [Arrow Keys] Move X/Z | [W/S] Move Y | [Click] Unbounded 360 Look</div>
+    <div id="webgl-container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        let camera, scene, renderer;
+        let videos = [], spheres = [], videoTextures = [];
+        let audio;
+        let audioCtx, audioSourceNode, leftGainNode, rightGainNode;
+        let selectedSphereIndex = 0;
+        const keysPressed = {};
+
+        init();
+        animate();
+
+        function init() {
+            const container = document.getElementById('webgl-container');
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            const geometry = new THREE.SphereGeometry(500, 60, 40);
+            geometry.scale(-1, 1, 1);
+
+            const initialPositions = [
+                { x: 0, y: 0, z: 0 },
+                { x: 1200, y: 0, z: 0 },
+                { x: -1200, y: 0, z: 0 }
+            ];
+
+            for (let i = 0; i < 3; i++) {
+                const v = document.createElement('video');
+                v.crossOrigin = 'anonymous';
+                v.loop = true;
+                v.muted = true;
+                v.playsInline = true;
+                videos.push(v);
+
+                const texture = new THREE.VideoTexture(v);
+                texture.minFilter = THREE.LinearFilter;
+                texture.magFilter = THREE.LinearFilter;
+                texture.generateMipmaps = false;
+                videoTextures.push(texture);
+
+                // Use MeshBasicMaterial with fully opaque rendering, double-sided, and disabled depth writing to eliminate texture clipping & visibility lag
+                const material = new THREE.MeshBasicMaterial({ 
+                    map: texture, 
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+                
+                const sphere = new THREE.Mesh(geometry, material);
+                sphere.position.set(initialPositions[i].x, initialPositions[i].y, initialPositions[i].z);
+                
+                scene.add(sphere);
+                spheres.push(sphere);
+            }
+
+            audio = document.createElement('audio');
+            audio.crossOrigin = 'anonymous';
+            audio.loop = true;
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === '1') selectedSphereIndex = 0;
+                if (e.key === '2') selectedSphereIndex = 1;
+                if (e.key === '3') selectedSphereIndex = 2;
+                keysPressed[e.code] = true;
+            });
+
+            window.addEventListener('keyup', (e) => {
+                keysPressed[e.code] = false;
+            });
+
+            renderer.domElement.addEventListener('click', () => {
+                if (!document.getElementById('drop-zone').classList.contains('hidden')) return;
+                renderer.domElement.requestPointerLock();
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            });
+
+            document.addEventListener('mousemove', (event) => {
+                if (document.pointerLockElement === renderer.domElement) {
+                    const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+                    const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+
+                    const sensitivity = 0.0025;
+
+                    const qYaw = new THREE.Quaternion();
+                    qYaw.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -movementX * sensitivity);
+
+                    const qPitch = new THREE.Quaternion();
+                    qPitch.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -movementY * sensitivity);
+
+                    camera.quaternion.premultiply(qYaw);
+                    camera.quaternion.multiply(qPitch);
+                }
+            });
+
+            const dropZone = document.getElementById('drop-zone');
+            const fileInput = document.getElementById('file-input');
+            const browseBtn = document.getElementById('browse-btn');
+            const dropStatus = document.getElementById('drop-status');
+
+            browseBtn.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+            window.addEventListener('dragover', (e) => e.preventDefault());
+            window.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleFiles(e.dataTransfer.files);
+                }
+            });
+
+            function setupCrossfadeAudio() {
+                if (audioCtx) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+
+                audioSourceNode = audioCtx.createMediaElementSource(audio);
+                const splitter = audioCtx.createChannelSplitter(2);
+                const merger = audioCtx.createChannelMerger(2);
+                
+                leftGainNode = audioCtx.createGain();
+                rightGainNode = audioCtx.createGain();
+
+                leftGainNode.gain.value = 0.7;
+                rightGainNode.gain.value = 0.7;
+
+                audioSourceNode.connect(splitter);
+                splitter.connect(leftGainNode, 0);
+                leftGainNode.connect(merger, 0, 0);
+                splitter.connect(rightGainNode, 1);
+                rightGainNode.connect(merger, 0, 1);
+                merger.connect(audioCtx.destination);
+            }
+
+            function handleFiles(files) {
+                let videoCount = 0;
+
+                for (let file of files) {
+                    const fileURL = URL.createObjectURL(file);
+
+                    if (file.type.startsWith('video/') && videoCount < 3) {
+                        videos[videoCount].src = fileURL;
+                        videos[videoCount].load();
+                        videoCount++;
+                    } else if (file.type.startsWith('audio/')) {
+                        audio.src = fileURL;
+                        audio.load();
+                    }
+                }
+
+                dropStatus.textContent = `Loaded ${videoCount}/3 videos. Starting playback...`;
+
+                if (audio.src) setupCrossfadeAudio();
+
+                const playPromises = videos.map(v => v.src ? v.play() : Promise.resolve());
+                if (audio.src) playPromises.push(audio.play());
+
+                Promise.all(playPromises).then(() => {
+                    dropZone.classList.add('hidden');
+                    document.body.classList.add('playing');
+                    renderer.domElement.requestPointerLock();
+                    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                }).catch(err => {
+                    console.error("Autoplay constraint or stream error:", err);
+                    dropZone.classList.add('hidden');
+                    document.body.classList.add('playing');
+                });
+            }
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Force constant texture updates so browser video frames never stall or drop out visually
+            for (let i = 0; i < videoTextures.length; i++) {
+                if (videos[i].readyState >= videos[i].HAVE_CURRENT_DATA) {
+                    videoTextures[i].needsUpdate = true;
+                }
+            }
+
+            const moveSpeed = 10;
+            const activeSphere = spheres[selectedSphereIndex];
+            if (activeSphere) {
+                if (keysPressed['ArrowLeft']) activeSphere.position.x -= moveSpeed;
+                if (keysPressed['ArrowRight']) activeSphere.position.x += moveSpeed;
+                if (keysPressed['ArrowUp']) activeSphere.position.z -= moveSpeed;
+                if (keysPressed['ArrowDown']) activeSphere.position.z += moveSpeed;
+                if (keysPressed['KeyW']) activeSphere.position.y += moveSpeed;
+                if (keysPressed['KeyS']) activeSphere.position.y -= moveSpeed;
+
+                camera.position.copy(activeSphere.position);
+            }
+
+            const hud = document.getElementById('hud');
+            hud.textContent = 
+                `[1] X:${Math.round(spheres[0].position.x)} Y:${Math.round(spheres[0].position.y)} Z:${Math.round(spheres[0].position.z)}  |  ` +
+                `[2] X:${Math.round(spheres[1].position.x)} Y:${Math.round(spheres[1].position.y)} Z:${Math.round(spheres[1].position.z)}  |  ` +
+                `[3] X:${Math.round(spheres[2].position.x)} Y:${Math.round(spheres[2].position.y)} Z:${Math.round(spheres[2].position.z)}  ` +
+                `👉 Active: [${selectedSphereIndex + 1}]`;
+
+            if (leftGainNode && rightGainNode && audioCtx) {
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                const angle = Math.atan2(forward.x, forward.z);
+                const leftVol = Math.max(0.15, 0.5 * (1 + Math.cos(angle)));
+                const rightVol = Math.max(0.15, 0.5 * (1 - Math.cos(angle)));
+
+                try {
+                    leftGainNode.gain.setTargetAtTime(leftVol, audioCtx.currentTime, 0.03);
+                    rightGainNode.gain.setTargetAtTime(rightVol, audioCtx.currentTime, 0.03);
+                } catch (e) {
+                    leftGainNode.gain.value = leftVol;
+                    rightGainNode.gain.value = rightVol;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

@@ -1,69 +1,46 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ASCII RPG Demo</title>
-<style>
-  body { font-family: monospace; background:#111; color:#eee; display:flex; height:100vh; margin:0; }
-  .column { padding:10px; overflow-y:auto; }
-  #left { width:20%; background:#222; }
-  #middle { width:60%; background:#111; }
-  #right { width:20%; background:#222; }
-  button { background:#333; color:#eee; border:1px solid #555; cursor:pointer; font-family:monospace; }
-  button:hover{background:#444;}
-</style>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <script type="text/javascript" src="script.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <title>gabu lombardi bordados</title>
 </head>
+
 <body>
-
-<div id="left" class="column">
-  <div id="statsPanel">Loading Player Stats...</div>
-  <div id="inventoryPanel">Loading Inventory...</div>
-</div>
-
-<div id="middle" class="column">
-  <div id="messageLog">Initializing Log...</div>
-</div>
-
-<div id="right" class="column">
-  <div id="optionsPanel">Loading Options...</div>
-</div>
-
-<script type="module">
-  // Import ES6 modules
-  import * as utils from './modules/utils.js';
-  import * as playerModule from './modules/player.js';
-  import * as inventoryModule from './modules/inventory.js';
-  import * as uiModule from './modules/ui.js';
-  import * as itemsModule from './modules/items.js';
-  import * as voiceModule from './modules/voice.js';
-
-  // Initialize UI
-  uiModule.initUI();
-
-  // Create player
-  playerModule.createPlayer("Rafael", "Warrior");
-  uiModule.refreshAll(playerModule.player);
-
-  // Add example item
-  const sword = itemsModule.createItem("sword_iron");
-  inventoryModule.addItem(sword);
-  uiModule.addMessage(`You received: ${sword.name}`);
-
-  // Show options menu
-  uiModule.showMenu("Actions", [
-    {label:"Attack", action:()=>uiModule.addMessage("You swing your sword!")},
-    {label:"Heal", action:()=>{
-      playerModule.heal(10);
-      uiModule.refreshAll(playerModule.player);
-      uiModule.addMessage("You healed 10 HP");
-    }},
-    {label:"View Inventory", action:()=>uiModule.addMessage("Inventory: "+inventoryModule.items.map(i=>i.name).join(", "))}
-  ]);
-
-  // Animate welcome text
-  voiceModule.animateText(uiModule.messageLog, "\nPrepare for your ASCII adventure...\n", 30);
-
-</script>
+    <h1>
+        <a href="index.html">gabu lombardi</a>
+    </h1>
+    <table>
+        <tr>
+            <td id="dropdown" onclick="show1()">
+                galeria
+            </td>
+            <td id="dropdown" onclick="show2()">
+                <a href="oficinas.html">oficinas</a>
+            </td>
+            <td>
+                <a href="encomendas.html">encomendas</a>
+            </td>
+        </tr>
+        <tr class="menu1">
+            <td align="left"><a href="bordadolivre.html">bordado livre</a></td>
+        </tr>
+        <tr class="menu1">
+            <td align="left"><a href="pontocruz.html">ponto cruz</a></td>
+        </tr>
+        <tr class="menu1">
+            <td align="left"><a href="bonecos.html">bonecos</a></td>
+        </tr>
+    </table>
+    <div class="embroidery">
+        <img src="intro.gif" id="gallery" name="gallery" />
+    </div>
+    <hr />
+    <!--      <p id="desc">
+         Nina
+         </p> -->
 </body>
+
 </html>

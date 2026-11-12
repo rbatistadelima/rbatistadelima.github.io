@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emoji Battle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            background-color: #222;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #333;
+            overflow: hidden;
+        }
+        
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            color: white;
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #000;
+        }
+        
+        #healthBar {
+            width: 100px;
+            height: 10px;
+            background-color: #555;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+        
+        #healthFill {
+            height: 100%;
+            width: 100%;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+        }
+        
+        #healthText {
+            font-size: 16px;
+        }
+        
+        #score {
+            font-size: 18px;
+            margin-top: 5px;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+        }
+        
+        .joystick {
+            width: 100px;
+            height: 100px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
+        }
+        
+        .joystick-handle {
+            width: 50px;
+            height: 50px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            position: absolute;
+            top: 25px;
+            left: 25px;
+        }
+        
+        #fireButton {
+            width: 80px;
+            height: 80px;
+            background-color: rgba(255, 0, 0, 0.5);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            color: white;
+            touch-action: none;
+        }
+        
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            color: white;
+            text-align: center;
+        }
+        
+        #gameOverScreen {
+            display: none;
+        }
+        
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 0 #000;
+        }
+        
+        p {
+            font-size: 24px;
+            margin-bottom: 30px;
+            max-width: 80%;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 20px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 8px;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        #mobileInstructions {
+            display: none;
+            position: absolute;
+            bottom: 130px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 16px;
+            text-shadow: 1px 1px 0 #000;
+        }
+        
+        @media (max-width: 768px) {
+            #mobileInstructions {
+                display: block;
+            }
+            
+            .joystick {
+                width: 80px;
+                height: 80px;
+            }
+            
+            .joystick-handle {
+                width: 40px;
+                height: 40px;
+                top: 20px;
+                left: 20px;
+            }
+            
+            #fireButton {
+                width: 70px;
+                height: 70px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui">
+            <div id="healthBar">
+                <div id="healthFill"></div>
+            </div>
+            <div id="healthText">100</div>
+            <div id="score">Pontuação: 0</div>
+        </div>
+        
+        <div id="controls">
+            <div class="joystick" id="moveJoystick">
+                <div class="joystick-handle"></div>
+            </div>
+            <div id="fireButton">🔥</div>
+        </div>
+        
+        <div id="mobileInstructions">
+            Use o joystick para mover e o botão vermelho para atirar
+        </div>
+        
+        <div id="startScreen">
+            <h1>Emoji Battle</h1>
+            <p>Use as teclas WASD ou setas para mover, clique para atirar, ou use os controles touch na tela.</p>
+            <p>Destrua as aranhas 🕷 antes que elas te alcancem!</p>
+            <button id="startButton">Iniciar Jogo</button>
+        </div>
+        
+        <div id="gameOverScreen">
+            <h1>Fim de Jogo</h1>
+            <p id="finalScore">Sua pontuação: 0</p>
+            <button id="restartButton">Jogar Novamente</button>
+        </div>
+    </div>
+
+    <script>
+        // Configurações do jogo
+        const config = {
+            playerSpeed: 5,
+            bulletSpeed: 10,
+            enemySpeed: 2,
+            enemySpawnRate: 1000, // ms
+            playerMaxHealth: 100,
+            enemyDamage: 10,
+            playerSize: 50,
+            enemySize: 40,
+            bulletSize: 30,
+            explosionSize: 50
+        };
+
+        // Elementos do DOM
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const healthFill = document.getElementById('healthFill');
+        const healthText = document.getElementById('healthText');
+        const scoreElement = document.getElementById('score');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const finalScoreElement = document.getElementById('finalScore');
+        const moveJoystick = document.getElementById('moveJoystick');
+        const joystickHandle = moveJoystick.querySelector('.joystick-handle');
+        const fireButton = document.getElementById('fireButton');
+
+        // Estado do jogo
+        let gameState = {
+            running: false,
+            player: {
+                x: 0,
+                y: 0,
+                emoji: '😀',
+                health: config.playerMaxHealth,
+                isHit: false,
+                hitTimer: 0,
+                isDead: false
+            },
+            bullets: [],
+            enemies: [],
+            explosions: [],
+            keys: {},
+            mouse: { x: 0, y: 0 },
+            score: 0,
+            lastEnemySpawn: 0,
+            joystickActive: false,
+            joystickVector: { x: 0, y: 0 }
+        };
+
+        // Inicialização do canvas
+        function initCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gameState.player.x = canvas.width / 2;
+            gameState.player.y = canvas.height / 2;
+        }
+
+        // Inicialização dos eventos
+        function initEvents() {
+            // Teclado
+            window.addEventListener('keydown', (e) => {
+                gameState.keys[e.key] = true;
+            });
+            
+            window.addEventListener('keyup', (e) => {
+                gameState.keys[e.key] = false;
+            });
+            
+            // Mouse
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                gameState.mouse.x = e.clientX - rect.left;
+                gameState.mouse.y = e.clientY - rect.top;
+            });
+            
+            canvas.addEventListener('click', (e) => {
+                if (gameState.running && !gameState.player.isDead) {
+                    shoot();
+                }
+            });
+            
+            // Touch para joystick
+            let joystickStartX, joystickStartY;
+            let joystickCenterX, joystickCenterY;
+            
+            moveJoystick.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const rect = moveJoystick.getBoundingClientRect();
+                joystickCenterX = rect.left + rect.width / 2;
+                joystickCenterY = rect.top + rect.height / 2;
+                joystickStartX = touch.clientX;
+                joystickStartY = touch.clientY;
+                gameState.joystickActive = true;
+            });
+            
+            document.addEventListener('touchmove', (e) => {
+                if (!gameState.joystickActive) return;
+                
+                e.preventDefault();
+                const touch = e.touches[0];
+                
+                // Calcular vetor do joystick
+                let deltaX = touch.clientX - joystickCenterX;
+                let deltaY = touch.clientY - joystickCenterY;
+                
+                // Limitar a distância máxima
+                const maxDistance = 40;
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                
+                if (distance > maxDistance) {
+                    deltaX = (deltaX / distance) * maxDistance;
+                    deltaY = (deltaY / distance) * maxDistance;
+                }
+                
+                // Atualizar posição do handle do joystick
+                joystickHandle.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                
+                // Normalizar vetor
+                gameState.joystickVector.x = deltaX / maxDistance;
+                gameState.joystickVector.y = deltaY / maxDistance;
+            });
+            
+            document.addEventListener('touchend', (e) => {
+                if (gameState.joystickActive) {
+                    gameState.joystickActive = false;
+                    joystickHandle.style.transform = 'translate(0, 0)';
+                    gameState.joystickVector.x = 0;
+                    gameState.joystickVector.y = 0;
+                }
+            });
+            
+            // Botão de atirar
+            fireButton.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (gameState.running && !gameState.player.isDead) {
+                    shoot();
+                }
+            });
+            
+            // Botões de início e reinício
+            startButton.addEventListener('click', startGame);
+            restartButton.addEventListener('click', startGame);
+            
+            // Redimensionamento da janela
+            window.addEventListener('resize', initCanvas);
+        }
+
+        // Iniciar o jogo
+        function startGame() {
+            gameState.running = true;
+            gameState.player = {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                emoji: '😀',
+                health: config.playerMaxHealth,
+                isHit: false,
+                hitTimer: 0,
+                isDead: false
+            };
+            gameState.bullets = [];
+            gameState.enemies = [];
+            gameState.explosions = [];
+            gameState.score = 0;
+            gameState.lastEnemySpawn = 0;
+            
+            updateHealthBar();
+            scoreElement.textContent = `Pontuação: ${gameState.score}`;
+            
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            
+            // Iniciar o loop do jogo
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Loop principal do jogo
+        function gameLoop(timestamp) {
+            if (!gameState.running) return;
+            
+            update(timestamp);
+            render();
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Atualização da lógica do jogo
+        function update(timestamp) {
+            // Atualizar jogador
+            updatePlayer();
+            
+            // Atualizar balas
+            updateBullets();
+            
+            // Atualizar inimigos
+            updateEnemies(timestamp);
+            
+            // Atualizar explosões
+            updateExplosions();
+            
+            // Verificar colisões
+            checkCollisions();
+            
+            // Verificar se o jogador morreu
+            if (gameState.player.health <= 0 && !gameState.player.isDead) {
+                gameState.player.isDead = true;
+                gameState.player.emoji = '😭';
+                setTimeout(() => {
+                    gameState.running = false;
+                    finalScoreElement.textContent = `Sua pontuação: ${gameState.score}`;
+                    gameOverScreen.style.display = 'flex';
+                }, 1000);
+            }
+        }
+
+        // Atualizar jogador
+        function updatePlayer() {
+            if (gameState.player.isDead) return;
+            
+            // Movimento baseado no teclado
+            let moveX = 0;
+            let moveY = 0;
+            
+            if (gameState.keys['ArrowLeft'] || gameState.keys['a'] || gameState.keys['A']) {
+                moveX = -1;
+            }
+            if (gameState.keys['ArrowRight'] || gameState.keys['d'] || gameState.keys['D']) {
+                moveX = 1;
+            }
+            if (gameState.keys['ArrowUp'] || gameState.keys['w'] || gameState.keys['W']) {
+                moveY = -1;
+            }
+            if (gameState.keys['ArrowDown'] || gameState.keys['s'] || gameState.keys['S']) {
+                moveY = 1;
+            }
+            
+            // Movimento baseado no joystick (sobrescreve teclado se ativo)
+            if (gameState.joystickActive) {
+                moveX = gameState.joystickVector.x;
+                moveY = gameState.joystickVector.y;
+            }
+            
+            // Normalizar movimento diagonal
+            if (moveX !== 0 && moveY !== 0) {
+                moveX *= 0.7071; // 1 / sqrt(2)
+                moveY *= 0.7071;
+            }
+            
+            // Aplicar movimento
+            gameState.player.x += moveX * config.playerSpeed;
+            gameState.player.y += moveY * config.playerSpeed;
+            
+            // Limitar jogador à tela
+            gameState.player.x = Math.max(config.playerSize/2, Math.min(canvas.width - config.playerSize/2, gameState.player.x));
+            gameState.player.y = Math.max(config.playerSize/2, Math.min(canvas.height - config.playerSize/2, gameState.player.y));
+            
+            // Atualizar temporizador de dano
+            if (gameState.player.isHit) {
+                gameState.player.hitTimer--;
+                if (gameState.player.hitTimer <= 0) {
+                    gameState.player.isHit = false;
+                    if (!gameState.player.isDead) {
+                        gameState.player.emoji = '😀';
+                    }
+                }
+            }
+        }
+
+        // Atualizar balas
+        function updateBullets() {
+            for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+                const bullet = gameState.bullets[i];
+                
+                // Mover bala
+                bullet.x += bullet.vx;
+                bullet.y += bullet.vy;
+                
+                // Verificar se saiu da tela
+                if (bullet.x < -config.bulletSize || bullet.x > canvas.width + config.bulletSize ||
+                    bullet.y < -config.bulletSize || bullet.y > canvas.height + config.bulletSize) {
+                    gameState.bullets.splice(i, 1);
+                }
+                
+                // Atualizar animação de espelhamento
+                bullet.animationTimer++;
+                if (bullet.animationTimer >= 10) {
+                    bullet.flipped = !bullet.flipped;
+                    bullet.animationTimer = 0;
+                }
+            }
+        }
+
+        // Atualizar inimigos
+        function updateEnemies(timestamp) {
+            // Spawn de inimigos
+            if (timestamp - gameState.lastEnemySpawn > config.enemySpawnRate) {
+                spawnEnemy();
+                gameState.lastEnemySpawn = timestamp;
+            }
+            
+            // Atualizar inimigos existentes
+            for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+                const enemy = gameState.enemies[i];
+                
+                // Calcular direção para o jogador
+                const dx = gameState.player.x - enemy.x;
+                const dy = gameState.player.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // Mover em direção ao jogador
+                if (distance > 0) {
+                    enemy.x += (dx / distance) * config.enemySpeed;
+                    enemy.y += (dy / distance) * config.enemySpeed;
+                }
+                
+                // Calcular rotação visual (apenas para efeito visual)
+                enemy.rotation = Math.atan2(dy, dx);
+            }
+        }
+
+        // Atualizar explosões
+        function updateExplosions() {
+            for (let i = gameState.explosions.length - 1; i >= 0; i--) {
+                const explosion = gameState.explosions[i];
+                explosion.timer--;
+                
+                if (explosion.timer <= 0) {
+                    gameState.explosions.splice(i, 1);
+                }
+            }
+        }
+
+        // Verificar colisões
+        function checkCollisions() {
+            // Colisão entre balas e inimigos
+            for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+                const bullet = gameState.bullets[i];
+                
+                for (let j = gameState.enemies.length - 1; j >= 0; j--) {
+                    const enemy = gameState.enemies[j];
+                    
+                    const dx = bullet.x - enemy.x;
+                    const dy = bullet.y - enemy.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < (config.bulletSize + config.enemySize) / 2) {
+                        // Criar explosão
+                        gameState.explosions.push({
+                            x: enemy.x,
+                            y: enemy.y,
+                            timer: 20,
+                            size: config.explosionSize
+                        });
+                        
+                        // Remover inimigo e bala
+                        gameState.enemies.splice(j, 1);
+                        gameState.bullets.splice(i, 1);
+                        
+                        // Adicionar pontuação
+                        gameState.score += 10;
+                        scoreElement.textContent = `Pontuação: ${gameState.score}`;
+                        
+                        break;
+                    }
+                }
+            }
+            
+            // Colisão entre jogador e inimigos
+            if (!gameState.player.isDead && !gameState.player.isHit) {
+                for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+                    const enemy = gameState.enemies[i];
+                    
+                    const dx = gameState.player.x - enemy.x;
+                    const dy = gameState.player.y - enemy.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < (config.playerSize + config.enemySize) / 2) {
+                        // Aplicar dano
+                        gameState.player.health -= config.enemyDamage;
+                        gameState.player.isHit = true;
+                        gameState.player.hitTimer = 60; // ~1 segundo a 60fps
+                        gameState.player.emoji = '😖';
+                        
+                        updateHealthBar();
+                        
+                        // Remover inimigo
+                        gameState.enemies.splice(i, 1);
+                        
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Atirar
+        function shoot() {
+            if (gameState.player.isDead) return;
+            
+            // Calcular direção do tiro (em direção ao mouse)
+            const dx = gameState.mouse.x - gameState.player.x;
+            const dy = gameState.mouse.y - gameState.player.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Normalizar direção
+            const vx = (dx / distance) * config.bulletSpeed;
+            const vy = (dy / distance) * config.bulletSpeed;
+            
+            // Criar bala
+            gameState.bullets.push({
+                x: gameState.player.x,
+                y: gameState.player.y,
+                vx: vx,
+                vy: vy,
+                flipped: false,
+                animationTimer: 0
+            });
+            
+            // Mudar emoji do jogador
+            gameState.player.emoji = '🤫';
+            
+            // Voltar ao emoji normal após um curto período
+            setTimeout(() => {
+                if (!gameState.player.isHit && !gameState.player.isDead) {
+                    gameState.player.emoji = '😀';
+                }
+            }, 200);
+        }
+
+        // Spawn de inimigo
+        function spawnEnemy() {
+            // Escolher um canto aleatório
+            const corners = [
+                { x: 0, y: 0 },
+                { x: canvas.width, y: 0 },
+                { x: 0, y: canvas.height },
+                { x: canvas.width, y: canvas.height }
+            ];
+            
+            const corner = corners[Math.floor(Math.random() * corners.length)];
+            
+            gameState.enemies.push({
+                x: corner.x,
+                y: corner.y,
+                rotation: 0
+            });
+        }
+
+        // Atualizar barra de vida
+        function updateHealthBar() {
+            const healthPercent = (gameState.player.health / config.playerMaxHealth) * 100;
+            healthFill.style.width = `${healthPercent}%`;
+            healthText.textContent = gameState.player.health;
+            
+            // Mudar cor conforme a vida diminui
+            if (healthPercent > 50) {
+                healthFill.style.backgroundColor = '#4CAF50';
+            } else if (healthPercent > 25) {
+                healthFill.style.backgroundColor = '#FFC107';
+            } else {
+                healthFill.style.backgroundColor = '#F44336';
+            }
+        }
+
+        // Renderização
+        function render() {
+            // Limpar canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Desenhar balas
+            gameState.bullets.forEach(bullet => {
+                ctx.save();
+                ctx.translate(bullet.x, bullet.y);
+                
+                // Aplicar espelhamento horizontal
+                if (bullet.flipped) {
+                    ctx.scale(-1, 1);
+                }
+                
+                // Sombra
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillText('🔥', 2, 2);
+                
+                // Bala
+                ctx.fillStyle = 'white';
+                ctx.fillText('🔥', 0, 0);
+                
+                ctx.restore();
+            });
+            
+            // Desenhar inimigos
+            gameState.enemies.forEach(enemy => {
+                // Sombra
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillText('🕷', enemy.x + 2, enemy.y + 2);
+                
+                // Inimigo
+                ctx.fillStyle = 'white';
+                ctx.fillText('🕷', enemy.x, enemy.y);
+            });
+            
+            // Desenhar explosões
+            gameState.explosions.forEach(explosion => {
+                const alpha = explosion.timer / 20;
+                
+                // Sombra
+                ctx.fillStyle = `rgba(0, 0, 0, ${alpha * 0.5})`;
+                ctx.fillText('💥', explosion.x + 2, explosion.y + 2);
+                
+                // Explosão
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.fillText('💥', explosion.x, explosion.y);
+            });
+            
+            // Desenhar jogador
+            if (!gameState.player.isDead) {
+                // Sombra
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillText(gameState.player.emoji, gameState.player.x + 2, gameState.player.y + 2);
+                
+                // Jogador
+                ctx.fillStyle = 'white';
+                ctx.fillText(gameState.player.emoji, gameState.player.x, gameState.player.y);
+            } else {
+                // Jogador morto
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillText(gameState.player.emoji, gameState.player.x + 2, gameState.player.y + 2);
+                
+                ctx.fillStyle = 'white';
+                ctx.fillText(gameState.player.emoji, gameState.player.x, gameState.player.y);
+            }
+        }
+
+        // Inicialização do jogo
+        window.onload = function() {
+            initCanvas();
+            initEvents();
+        };
+    </script>
+</body>
+</html>

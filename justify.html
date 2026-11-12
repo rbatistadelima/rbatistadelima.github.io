@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Text Justifier with Real Spaces</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #111;
+      color: #f4f4f4;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+    }
+
+    .panel {
+      padding: 24px;
+      background: #1b1b1b;
+      border-right: 1px solid #333;
+    }
+
+    h1 {
+      margin: 0 0 16px;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    label {
+      display: block;
+      margin: 16px 0 6px;
+      font-size: 13px;
+      color: #bbb;
+    }
+
+    textarea, input, button {
+      width: 100%;
+      border: 1px solid #444;
+      border-radius: 10px;
+      background: #0d0d0d;
+      color: #fff;
+      padding: 10px;
+      font: inherit;
+    }
+
+    textarea {
+      height: 240px;
+      resize: vertical;
+      line-height: 1.35;
+    }
+
+    button {
+      margin-top: 18px;
+      background: #f4f4f4;
+      color: #111;
+      font-weight: 700;
+      cursor: pointer;
+      border: 0;
+    }
+
+    .stage-wrap {
+      padding: 32px;
+      display: grid;
+      place-items: center;
+      overflow: auto;
+    }
+
+    .stage {
+      width: min(900px, 100%);
+      min-height: 520px;
+      padding: 48px;
+      border-radius: 18px;
+      background: #f2efe8;
+      color: #111;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 20px 80px rgba(0,0,0,.35);
+    }
+
+    #output {
+      font-family: "Arial Black", Impact, sans-serif;
+      font-weight: 900;
+      font-size: 64px;
+      line-height: 1.05;
+      text-transform: uppercase;
+      white-space: pre;
+      text-align: left;
+    }
+
+    .line {
+      display: block;
+      white-space: pre;
+    }
+
+    .small {
+      margin-top: 12px;
+      color: #888;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+  </style>
+</head>
+<body>
+  <aside class="panel">
+    <h1>Justify with Real Spaces</h1>
+
+    <label for="textInput">One phrase per line</label>
+    <textarea id="textInput">THE WORLD IS
+A BEAUTIFUL PLACE
+BUT ALSO
+A STRANGE ONE</textarea>
+
+    <label for="spacingMode">Spacing mode</label>
+    <select id="spacingMode">
+      <option value="letters">Between letters</option>
+      <option value="words">Between words</option>
+    </select>
+
+    <label for="fontSize">Font size</label>
+    <input id="fontSize" type="range" min="24" max="140" value="64" />
+
+    <label for="maxSpaces">Maximum spaces per gap</label>
+    <input id="maxSpaces" type="range" min="1" max="12" value="8" />
+
+    <button id="copyText">Copy spaced text</button>
+    <button id="copyHtml">Copy HTML with &amp;nbsp;</button>
+
+    <p class="small">
+      This version does not use CSS letter-spacing or word-spacing. It inserts real spaces between characters, then shows them with white-space: pre.
+    </p>
+  </aside>
+
+  <main class="stage-wrap">
+    <section class="stage">
+      <div id="output"></div>
+    </section>
+  </main>
+
+  <script>
+    const textInput = document.getElementById('textInput');
+    const output = document.getElementById('output');
+    const fontSize = document.getElementById('fontSize');
+    const maxSpaces = document.getElementById('maxSpaces');
+    const spacingMode = document.getElementById('spacingMode');
+    const copyText = document.getElementById('copyText');
+    const copyHtml = document.getElementById('copyHtml');
+
+    function getWidth(text) {
+      const span = document.createElement('span');
+      span.textContent = text;
+      span.style.position = 'absolute';
+      span.style.visibility = 'hidden';
+      span.style.whiteSpace = 'pre';
+      span.style.fontFamily = 'Arial Black, Impact, sans-serif';
+      span.style.fontWeight = '900';
+      span.style.fontSize = fontSize.value + 'px';
+      span.style.textTransform = 'uppercase';
+      document.body.appendChild(span);
+      const width = span.getBoundingClientRect().width;
+      span.remove();
+      return width;
+    }
+
+    function addSpacesToMatch(line, targetWidth) {
+      const limit = Number(maxSpaces.value);
+
+      if (spacingMode.value === 'words') {
+        const parts = line.split(' ');
+        if (parts.length <= 1) return line;
+
+        let best = line;
+
+        for (let spaces = 1; spaces <= limit; spaces++) {
+          const candidate = parts.join(' '.repeat(spaces));
+
+          if (getWidth(candidate) <= targetWidth) {
+            best = candidate;
+          } else {
+            break;
+          }
+        }
+
+        return best;
+      }
+
+      const chars = line.split('');
+      if (chars.length <= 1) return line;
+
+      let best = line;
+
+      for (let spaces = 1; spaces <= limit; spaces++) {
+        const candidate = chars.join(' '.repeat(spaces));
+
+        if (getWidth(candidate) <= targetWidth) {
+          best = candidate;
+        } else {
+          break;
+        }
+      }
+
+      return best;
+    }
+
+    function render() {
+      output.style.fontSize = fontSize.value + 'px';
+      output.innerHTML = '';
+
+      const lines = textInput.value
+        .split(String.fromCharCode(10))
+        .map(line => line.trim())
+        .filter(Boolean);
+
+      if (!lines.length) return;
+
+      const targetWidth = Math.max(...lines.map(getWidth));
+
+      lines.forEach(line => {
+        const div = document.createElement('div');
+        div.className = 'line';
+        div.textContent = addSpacesToMatch(line.toUpperCase(), targetWidth);
+        output.appendChild(div);
+      });
+    }
+
+    copyText.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(output.innerText);
+      copyText.textContent = 'Copied text!';
+      setTimeout(() => copyText.textContent = 'Copy spaced text', 900);
+    });
+
+    copyHtml.addEventListener('click', async () => {
+      const html = output.innerText.replace(/ /g, '&nbsp;').replace(new RegExp(String.fromCharCode(10), 'g'), '<br>');
+      await navigator.clipboard.writeText(html);
+      copyHtml.textContent = 'Copied HTML!';
+      setTimeout(() => copyHtml.textContent = 'Copy HTML with &nbsp;', 900);
+    });
+
+    textInput.addEventListener('input', render);
+    fontSize.addEventListener('input', render);
+    maxSpaces.addEventListener('input', render);
+    spacingMode.addEventListener('input', render);
+
+    render();
+  </script>
+</body>
+</html>

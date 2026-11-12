@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+  <title>VoiceAI Pro · Conversational Voice Assistant</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 32px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: fit-content;
+    }
+
+    .card-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px 24px;
+      color: white;
+    }
+
+    .card-header h2 {
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-header p {
+      font-size: 0.85rem;
+      opacity: 0.9;
+      margin-top: 5px;
+    }
+
+    .control-panel {
+      padding: 20px 24px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #e9ecef;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: none;
+      padding: 10px 20px;
+      border-radius: 50px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #218838;
+      transform: translateY(-1px);
+    }
+
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #c82333;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #5a6268;
+    }
+
+    .btn-info {
+      background: #17a2b8;
+      color: white;
+    }
+
+    .btn-info:hover {
+      background: #138496;
+    }
+
+    .status-area {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      background: white;
+      padding: 6px 16px;
+      border-radius: 50px;
+    }
+
+    .led {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #adb5bd;
+      transition: all 0.2s;
+    }
+
+    .led.active {
+      background: #28a745;
+      animation: pulse 1.2s infinite;
+    }
+
+    .led.speaking {
+      background: #ff9800;
+      animation: pulse 0.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1.2); }
+    }
+
+    textarea {
+      width: 100%;
+      padding: 16px;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      border: 2px solid #e9ecef;
+      border-radius: 16px;
+      resize: vertical;
+      outline: none;
+      font-family: inherit;
+    }
+
+    textarea:focus {
+      border-color: #667eea;
+    }
+
+    .editor-section, .chat-section {
+      padding: 24px;
+    }
+
+    .chat-messages {
+      height: 400px;
+      overflow-y: auto;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 16px;
+      margin-bottom: 16px;
+    }
+
+    .message {
+      margin-bottom: 16px;
+      display: flex;
+      gap: 12px;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message.user {
+      justify-content: flex-end;
+    }
+
+    .message.bot {
+      justify-content: flex-start;
+    }
+
+    .message-content {
+      max-width: 70%;
+      padding: 10px 16px;
+      border-radius: 18px;
+      word-wrap: break-word;
+    }
+
+    .message.user .message-content {
+      background: #667eea;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.bot .message-content {
+      background: white;
+      color: #333;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .typing-indicator {
+      display: flex;
+      gap: 4px;
+      padding: 10px 16px;
+      background: white;
+      border-radius: 18px;
+      width: fit-content;
+    }
+
+    .typing-indicator span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #999;
+      animation: typing 1.4s infinite;
+    }
+
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typing {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-10px); opacity: 1; }
+    }
+
+    .chat-input-area {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e9ecef;
+      border-radius: 50px;
+      outline: none;
+      font-size: 0.9rem;
+    }
+
+    .chat-input:focus {
+      border-color: #667eea;
+    }
+
+    .stats {
+      display: flex;
+      gap: 12px;
+      font-size: 0.75rem;
+      color: #6c757d;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      background: #e9ecef;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    .auto-send-badge {
+      background: #28a745;
+      color: white;
+      animation: glow 2s infinite;
+    }
+
+    @keyframes glow {
+      0%, 100% { opacity: 0.7; }
+      50% { opacity: 1; }
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      transition: transform 0.3s ease;
+      z-index: 1000;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .voice-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      transition: all 0.2s;
+    }
+
+    .voice-btn:hover {
+      background: #5a67d8;
+      transform: scale(1.05);
+    }
+
+    .voice-btn:active {
+      transform: scale(0.95);
+    }
+
+    @media (max-width: 640px) {
+      .toast { white-space: normal; max-width: 90%; text-align: center; }
+      .btn { padding: 8px 16px; font-size: 0.8rem; }
+    }
+
+    .error-message {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- Voice to Text Section -->
+  <div class="card">
+    <div class="card-header">
+      <h2>🎙️ Voice to Text</h2>
+      <p>Speak naturally → Auto-sends after 1.5s pause</p>
+    </div>
+    <div class="control-panel">
+      <div class="button-group">
+        <button id="startBtn" class="btn btn-primary">🎤 Start Listening</button>
+        <button id="stopBtn" class="btn btn-danger" disabled>⏹️ Stop</button>
+      </div>
+      <div class="status-area">
+        <span class="led" id="statusLed"></span>
+        <span id="statusText">Idle</span>
+      </div>
+    </div>
+    <div class="editor-section">
+      <textarea id="transcript" rows="8" placeholder="Your spoken words will appear here... Click 'Start Listening' and allow microphone access."></textarea>
+      <div class="stats">
+        <span class="badge" id="wordCount">0 words</span>
+        <span class="badge" id="charCount">0 characters</span>
+        <span class="badge auto-send-badge" id="autoSendStatus">⏱️ Auto-send: ON</span>
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 12px;">
+        <button id="copyBtn" class="btn btn-secondary" style="flex: 1;">📋 Copy</button>
+        <button id="clearBtn" class="btn btn-secondary" style="flex: 1;">🗑️ Clear</button>
+        <button id="toggleAutoSendBtn" class="btn btn-info" style="flex: 1;">⏸️ Pause Auto-send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chatbot Section -->
+  <div class="card">
+    <div class="card-header">
+      <h2>🤖 AI Assistant</h2>
+      <p>Auto-speaks responses · Interrupt by speaking</p>
+    </div>
+    <div class="chat-section">
+      <div class="chat-messages" id="chatMessages">
+        <div class="message bot">
+          <div class="message-content">
+            👋 Hello! I'm your AI assistant. <strong>Just start speaking</strong> - I'll auto-detect pauses and respond!<br><br>
+            🎯 <strong>Features:</strong><br>
+            • Auto-send after 1.5s pause<br>
+            • Interrupt me by speaking<br>
+            • Natural conversation flow
+          </div>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chatInput" class="chat-input" placeholder="Type your message here...">
+        <button id="sendBtn" class="voice-btn" title="Send message">📤</button>
+        <button id="voiceInputBtn" class="voice-btn" title="Voice input for chat">🎙️</button>
+        <button id="stopTtsBtn" class="voice-btn" title="Stop speaking">⏹️</button>
+      </div>
+      <div class="stats">
+        <span class="badge" id="ttsStatus">🔊 TTS Ready</span>
+        <span class="badge" id="interruptStatus">⚡ Interrupt enabled</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast">✨ Ready!</div>
+
+<script>
+  // ============ SPEECH RECOGNITION (Voice to Text) ============
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let isListening = false;
+  let finalTranscript = '';
+  let interimTranscript = '';
+  let permissionGranted = false;
+  let autoRestartEnabled = false;
+  let restartTimeout = null;
+  
+  // Auto-send variables
+  let autoSendEnabled = true;
+  let autoSendTimeout = null;
+  const AUTO_SEND_DELAY = 1500;
+
+  // DOM elements
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const transcriptArea = document.getElementById('transcript');
+  const statusLed = document.getElementById('statusLed');
+  const statusText = document.getElementById('statusText');
+  const wordCountSpan = document.getElementById('wordCount');
+  const charCountSpan = document.getElementById('charCount');
+  const copyBtn = document.getElementById('copyBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const toggleAutoSendBtn = document.getElementById('toggleAutoSendBtn');
+  const autoSendStatus = document.getElementById('autoSendStatus');
+  const toast = document.getElementById('toast');
+
+  // Chat elements
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInput = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const voiceInputBtn = document.getElementById('voiceInputBtn');
+  const stopTtsBtn = document.getElementById('stopTtsBtn');
+  const ttsStatus = document.getElementById('ttsStatus');
+  const interruptStatus = document.getElementById('interruptStatus');
+
+  // TTS variables
+  let currentUtterance = null;
+  let isSpeaking = false;
+
+  // Simple local responses (fallback when API fails)
+  const localResponses = {
+    "hello": "Hello! How can I help you today?",
+    "hi": "Hi there! Nice to meet you.",
+    "how are you": "I'm doing great, thank you for asking! How can I assist you?",
+    "what is your name": "I'm VoiceAI, your personal voice assistant!",
+    "help": "I can answer questions, have conversations, and respond to your voice. Just speak naturally!",
+    "weather": "I can't check live weather, but you can ask me other questions!",
+    "time": "I don't have access to the current time, but your device does!",
+    "bye": "Goodbye! Have a great day!",
+    "thank you": "You're very welcome! Happy to help.",
+    "default": "That's interesting! Tell me more about that."
+  };
+
+  function getLocalResponse(message) {
+    const lowerMsg = message.toLowerCase();
+    for (const [key, response] of Object.entries(localResponses)) {
+      if (lowerMsg.includes(key)) {
+        return response;
+      }
+    }
+    return localResponses.default;
+  }
+
+  // Update display function
+  function updateDisplay() {
+    let displayText = finalTranscript;
+    if (isListening && interimTranscript) {
+      displayText = finalTranscript + (finalTranscript && !finalTranscript.endsWith(' ') ? ' ' : '') + interimTranscript;
+    }
+    transcriptArea.value = displayText;
+    
+    const text = displayText.trim();
+    const words = text ? text.split(/\s+/).length : 0;
+    const chars = text.length;
+    wordCountSpan.textContent = `${words} words`;
+    charCountSpan.textContent = `${chars} chars`;
+  }
+
+  function commitInterim() {
+    if (interimTranscript.trim()) {
+      if (finalTranscript && !finalTranscript.endsWith(' ')) {
+        finalTranscript += ' ';
+      }
+      finalTranscript += interimTranscript;
+      interimTranscript = '';
+      updateDisplay();
+      triggerAutoSend();
+    }
+  }
+  
+  function triggerAutoSend() {
+    if (!autoSendEnabled) return;
+    if (!finalTranscript.trim()) return;
+    
+    if (autoSendTimeout) {
+      clearTimeout(autoSendTimeout);
+    }
+    
+    autoSendTimeout = setTimeout(() => {
+      const textToSend = finalTranscript.trim();
+      if (textToSend) {
+        sendToChatbot(textToSend);
+        showToast('🎤 Auto-sent after pause', 1000);
+      }
+    }, AUTO_SEND_DELAY);
+  }
+  
+  function cancelAutoSend() {
+    if (autoSendTimeout) {
+      clearTimeout(autoSendTimeout);
+      autoSendTimeout = null;
+    }
+  }
+  
+  function toggleAutoSend() {
+    autoSendEnabled = !autoSendEnabled;
+    if (autoSendEnabled) {
+      autoSendStatus.textContent = '⏱️ Auto-send: ON';
+      autoSendStatus.style.background = '#28a745';
+      toggleAutoSendBtn.innerHTML = '⏸️ Pause Auto-send';
+      showToast('Auto-send enabled', 1000);
+    } else {
+      autoSendStatus.textContent = '⏸️ Auto-send: OFF';
+      autoSendStatus.style.background = '#6c757d';
+      toggleAutoSendBtn.innerHTML = '▶️ Resume Auto-send';
+      cancelAutoSend();
+      showToast('Auto-send disabled', 1000);
+    }
+  }
+
+  function showToast(message, duration = 2000) {
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, duration);
+  }
+
+  function setListening(state) {
+    isListening = state;
+    if (state) {
+      statusLed.classList.add('active');
+      statusText.textContent = 'Listening...';
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+    } else {
+      statusLed.classList.remove('active');
+      statusText.textContent = 'Idle';
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      cancelAutoSend();
+    }
+  }
+
+  // Interrupt TTS when speaking
+  function interruptTTS() {
+    if (isSpeaking && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      if (currentUtterance) {
+        currentUtterance = null;
+      }
+      isSpeaking = false;
+      ttsStatus.textContent = '🔊 Interrupted!';
+      ttsStatus.style.background = '#ff9800';
+      setTimeout(() => {
+        ttsStatus.textContent = '🔊 TTS Ready';
+        ttsStatus.style.background = '#e9ecef';
+        ttsStatus.style.color = '#6c757d';
+      }, 1000);
+    }
+  }
+  
+  function setupRecognitionHandlers() {
+    if (!recognition) return;
+
+    recognition.onresult = (event) => {
+      interruptTTS();
+      
+      let newInterim = '';
+      let newFinal = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const transcript = result[0].transcript;
+        
+        if (result.isFinal) {
+          newFinal += transcript;
+        } else {
+          newInterim += transcript;
+        }
+      }
+
+      if (newFinal) {
+        if (finalTranscript && !finalTranscript.endsWith(' ')) {
+          finalTranscript += ' ';
+        }
+        finalTranscript += newFinal;
+        interimTranscript = newInterim;
+        updateDisplay();
+        triggerAutoSend();
+      } else {
+        if (newInterim) {
+          cancelAutoSend();
+        }
+        interimTranscript = newInterim;
+        updateDisplay();
+      }
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        showToast(`Error: ${event.error}`, 2000);
+      }
+      if (event.error === 'not-allowed') {
+        permissionGranted = false;
+        autoRestartEnabled = false;
+        setListening(false);
+      }
+    };
+
+    recognition.onend = () => {
+      if (interimTranscript) {
+        commitInterim();
+      }
+      
+      if (autoRestartEnabled && permissionGranted) {
+        if (restartTimeout) clearTimeout(restartTimeout);
+        restartTimeout = setTimeout(() => {
+          if (autoRestartEnabled && permissionGranted && !isListening) {
+            try {
+              recognition = new SpeechRecognition();
+              setupRecognitionHandlers();
+              recognition.continuous = true;
+              recognition.interimResults = true;
+              recognition.lang = 'en-US';
+              recognition.start();
+              isListening = true;
+              statusLed.classList.add('active');
+              statusText.textContent = 'Listening...';
+            } catch (error) {
+              autoRestartEnabled = false;
+              setListening(false);
+            }
+          }
+        }, 300);
+      } else {
+        setListening(false);
+      }
+    };
+  }
+
+  async function requestMicrophonePermission() {
+    if (permissionGranted) return true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      permissionGranted = true;
+      return true;
+    } catch (error) {
+      permissionGranted = false;
+      showToast('Microphone permission denied', 3000);
+      return false;
+    }
+  }
+
+  async function startListening() {
+    if (!SpeechRecognition) {
+      showToast('Speech recognition not supported', 2000);
+      return;
+    }
+
+    if (isListening) return;
+
+    const hasPermission = await requestMicrophonePermission();
+    if (!hasPermission) return;
+
+    recognition = new SpeechRecognition();
+    setupRecognitionHandlers();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    try {
+      recognition.start();
+      autoRestartEnabled = true;
+      setListening(true);
+      showToast('Listening started! Auto-send after 1.5s pause', 2500);
+    } catch (error) {
+      showToast('Failed to start', 2000);
+    }
+  }
+
+  function stopListening() {
+    autoRestartEnabled = false;
+    cancelAutoSend();
+    if (restartTimeout) clearTimeout(restartTimeout);
+    if (recognition && isListening) {
+      recognition.stop();
+    }
+    commitInterim();
+    setListening(false);
+  }
+
+  function clearAll() {
+    if (isListening) {
+      showToast('Stop listening first', 1500);
+      return;
+    }
+    finalTranscript = '';
+    interimTranscript = '';
+    cancelAutoSend();
+    updateDisplay();
+    showToast('Cleared', 1200);
+  }
+
+  function copyToClipboard() {
+    const text = transcriptArea.value.trim();
+    if (!text) {
+      showToast('Nothing to copy', 1200);
+      return;
+    }
+    navigator.clipboard.writeText(text);
+    showToast('Copied!', 1500);
+  }
+
+  // ============ CHATBOT WITH MULTIPLE API FALLBACKS ============
+  
+  async function queryOpenRouter(message) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'VoiceAI Assistant'
+        },
+        body: JSON.stringify({
+          model: 'nousresearch/hermes-3-llama-3.2-3b:free',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful, friendly AI assistant. Keep responses concise (2-3 sentences max).'
+            },
+            {
+              role: 'user',
+              content: message
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 300
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data.choices[0].message.content;
+    } catch (error) {
+      console.error('OpenRouter error:', error);
+      return null;
+    }
+  }
+  
+  async function queryPolinations(message) {
+    try {
+      const response = await fetch('https://api.polinations.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'polinations',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful, friendly AI assistant. Keep responses concise.'
+            },
+            {
+              role: 'user',
+              content: message
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 300
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data.choices[0].message.content;
+    } catch (error) {
+      console.error('Polinations error:', error);
+      return null;
+    }
+  }
+  
+  async function sendToChatbot(message) {
+    if (!message.trim()) return;
+    
+    cancelAutoSend();
+    
+    // Clear transcript after sending
+    finalTranscript = '';
+    interimTranscript = '';
+    updateDisplay();
+    
+    addMessageToChat('user', message);
+    chatInput.value = '';
+    showTypingIndicator();
+    
+    let botReply = null;
+    
+    // Try OpenRouter first (free, good CORS)
+    botReply = await queryOpenRouter(message);
+    
+    // If OpenRouter fails, try Polinations
+    if (!botReply) {
+      botReply = await queryPolinations(message);
+    }
+    
+    // If both APIs fail, use local responses
+    if (!botReply) {
+      botReply = getLocalResponse(message);
+      addMessageToChat('bot', botReply + " (offline mode)");
+      speakText(botReply);
+      showToast('Using offline responses - API unavailable', 2000);
+    } else {
+      removeTypingIndicator();
+      addMessageToChat('bot', botReply);
+      speakText(botReply);
+    }
+  }
+  
+  function addMessageToChat(sender, text) {
+    removeTypingIndicator();
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${sender}`;
+    messageDiv.innerHTML = `<div class="message-content">${escapeHtml(text)}</div>`;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+  
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  
+  let typingIndicator = null;
+  
+  function showTypingIndicator() {
+    removeTypingIndicator();
+    typingIndicator = document.createElement('div');
+    typingIndicator.className = 'message bot';
+    typingIndicator.innerHTML = `
+      <div class="typing-indicator">
+        <span></span><span></span><span></span>
+      </div>
+    `;
+    chatMessages.appendChild(typingIndicator);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+  
+  function removeTypingIndicator() {
+    if (typingIndicator) {
+      typingIndicator.remove();
+      typingIndicator = null;
+    }
+  }
+  
+  // ============ TEXT TO SPEECH ============
+  
+  function speakText(text) {
+    if (currentUtterance) {
+      window.speechSynthesis.cancel();
+    }
+    
+    const cleanText = text.replace(/[^\w\s.,!?]/g, '');
+    
+    currentUtterance = new SpeechSynthesisUtterance(cleanText);
+    currentUtterance.lang = 'en-US';
+    currentUtterance.rate = 0.95;
+    currentUtterance.pitch = 1.0;
+    currentUtterance.volume = 1.0;
+    
+    currentUtterance.onstart = () => {
+      isSpeaking = true;
+      ttsStatus.textContent = '🔊 Speaking...';
+      ttsStatus.style.background = '#17a2b8';
+      ttsStatus.style.color = 'white';
+      statusLed.classList.add('speaking');
+    };
+    
+    currentUtterance.onend = () => {
+      isSpeaking = false;
+      ttsStatus.textContent = '🔊 TTS Ready';
+      ttsStatus.style.background = '#e9ecef';
+      ttsStatus.style.color = '#6c757d';
+      statusLed.classList.remove('speaking');
+      currentUtterance = null;
+    };
+    
+    currentUtterance.onerror = () => {
+      isSpeaking = false;
+      ttsStatus.textContent = '🔊 TTS Ready';
+      ttsStatus.style.background = '#e9ecef';
+      ttsStatus.style.color = '#6c757d';
+      statusLed.classList.remove('speaking');
+      currentUtterance = null;
+    };
+    
+    window.speechSynthesis.speak(currentUtterance);
+  }
+  
+  function stopSpeaking() {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      if (currentUtterance) {
+        currentUtterance = null;
+      }
+      isSpeaking = false;
+      ttsStatus.textContent = '🔊 Stopped';
+      statusLed.classList.remove('speaking');
+      setTimeout(() => {
+        ttsStatus.textContent = '🔊 TTS Ready';
+      }, 1000);
+      showToast('Speech stopped', 1000);
+    }
+  }
+  
+  // ============ VOICE INPUT FOR CHAT ============
+  
+  let chatRecognition = null;
+  
+  function startChatVoiceInput() {
+    if (!SpeechRecognition) {
+      showToast('Voice input not supported', 2000);
+      return;
+    }
+    
+    interruptTTS();
+    
+    if (chatRecognition) {
+      chatRecognition.stop();
+    }
+    
+    chatRecognition = new SpeechRecognition();
+    chatRecognition.continuous = false;
+    chatRecognition.interimResults = false;
+    chatRecognition.lang = 'en-US';
+    
+    chatRecognition.onstart = () => {
+      showToast('🎙️ Speak for chat...', 1000);
+      voiceInputBtn.style.background = '#28a745';
+    };
+    
+    chatRecognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      chatInput.value = transcript;
+      sendToChatbot(transcript);
+    };
+    
+    chatRecognition.onerror = (event) => {
+      showToast('Voice input error: ' + event.error, 2000);
+    };
+    
+    chatRecognition.onend = () => {
+      voiceInputBtn.style.background = '#667eea';
+    };
+    
+    chatRecognition.start();
+  }
+  
+  // ============ EVENT LISTENERS ============
+  
+  startBtn.addEventListener('click', startListening);
+  stopBtn.addEventListener('click', stopListening);
+  copyBtn.addEventListener('click', copyToClipboard);
+  clearBtn.addEventListener('click', clearAll);
+  toggleAutoSendBtn.addEventListener('click', toggleAutoSend);
+  
+  sendBtn.addEventListener('click', () => {
+    const message = chatInput.value.trim();
+    if (message) {
+      cancelAutoSend();
+      sendToChatbot(message);
+    }
+  });
+  
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      const message = chatInput.value.trim();
+      if (message) {
+        cancelAutoSend();
+        sendToChatbot(message);
+      }
+    }
+  });
+  
+  voiceInputBtn.addEventListener('click', startChatVoiceInput);
+  stopTtsBtn.addEventListener('click', stopSpeaking);
+  
+  // Initialize
+  if (!SpeechRecognition) {
+    startBtn.disabled = true;
+    transcriptArea.placeholder = 'Speech recognition not supported in this browser';
+  }
+  
+  showToast('🎙️ Voice AI Ready! Multiple API fallbacks enabled', 3000);
+</script>
+</body>
+</html>

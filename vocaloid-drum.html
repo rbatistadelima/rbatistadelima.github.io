@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocaloid Web App - Drum Machine Edition</title>
+    <style>
+        :root {
+            --primary: #ff4081;
+            --secondary: #3f51b5;
+            --dark: #2c2c54;
+            --light: #f5f6fa;
+            --accent: #00b894;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--dark);
+            color: var(--light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .logo-icon {
+            font-size: 2rem;
+        }
+        
+        .container {
+            display: flex;
+            flex: 1;
+            padding: 1rem;
+            gap: 1rem;
+        }
+        
+        .panel {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .control-panel {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .drum-panel {
+            height: auto;
+        }
+        
+        h2 {
+            margin-bottom: 1rem;
+            color: var(--primary);
+            font-size: 1.2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 0.5rem;
+        }
+        
+        .parameter-group {
+            margin-bottom: 1rem;
+        }
+        
+        .parameter {
+            margin-bottom: 0.8rem;
+        }
+        
+        .parameter label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.3rem;
+            font-size: 0.9rem;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+        }
+        
+        .value-display {
+            width: 30px;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+        
+        .lyrics-editor {
+            flex: 1;
+            background-color: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            padding: 1rem;
+            font-family: monospace;
+            resize: none;
+            color: var(--light);
+        }
+        
+        .drum-machine {
+            display: grid;
+            grid-template-columns: 100px repeat(16, 1fr);
+            gap: 4px;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        
+        .drum-pad {
+            background: var(--secondary);
+            border: none;
+            border-radius: 4px;
+            padding: 8px 4px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.1s;
+            font-size: 0.7rem;
+            text-align: center;
+        }
+        
+        .drum-pad:hover {
+            background: var(--primary);
+        }
+        
+        .drum-pad.active {
+            background: var(--accent);
+            transform: scale(0.95);
+        }
+        
+        .drum-pad.playing {
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+        }
+        
+        .drum-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        
+        .step-cell {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.1s;
+            min-height: 30px;
+        }
+        
+        .step-cell.active {
+            background: var(--accent);
+        }
+        
+        .step-cell.current {
+            box-shadow: 0 0 8px var(--primary);
+        }
+        
+        .drum-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            align-items: center;
+        }
+        
+        .bpm-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .bpm-control input {
+            width: 80px;
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            text-align: center;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            background-color: var(--secondary);
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        button:hover {
+            background-color: var(--primary);
+        }
+        
+        button.primary {
+            background-color: var(--primary);
+        }
+        
+        button.primary:hover {
+            background-color: #e91e63;
+        }
+        
+        .visualizer {
+            height: 100px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+            margin-top: 10px;
+            display: flex;
+            align-items: flex-end;
+            padding: 10px;
+        }
+        
+        .bar {
+            flex: 1;
+            background-color: var(--accent);
+            margin: 0 2px;
+            border-radius: 2px 2px 0 0;
+            transition: height 0.1s;
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .mixer {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        footer {
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .active-audio {
+            background-color: var(--accent) !important;
+        }
+
+        .lyrics-highlight {
+            background-color: var(--primary);
+            color: white;
+            padding: 2px 4px;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+
+        .note-marker {
+            color: var(--accent);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <span class="logo-icon">🎤</span>
+            <h1>Vocaloid Web - Drum Machine Edition</h1>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="panel control-panel">
+            <h2>Voice Parameters</h2>
+            
+            <div class="parameter-group">
+                <div class="parameter">
+                    <label>
+                        <span>Pitch</span>
+                        <span class="value-display" id="pitch-value">0</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="pitch" min="-12" max="12" value="0">
+                    </div>
+                </div>
+                
+                <div class="parameter">
+                    <label>
+                        <span>Vibrato</span>
+                        <span class="value-display" id="vibrato-value">50</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="vibrato" min="0" max="100" value="50">
+                    </div>
+                </div>
+                
+                <div class="parameter">
+                    <label>
+                        <span>Brightness</span>
+                        <span class="value-display" id="brightness-value">50</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="brightness" min="0" max="100" value="50">
+                    </div>
+                </div>
+            </div>
+            
+            <h2>Voice Type</h2>
+            <select id="voice-type">
+                <option value="sine">Sine Wave</option>
+                <option value="sawtooth">Sawtooth</option>
+                <option value="square">Square Wave</option>
+                <option value="triangle">Triangle Wave</option>
+            </select>
+
+            <div class="mixer">
+                <h2>Audio Mixer</h2>
+                <div class="parameter">
+                    <label>
+                        <span>Music Volume</span>
+                        <span class="value-display" id="music-volume-value">70</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="music-volume" min="0" max="100" value="70">
+                    </div>
+                </div>
+                
+                <div class="parameter">
+                    <label>
+                        <span>Voice Volume</span>
+                        <span class="value-display" id="voice-volume-value">80</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="voice-volume" min="0" max="100" value="80">
+                    </div>
+                </div>
+
+                <div class="parameter">
+                    <label>
+                        <span>Drums Volume</span>
+                        <span class="value-display" id="drums-volume-value">80</span>
+                    </label>
+                    <div class="slider-container">
+                        <input type="range" id="drums-volume" min="0" max="100" value="80">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="status" id="status">
+                Audio ready. Create drum patterns and sing along!
+            </div>
+        </div>
+        
+        <div class="panel main-panel">
+            <h2>Lyrics & Melody <small>(Use [C4] for notes within continuous text)</small></h2>
+            <textarea class="lyrics-editor" id="lyrics" placeholder="Enter your lyrics here...">Hello [C4] this is [E4] Vocaloid [G4] singing with drum machine</textarea>
+            
+            <div class="drum-panel">
+                <h2>Drum Machine</h2>
+                <div class="drum-machine" id="drum-machine"></div>
+                
+                <div class="drum-controls">
+                    <button id="play-drums-btn" class="primary">
+                        <span>▶</span> Play Drums
+                    </button>
+                    <button id="stop-drums-btn">
+                        <span>■</span> Stop Drums
+                    </button>
+                    <button id="clear-drums-btn">
+                        <span>🗑️</span> Clear
+                    </button>
+                    <div class="bpm-control">
+                        <label>BPM:</label>
+                        <input type="number" id="bpm" min="60" max="180" value="120">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button class="primary" id="play-continuous-btn">
+                    <span>🎵🗣️</span> Sing with Drums
+                </button>
+                <button id="play-music-btn">
+                    <span>🎵</span> Melody Only
+                </button>
+                <button id="play-voice-btn">
+                    <span>🗣️</span> Voice Only
+                </button>
+                <button id="stop-btn">
+                    <span>■</span> Stop All
+                </button>
+            </div>
+            
+            <div class="visualizer" id="visualizer"></div>
+            <div id="lyrics-display" class="status"></div>
+        </div>
+    </div>
+    
+    <footer>
+        Vocaloid Web App - Now with Drum Machine!
+    </footer>
+
+    <script>
+        // Web Audio API setup
+        let audioContext;
+        let oscillators = new Map();
+        let gainNodes = new Map();
+        let musicGainNode;
+        let voiceGainNode;
+        let drumsGainNode;
+        let isPlaying = false;
+        let currentSpeech = null;
+        let lyricsDisplay;
+        
+        // Drum machine variables
+        let drumPattern = {};
+        let isDrumsPlaying = false;
+        let currentStep = 0;
+        let drumInterval;
+        let bpm = 120;
+
+        // Drum samples (we'll generate them)
+        let drumSamples = {};
+
+        // Initialize audio context
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Create gain nodes for mixing
+                musicGainNode = audioContext.createGain();
+                voiceGainNode = audioContext.createGain();
+                drumsGainNode = audioContext.createGain();
+                
+                // Connect to destination with individual volume control
+                musicGainNode.connect(audioContext.destination);
+                voiceGainNode.connect(audioContext.destination);
+                drumsGainNode.connect(audioContext.destination);
+                
+                // Set initial volumes
+                updateVolumes();
+                
+                // Generate drum samples
+                generateDrumSamples();
+                
+                document.getElementById('status').textContent = 'Audio context created. Ready to play!';
+            } catch (e) {
+                document.getElementById('status').textContent = 'Web Audio API is not supported in this browser.';
+                console.error('Web Audio API error:', e);
+            }
+        }
+
+        // Generate synthetic drum samples
+        function generateDrumSamples() {
+            // Kick drum
+            const kickOsc = audioContext.createOscillator();
+            const kickGain = audioContext.createGain();
+            kickOsc.connect(kickGain);
+            kickGain.connect(drumsGainNode);
+            
+            kickOsc.frequency.setValueAtTime(150, audioContext.currentTime);
+            kickOsc.frequency.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+            kickGain.gain.setValueAtTime(1, audioContext.currentTime);
+            kickGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+            
+            kickOsc.start();
+            kickOsc.stop(audioContext.currentTime + 0.5);
+            
+            // Store kick as a reusable function
+            drumSamples.kick = () => {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.connect(gain);
+                gain.connect(drumsGainNode);
+                
+                osc.frequency.setValueAtTime(150, audioContext.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+                gain.gain.setValueAtTime(1, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+                
+                osc.start();
+                osc.stop(audioContext.currentTime + 0.3);
+            };
+
+            // Snare drum
+            drumSamples.snare = () => {
+                const noise = audioContext.createBufferSource();
+                const noiseFilter = audioContext.createBiquadFilter();
+                const noiseGain = audioContext.createGain();
+                
+                // Create noise buffer
+                const bufferSize = audioContext.sampleRate * 0.5;
+                const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+                const data = buffer.getChannelData(0);
+                
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                
+                noise.buffer = buffer;
+                noiseFilter.type = 'bandpass';
+                noiseFilter.frequency.setValueAtTime(1000, audioContext.currentTime);
+                noise.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(drumsGainNode);
+                
+                noiseGain.gain.setValueAtTime(0.5, audioContext.currentTime);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.2);
+                
+                noise.start();
+                noise.stop(audioContext.currentTime + 0.2);
+            };
+
+            // Hi-hat
+            drumSamples.hat = () => {
+                const noise = audioContext.createBufferSource();
+                const noiseFilter = audioContext.createBiquadFilter();
+                const noiseGain = audioContext.createGain();
+                
+                // Create noise buffer
+                const bufferSize = audioContext.sampleRate * 0.1;
+                const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+                const data = buffer.getChannelData(0);
+                
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                
+                noise.buffer = buffer;
+                noiseFilter.type = 'highpass';
+                noiseFilter.frequency.setValueAtTime(5000, audioContext.currentTime);
+                noise.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(drumsGainNode);
+                
+                noiseGain.gain.setValueAtTime(0.3, audioContext.currentTime);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+                
+                noise.start();
+                noise.stop(audioContext.currentTime + 0.1);
+            };
+
+            // Clap
+            drumSamples.clap = () => {
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => {
+                        const noise = audioContext.createBufferSource();
+                        const noiseGain = audioContext.createGain();
+                        
+                        const bufferSize = audioContext.sampleRate * 0.05;
+                        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+                        const data = buffer.getChannelData(0);
+                        
+                        for (let j = 0; j < bufferSize; j++) {
+                            data[j] = Math.random() * 2 - 1;
+                        }
+                        
+                        noise.buffer = buffer;
+                        noise.connect(noiseGain);
+                        noiseGain.connect(drumsGainNode);
+                        
+                        noiseGain.gain.setValueAtTime(0.2, audioContext.currentTime);
+                        noiseGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
+                        
+                        noise.start();
+                        noise.stop(audioContext.currentTime + 0.05);
+                    }, i * 30);
+                }
+            };
+        }
+
+        // Update volume levels from sliders
+        function updateVolumes() {
+            if (!musicGainNode || !voiceGainNode || !drumsGainNode) return;
+            
+            const musicVolume = parseInt(document.getElementById('music-volume').value) / 100;
+            const voiceVolume = parseInt(document.getElementById('voice-volume').value) / 100;
+            const drumsVolume = parseInt(document.getElementById('drums-volume').value) / 100;
+            
+            musicGainNode.gain.setValueAtTime(musicVolume, audioContext.currentTime);
+            voiceGainNode.gain.setValueAtTime(voiceVolume, audioContext.currentTime);
+            drumsGainNode.gain.setValueAtTime(drumsVolume, audioContext.currentTime);
+        }
+
+        // Initialize drum machine
+        function initDrumMachine() {
+            const drumMachine = document.getElementById('drum-machine');
+            const drums = [
+                { id: 'kick', name: 'Kick' },
+                { id: 'snare', name: 'Snare' },
+                { id: 'hat', name: 'Hi-Hat' },
+                { id: 'clap', name: 'Clap' }
+            ];
+            
+            // Initialize pattern
+            drums.forEach(drum => {
+                drumPattern[drum.id] = Array(16).fill(false);
+            });
+            
+            // Create grid
+            // First column - drum labels and pads
+            drums.forEach(drum => {
+                // Drum pad
+                const pad = document.createElement('button');
+                pad.className = 'drum-pad';
+                pad.textContent = drum.name;
+                pad.dataset.drum = drum.id;
+                pad.addEventListener('click', () => playDrumSample(drum.id));
+                drumMachine.appendChild(pad);
+                
+                // Steps for this drum
+                for (let i = 0; i < 16; i++) {
+                    const step = document.createElement('div');
+                    step.className = 'step-cell';
+                    step.dataset.drum = drum.id;
+                    step.dataset.step = i;
+                    step.addEventListener('click', toggleStep);
+                    drumMachine.appendChild(step);
+                }
+            });
+            
+            // Add step numbers at the top
+            const stepNumbers = document.createElement('div');
+            stepNumbers.className = 'drum-label';
+            stepNumbers.textContent = 'Steps';
+            drumMachine.appendChild(stepNumbers);
+            
+            for (let i = 0; i < 16; i++) {
+                const stepNum = document.createElement('div');
+                stepNum.className = 'drum-label';
+                stepNum.textContent = i + 1;
+                drumMachine.appendChild(stepNum);
+            }
+        }
+
+        // Play drum sample
+        function playDrumSample(drumId) {
+            if (drumSamples[drumId]) {
+                drumSamples[drumId]();
+                
+                // Visual feedback
+                const pad = document.querySelector(`.drum-pad[data-drum="${drumId}"]`);
+                pad.classList.add('playing');
+                setTimeout(() => {
+                    pad.classList.remove('playing');
+                }, 100);
+            }
+        }
+
+        // Toggle step in pattern
+        function toggleStep(event) {
+            const drumId = event.target.dataset.drum;
+            const step = parseInt(event.target.dataset.step);
+            
+            drumPattern[drumId][step] = !drumPattern[drumId][step];
+            event.target.classList.toggle('active', drumPattern[drumId][step]);
+        }
+
+        // Play drum pattern
+        function playDrumPattern() {
+            if (isDrumsPlaying) return;
+            
+            isDrumsPlaying = true;
+            document.getElementById('play-drums-btn').classList.add('active-audio');
+            document.getElementById('status').textContent = 'Playing drum pattern...';
+            
+            const stepTime = 60 / bpm / 4; // 16th notes
+            
+            currentStep = 0;
+            drumInterval = setInterval(() => {
+                // Clear previous step highlight
+                document.querySelectorAll('.step-cell.current').forEach(cell => {
+                    cell.classList.remove('current');
+                });
+                
+                // Highlight current step
+                document.querySelectorAll(`.step-cell[data-step="${currentStep}"]`).forEach(cell => {
+                    cell.classList.add('current');
+                });
+                
+                // Play sounds for current step
+                Object.keys(drumPattern).forEach(drumId => {
+                    if (drumPattern[drumId][currentStep]) {
+                        playDrumSample(drumId);
+                    }
+                });
+                
+                currentStep = (currentStep + 1) % 16;
+            }, stepTime * 1000);
+        }
+
+        // Stop drum pattern
+        function stopDrumPattern() {
+            isDrumsPlaying = false;
+            clearInterval(drumInterval);
+            document.getElementById('play-drums-btn').classList.remove('active-audio');
+            document.querySelectorAll('.step-cell.current').forEach(cell => {
+                cell.classList.remove('current');
+            });
+        }
+
+        // Clear drum pattern
+        function clearDrumPattern() {
+            Object.keys(drumPattern).forEach(drumId => {
+                drumPattern[drumId] = Array(16).fill(false);
+            });
+            
+            document.querySelectorAll('.step-cell').forEach(cell => {
+                cell.classList.remove('active');
+            });
+        }
+
+        // Convert MIDI note to frequency
+        function midiToFreq(note) {
+            return 440 * Math.pow(2, (note - 69) / 12);
+        }
+        
+        // Play a note with Web Audio API
+        function playNote(note, duration = 0.8) {
+            if (!audioContext) initAudio();
+            
+            const noteNum = parseInt(note);
+            const frequency = midiToFreq(noteNum);
+            
+            // Create oscillator and gain node
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            // Get voice parameters
+            const voiceType = document.getElementById('voice-type').value;
+            const pitchOffset = parseInt(document.getElementById('pitch').value);
+            const vibratoAmount = parseInt(document.getElementById('vibrato').value) / 100;
+            const brightness = parseInt(document.getElementById('brightness').value) / 100;
+            
+            // Configure oscillator
+            oscillator.type = voiceType;
+            oscillator.frequency.setValueAtTime(frequency * Math.pow(2, pitchOffset / 12), audioContext.currentTime);
+            
+            // Add vibrato if enabled
+            if (vibratoAmount > 0) {
+                const vibrato = audioContext.createOscillator();
+                vibrato.frequency.setValueAtTime(5, audioContext.currentTime);
+                const vibratoGain = audioContext.createGain();
+                vibratoGain.gain.setValueAtTime(frequency * 0.02 * vibratoAmount, audioContext.currentTime);
+                vibrato.connect(vibratoGain);
+                vibratoGain.connect(oscillator.frequency);
+                vibrato.start();
+                oscillators.set(`vibrato_${note}`, vibrato);
+            }
+            
+            // Configure gain envelope (softer attack for overlay)
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.2 * brightness, audioContext.currentTime + 0.05);
+            gainNode.gain.linearRampToValueAtTime(0.15 * brightness, audioContext.currentTime + duration * 0.6);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+            
+            // Connect nodes to music output
+            oscillator.connect(gainNode);
+            gainNode.connect(musicGainNode);
+            
+            // Start oscillator
+            oscillator.start();
+            
+            // Store references
+            oscillators.set(note, oscillator);
+            gainNodes.set(note, gainNode);
+            
+            // Auto-stop after duration
+            setTimeout(() => {
+                stopNote(note);
+            }, duration * 1000);
+            
+            updateVisualizer();
+        }
+        
+        // Stop a note
+        function stopNote(note) {
+            const oscillator = oscillators.get(note);
+            const gainNode = gainNodes.get(note);
+            const vibrato = oscillators.get(`vibrato_${note}`);
+            
+            if (oscillator && gainNode) {
+                gainNode.gain.cancelScheduledValues(audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+                
+                setTimeout(() => {
+                    if (oscillator) oscillator.stop();
+                    if (vibrato) vibrato.stop();
+                    
+                    oscillators.delete(note);
+                    gainNodes.delete(note);
+                    oscillators.delete(`vibrato_${note}`);
+                }, 100);
+            }
+        }
+        
+        // Stop all notes and speech
+        function stopAllAudio() {
+            // Stop all oscillators
+            oscillators.forEach((oscillator, note) => {
+                try {
+                    oscillator.stop();
+                } catch (e) {
+                    // Oscillator might already be stopped
+                }
+            });
+            oscillators.clear();
+            gainNodes.clear();
+            
+            // Stop speech synthesis
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            
+            // Stop drums
+            stopDrumPattern();
+            
+            currentSpeech = null;
+            isPlaying = false;
+            
+            // Reset button states and lyrics display
+            document.querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('active-audio');
+            });
+            
+            if (lyricsDisplay) {
+                lyricsDisplay.innerHTML = '';
+            }
+        }
+        
+        // Parse lyrics and extract note positions
+        function parseLyricsWithNoteTiming(lyrics) {
+            const segments = [];
+            const notePositions = [];
+            let currentText = '';
+            let currentIndex = 0;
+            
+            const notePattern = /\[([A-Ga-g]#?\d?)\]/g;
+            let match;
+            
+            // Find all note positions
+            while ((match = notePattern.exec(lyrics)) !== null) {
+                const noteName = match[1].toUpperCase();
+                const midiNote = noteNameToMidi(noteName);
+                
+                if (midiNote > 0) {
+                    // Calculate position in the text (percentage)
+                    const positionPercent = (match.index / lyrics.length) * 100;
+                    notePositions.push({
+                        position: positionPercent,
+                        midi: midiNote,
+                        noteName: noteName,
+                        charIndex: match.index
+                    });
+                }
+            }
+            
+            // Create clean text for speech (remove note markers)
+            const cleanText = lyrics.replace(/\[[^\]]*\]/g, '').trim();
+            
+            return {
+                cleanText: cleanText,
+                notePositions: notePositions,
+                originalLength: lyrics.length
+            };
+        }
+        
+        // Play continuous voice with notes overlaid and drums
+        function playContinuousWithNotesAndDrums() {
+            stopAllAudio();
+            isPlaying = true;
+            document.getElementById('play-continuous-btn').classList.add('active-audio');
+            document.getElementById('status').textContent = 'Playing voice with melody and drums...';
+            
+            const lyrics = document.getElementById('lyrics').value;
+            const parsed = parseLyricsWithNoteTiming(lyrics);
+            
+            if (!parsed.cleanText) {
+                document.getElementById('status').textContent = 'No text to speak.';
+                return;
+            }
+            
+            // Start drums if not already playing
+            if (!isDrumsPlaying) {
+                playDrumPattern();
+            }
+            
+            // Display lyrics with note markers
+            displayLyricsWithNotes(lyrics, parsed.notePositions);
+            
+            // Start continuous speech
+            speakContinuousText(parsed.cleanText, parsed.notePositions, parsed.originalLength);
+        }
+        
+        // Speak continuous text while scheduling notes
+        function speakContinuousText(text, notePositions, originalLength) {
+            if (!window.speechSynthesis) return;
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            // Adjust speech parameters
+            const pitch = (parseInt(document.getElementById('pitch').value) + 12) / 24;
+            const rate = 0.8 + (parseInt(document.getElementById('brightness').value) / 100) * 0.4;
+            
+            utterance.pitch = Math.max(0.1, Math.min(2, pitch));
+            utterance.rate = Math.max(0.5, Math.min(2, rate));
+            utterance.volume = parseInt(document.getElementById('voice-volume').value) / 100;
+            
+            let startTime;
+            
+            utterance.onstart = () => {
+                startTime = Date.now();
+                currentSpeech = utterance;
+                
+                // Calculate estimated total duration
+                const estimatedDuration = (text.length / (rate * 10)) * 1000; // Rough estimation
+                
+                // Schedule notes based on their positions in the original text
+                notePositions.forEach(note => {
+                    const noteTime = (note.position / 100) * estimatedDuration;
+                    
+                    setTimeout(() => {
+                        if (isPlaying && currentSpeech) {
+                            playNote(note.midi, 0.8);
+                            highlightNotePosition(note.charIndex);
+                        }
+                    }, noteTime);
+                });
+                
+                // Start lyrics highlighting
+                startLyricsHighlighting(text, estimatedDuration);
+            };
+            
+            utterance.onend = () => {
+                currentSpeech = null;
+                isPlaying = false;
+                document.getElementById('play-continuous-btn').classList.remove('active-audio');
+                document.getElementById('status').textContent = 'Playback completed.';
+                if (lyricsDisplay) {
+                    lyricsDisplay.innerHTML = '';
+                }
+            };
+            
+            utterance.onerror = () => {
+                currentSpeech = null;
+                isPlaying = false;
+                document.getElementById('play-continuous-btn').classList.remove('active-audio');
+                document.getElementById('status').textContent = 'Speech synthesis error.';
+            };
+            
+            speechSynthesis.speak(utterance);
+        }
+        
+        // Display lyrics with note markers
+        function displayLyricsWithNotes(lyrics, notePositions) {
+            lyricsDisplay = document.getElementById('lyrics-display');
+            lyricsDisplay.innerHTML = '';
+            
+            let lastIndex = 0;
+            const sortedNotes = [...notePositions].sort((a, b) => a.charIndex - b.charIndex);
+            
+            sortedNotes.forEach((note, index) => {
+                // Add text before note
+                if (note.charIndex > lastIndex) {
+                    const textBefore = lyrics.substring(lastIndex, note.charIndex);
+                    const textElement = document.createElement('span');
+                    textElement.textContent = textBefore;
+                    textElement.className = 'text-segment';
+                    lyricsDisplay.appendChild(textElement);
+                }
+                
+                // Add note marker
+                const noteElement = document.createElement('span');
+                noteElement.textContent = `[${note.noteName}]`;
+                noteElement.className = 'note-marker';
+                noteElement.dataset.index = index;
+                lyricsDisplay.appendChild(noteElement);
+                
+                lastIndex = note.charIndex + note.noteName.length + 2; // +2 for brackets
+            });
+            
+            // Add remaining text
+            if (lastIndex < lyrics.length) {
+                const remainingText = lyrics.substring(lastIndex);
+                const textElement = document.createElement('span');
+                textElement.textContent = remainingText;
+                textElement.className = 'text-segment';
+                lyricsDisplay.appendChild(textElement);
+            }
+        }
+        
+        // Highlight note position when played
+        function highlightNotePosition(charIndex) {
+            const noteMarkers = lyricsDisplay.querySelectorAll('.note-marker');
+            noteMarkers.forEach(marker => {
+                marker.classList.remove('lyrics-highlight');
+            });
+            
+            // Find and highlight the corresponding note marker
+            const allMarkers = lyricsDisplay.querySelectorAll('.note-marker, .text-segment');
+            allMarkers.forEach(marker => {
+                if (marker.classList.contains('note-marker')) {
+                    marker.classList.add('lyrics-highlight');
+                    setTimeout(() => {
+                        marker.classList.remove('lyrics-highlight');
+                    }, 800);
+                }
+            });
+        }
+        
+        // Start progressive lyrics highlighting
+        function startLyricsHighlighting(text, duration) {
+            const words = text.split(' ');
+            const wordDuration = duration / words.length;
+            let currentWord = 0;
+            
+            const highlightInterval = setInterval(() => {
+                if (!isPlaying || !currentSpeech) {
+                    clearInterval(highlightInterval);
+                    return;
+                }
+                
+                const textSegments = lyricsDisplay.querySelectorAll('.text-segment');
+                textSegments.forEach(segment => {
+                    segment.classList.remove('lyrics-highlight');
+                });
+                
+                // Simple word-by-word highlighting (could be more sophisticated)
+                if (textSegments.length > 0 && currentWord < words.length) {
+                    const currentSegment = textSegments[0]; // Simplified
+                    currentSegment.classList.add('lyrics-highlight');
+                }
+                
+                currentWord++;
+                
+                if (currentWord >= words.length) {
+                    clearInterval(highlightInterval);
+                }
+            }, wordDuration);
+        }
+        
+        // Play music only (legacy function)
+        function playMusicOnly() {
+            stopAllAudio();
+            const lyrics = document.getElementById('lyrics').value;
+            const parsed = parseLyricsWithNoteTiming(lyrics);
+            
+            if (parsed.notePositions.length === 0) {
+                document.getElementById('status').textContent = 'No notes found in lyrics.';
+                return;
+            }
+            
+            isPlaying = true;
+            document.getElementById('play-music-btn').classList.add('active-audio');
+            document.getElementById('status').textContent = 'Playing melody only...';
+            
+            let currentTime = 0;
+            parsed.notePositions.forEach((note, index) => {
+                setTimeout(() => {
+                    if (!isPlaying) return;
+                    playNote(note.midi, 0.8);
+                }, currentTime * 1000);
+                currentTime += 0.5; // Fixed interval for music-only mode
+            });
+            
+            setTimeout(() => {
+                isPlaying = false;
+                document.getElementById('play-music-btn').classList.remove('active-audio');
+                document.getElementById('status').textContent = 'Melody playback completed.';
+            }, currentTime * 1000);
+        }
+        
+        // Play voice only (legacy function)
+        function playVoiceOnly() {
+            stopAllAudio();
+            const lyrics = document.getElementById('lyrics').value;
+            const cleanText = lyrics.replace(/\[[^\]]*\]/g, '').trim();
+            
+            if (!cleanText) {
+                document.getElementById('status').textContent = 'No text to speak.';
+                return;
+            }
+            
+            document.getElementById('play-voice-btn').classList.add('active-audio');
+            document.getElementById('status').textContent = 'Speaking text...';
+            
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            const pitch = (parseInt(document.getElementById('pitch').value) + 12) / 24;
+            const rate = 0.8 + (parseInt(document.getElementById('brightness').value) / 100) * 0.4;
+            
+            utterance.pitch = Math.max(0.1, Math.min(2, pitch));
+            utterance.rate = Math.max(0.5, Math.min(2, rate));
+            utterance.volume = parseInt(document.getElementById('voice-volume').value) / 100;
+            
+            utterance.onend = () => {
+                document.getElementById('play-voice-btn').classList.remove('active-audio');
+                document.getElementById('status').textContent = 'Speech completed.';
+            };
+            
+            speechSynthesis.speak(utterance);
+        }
+        
+        // Convert note name to MIDI number
+        function noteNameToMidi(noteName) {
+            const noteMap = {
+                'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 
+                'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 
+                'A#': 10, 'B': 11
+            };
+            
+            const match = noteName.match(/^([A-G]#?)(\d)$/);
+            if (!match) return -1;
+            
+            const note = match[1];
+            const octave = parseInt(match[2]);
+            
+            return noteMap[note] + (octave + 1) * 12;
+        }
+        
+        // Update visualizer
+        function updateVisualizer() {
+            const bars = document.querySelectorAll('.bar');
+            bars.forEach(bar => {
+                const newHeight = Math.random() * 80 + 10;
+                bar.style.height = `${newHeight}%`;
+                
+                if (newHeight > 60) {
+                    bar.style.backgroundColor = '#ff4081';
+                } else if (newHeight > 30) {
+                    bar.style.backgroundColor = '#00b894';
+                } else {
+                    bar.style.backgroundColor = '#3f51b5';
+                }
+            });
+        }
+        
+        // Initialize visualizer bars
+        function initVisualizer() {
+            const visualizer = document.getElementById('visualizer');
+            
+            for (let i = 0; i < 32; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.style.height = `${Math.random() * 20 + 10}%`;
+                visualizer.appendChild(bar);
+            }
+            
+            setInterval(updateVisualizer, 100);
+        }
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            initAudio();
+            initDrumMachine();
+            initVisualizer();
+            
+            // Set up event listeners
+            document.getElementById('play-continuous-btn').addEventListener('click', playContinuousWithNotesAndDrums);
+            document.getElementById('play-music-btn').addEventListener('click', playMusicOnly);
+            document.getElementById('play-voice-btn').addEventListener('click', playVoiceOnly);
+            document.getElementById('stop-btn').addEventListener('click', stopAllAudio);
+            
+            // Drum machine controls
+            document.getElementById('play-drums-btn').addEventListener('click', playDrumPattern);
+            document.getElementById('stop-drums-btn').addEventListener('click', stopDrumPattern);
+            document.getElementById('clear-drums-btn').addEventListener('click', clearDrumPattern);
+            
+            // BPM control
+            document.getElementById('bpm').addEventListener('change', function() {
+                bpm = Math.max(60, Math.min(180, parseInt(this.value) || 120));
+                if (isDrumsPlaying) {
+                    stopDrumPattern();
+                    playDrumPattern();
+                }
+            });
+            
+            // Volume controls
+            document.getElementById('music-volume').addEventListener('input', function() {
+                document.getElementById('music-volume-value').textContent = this.value;
+                updateVolumes();
+            });
+            
+            document.getElementById('voice-volume').addEventListener('input', function() {
+                document.getElementById('voice-volume-value').textContent = this.value;
+                updateVolumes();
+            });
+            
+            document.getElementById('drums-volume').addEventListener('input', function() {
+                document.getElementById('drums-volume-value').textContent = this.value;
+                updateVolumes();
+            });
+            
+            // Initialize parameter displays
+            const sliders = document.querySelectorAll('input[type="range"]');
+            sliders.forEach(slider => {
+                if (slider.id !== 'music-volume' && slider.id !== 'voice-volume' && slider.id !== 'drums-volume') {
+                    const valueDisplay = document.getElementById(`${slider.id}-value`);
+                    valueDisplay.textContent = slider.value;
+                    
+                    slider.addEventListener('input', () => {
+                        valueDisplay.textContent = slider.value;
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

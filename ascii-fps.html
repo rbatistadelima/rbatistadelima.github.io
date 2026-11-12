@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ASCII FPS Full View Fixed</title>
+
+<style>
+html,body{
+    margin:0;
+    height:100%;
+    background:#000;
+    color:#fff;
+    font-family:monospace;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden;
+    cursor:none;
+}
+
+pre{
+    margin:0;
+    line-height:1;
+    font-size:12px;
+    white-space:pre;
+}
+</style>
+</head>
+
+<body>
+<pre id="screen"></pre>
+
+<script>
+const screen=document.getElementById("screen");
+
+/* ================= MAP ================= */
+const MAP=[
+"########################",
+"#......................#",
+"#....##................#",
+"#......................#",
+"#..........##..........#",
+"#......................#",
+"#......#...............#",
+"#......................#",
+"#..........###.........#",
+"#......................#",
+"#......................#",
+"#.......#..............#",
+"#......................#",
+"#......................#",
+"########################"
+];
+
+const MW=MAP[0].length;
+const MH=MAP.length;
+
+/* ================= VIEW ================= */
+const VW=110;
+const VH=40;
+const FOV=Math.PI/3;
+const DEPTH=20;
+
+/* ================= PLAYER ================= */
+let px=3.5, py=3.5, pa=0;
+let jump=0, jumpVel=0;
+let recoil=0;
+
+/* ================= ENEMIES ================= */
+let enemies=[];
+let spawnTimer=0;
+const MAX_ENEMIES=50;
+const ENEMY_RADIUS=0.85;
+
+/* ================= INPUT ================= */
+const keys={};
+let last=performance.now();
+
+/* ================= WALL ================= */
+
+function wall(x,y){
+    x=Math.floor(x);
+    y=Math.floor(y);
+    if(x<0||y<0||x>=MW||y>=MH) return true;
+    return MAP[y][x]==="#";
+}
+
+/* ================= SPAWN ================= */
+
+function spawnEnemy(){
+
+    if(enemies.length>=MAX_ENEMIES) return;
+
+    for(let i=0;i<100;i++){
+
+        const x=Math.floor(Math.random()*MW);
+        const y=Math.floor(Math.random()*MH);
+
+        if(MAP[y][x] !== ".") continue;
+
+        const dx=x+0.5-px;
+        const dy=y+0.5-py;
+
+        if(dx*dx+dy*dy<20) continue;
+
+        enemies.push({x:x+0.5,y:y+0.5,alive:true});
+        return;
+    }
+}
+
+/* ================= INPUT ================= */
+
+onkeydown=e=>{
+    keys[e.key.toLowerCase()]=true;
+
+    if(e.code==="Space" && jump===0){
+        jumpVel=0.35;
+    }
+
+    if(e.key.toLowerCase()==="f"){
+        shoot();
+    }
+};
+
+onkeyup=e=>{
+    keys[e.key.toLowerCase()]=false;
+};
+
+onmousedown=shoot;
+
+/* ================= POINTER ================= */
+
+document.body.addEventListener("click",()=>{
+    document.body.requestPointerLock();
+});
+
+document.addEventListener("mousemove",(e)=>{
+    if(document.pointerLockElement===document.body){
+        pa += e.movementX * 0.0025;
+    }
+});
+
+/* ================= SHOOT ================= */
+
+function shoot(){
+
+    recoil=2;
+
+    const dx=Math.cos(pa);
+    const dy=Math.sin(pa);
+
+    let dist=0;
+
+    while(dist<DEPTH){
+
+        dist+=0.05;
+
+        const tx=px+dx*dist;
+        const ty=py+dy*dist;
+
+        for(const e of enemies){
+            if(!e.alive) continue;
+
+            const ex=e.x-tx;
+            const ey=e.y-ty;
+
+            if(ex*ex+ey*ey < ENEMY_RADIUS*ENEMY_RADIUS){
+                e.alive=false;
+                return;
+            }
+        }
+
+        if(wall(tx,ty)) break;
+    }
+}
+
+/* ================= UPDATE ================= */
+
+function update(dt){
+
+    let speed=keys["shift"]?5.5:3;
+    let move=speed*dt;
+
+    let nx=px, ny=py;
+
+    if(keys["a"]){
+        nx+=Math.cos(pa-Math.PI/2)*move;
+        ny+=Math.sin(pa-Math.PI/2)*move;
+    }
+
+    if(keys["d"]){
+        nx+=Math.cos(pa+Math.PI/2)*move;
+        ny+=Math.sin(pa+Math.PI/2)*move;
+    }
+
+    if(!wall(nx,py)) px=nx;
+    if(!wall(px,ny)) py=ny;
+
+    nx=px; ny=py;
+
+    if(keys["w"]){
+        nx+=Math.cos(pa)*move;
+        ny+=Math.sin(pa)*move;
+    }
+
+    if(keys["s"]){
+        nx-=Math.cos(pa)*move;
+        ny-=Math.sin(pa)*move;
+    }
+
+    if(!wall(nx,py)) px=nx;
+    if(!wall(px,ny)) py=ny;
+
+    jump+=jumpVel;
+    jumpVel-=1.0*dt;
+
+    if(jump<0){
+        jump=0;
+        jumpVel=0;
+    }
+
+    recoil*=0.85;
+
+    spawnTimer+=dt;
+    if(spawnTimer>3){
+        spawnEnemy();
+        spawnTimer=0;
+    }
+}
+
+/* ================= ENEMIES ================= */
+
+function updateEnemies(dt){
+
+    for(const e of enemies){
+
+        if(!e.alive) continue;
+
+        const dx=px-e.x;
+        const dy=py-e.y;
+
+        const dist=Math.hypot(dx,dy);
+
+        const speed=0.5*dt;
+
+        const nx=e.x+(dx/dist)*speed;
+        const ny=e.y+(dy/dist)*speed;
+
+        if(!wall(nx,ny)){
+            e.x=nx;
+            e.y=ny;
+        }
+    }
+}
+
+/* ================= RENDER ================= */
+
+function render(){
+
+    const depthBuffer=new Array(VW).fill(DEPTH);
+
+    /* IMPORTANT: FULL FPV BUFFER */
+    const rows=new Array(VH);
+    for(let i=0;i<VH;i++) rows[i]="";
+
+    const eye=-jump*8 + recoil;
+
+    /* WALLS */
+    for(let x=0;x<VW;x++){
+
+        const ra=pa - FOV/2 + (x/VW)*FOV;
+
+        const dx=Math.cos(ra);
+        const dy=Math.sin(ra);
+
+        let dist=0;
+
+        while(dist<DEPTH){
+
+            dist+=0.04;
+
+            const tx=px+dx*dist;
+            const ty=py+dy*dist;
+
+            if(wall(tx,ty)) break;
+        }
+
+        dist*=Math.cos(ra-pa);
+        if(dist<0.1) dist=0.1;
+
+        depthBuffer[x]=dist;
+
+        const ceiling=Math.floor(VH/2-eye-VH/dist);
+        const floor=Math.floor(VH/2-eye+VH/dist);
+
+        let shade=".";
+
+        if(dist<3) shade="█";
+        else if(dist<6) shade="▓";
+        else if(dist<10) shade="▒";
+        else shade="░";
+
+        for(let y=0;y<VH;y++){
+            if(y>=ceiling && y<=floor){
+                rows[y]+=shade;
+            }else{
+                rows[y]+=" ";
+            }
+        }
+    }
+
+    /* ENEMIES */
+    for(const e of enemies){
+
+        if(!e.alive) continue;
+
+        const ex=e.x-px;
+        const ey=e.y-py;
+
+        const dist=Math.hypot(ex,ey);
+        const angle=Math.atan2(ey,ex)-pa;
+
+        const sx=Math.floor((angle/FOV+0.5)*VW);
+
+        if(sx<0||sx>=VW||dist>DEPTH) continue;
+
+        if(dist < depthBuffer[sx]){
+
+            const size=Math.max(1,Math.floor(6/(dist+0.1)));
+            const sy=Math.floor(VH/2-eye);
+
+            for(let oy=-size; oy<=size; oy++){
+                for(let ox=-size; ox<=size; ox++){
+
+                    if(ox*ox+oy*oy<=size*size){
+
+                        const px2=sx+ox;
+                        const py2=sy+oy;
+
+                        if(px2>=0 && px2<VW && py2>=0 && py2<VH){
+                            let r=rows[py2];
+                            rows[py2]=r.substring(0,px2)+"●"+r.substring(px2+1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /* CROSSHAIR */
+    const cx=Math.floor(VW/2);
+    const cy=Math.floor(VH/2-eye);
+
+    if(cy>=0 && cy<VH){
+        let r=rows[cy];
+        rows[cy]=r.substring(0,cx)+"+"+r.substring(cx+1);
+    }
+
+    /* ================= FINAL OUTPUT (FULL FPV RESTORED) ================= */
+
+    const out=[];
+
+    for(let y=0;y<VH;y++){
+
+        let line="";
+
+        /* LEFT: MAP */
+        if(y<MH){
+            for(let x=0;x<MW;x++){
+
+                let c=MAP[y][x];
+
+                if(Math.floor(px)===x && Math.floor(py)===y){
+                    const dirs=["→","↘","↓","↙","←","↖","↑","↗"];
+                    let a=((pa%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+                    let i=Math.round(a/(Math.PI*2)*8)%8;
+                    c=dirs[i];
+                }
+
+                for(const e of enemies){
+                    if(e.alive &&
+                       Math.floor(e.x)===x &&
+                       Math.floor(e.y)===y){
+                        c="E";
+                    }
+                }
+
+                line+=c;
+            }
+        } else {
+            line+=" ".repeat(MW);
+        }
+
+        line+="    ";
+
+        /* RIGHT: FULL FPV ALWAYS */
+        line+=rows[y];
+
+        out.push(line);
+    }
+
+    screen.textContent=out.join("\n");
+}
+
+/* ================= LOOP ================= */
+
+function loop(t){
+
+    let dt=(t-last)/1000;
+    last=t;
+
+    update(dt);
+    updateEnemies(dt);
+    render();
+
+    requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>PixelForge AI · True Resolution Pixel Art Studio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* avoid accidental selection on canvas */
+        }
+
+        body {
+            background: #0a0c16;
+            background-image: radial-gradient(#1a1f2e 1px, transparent 1px);
+            background-size: 32px 32px;
+            font-family: 'Courier New', 'Fira Code', 'Segoe UI', monospace;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+        }
+
+        /* main retro-modern container */
+        .pixel-lab {
+            max-width: 1400px;
+            width: 100%;
+            background: rgba(8, 10, 21, 0.85);
+            backdrop-filter: blur(6px);
+            border-radius: 2rem;
+            border: 1px solid rgba(80, 140, 255, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            padding: 1.6rem;
+        }
+
+        h1 {
+            font-family: 'Courier New', monospace;
+            font-size: 1.9rem;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #b9e6ff, #6e9eff, #a86eff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .badge-pixel {
+            background: #00000066;
+            border: 1px solid #4c7eff;
+            border-radius: 40px;
+            padding: 0.2rem 0.9rem;
+            font-size: 0.7rem;
+            font-weight: normal;
+            color: #b8d0ff;
+            font-family: monospace;
+        }
+
+        .sub {
+            color: #9aadf0;
+            font-size: 0.8rem;
+            border-left: 3px solid #4c7eff;
+            padding-left: 0.8rem;
+            margin-top: 0.3rem;
+        }
+
+        .grid-2col {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.8rem;
+            margin-top: 1.8rem;
+        }
+
+        /* left controls panel */
+        .controls {
+            flex: 1.1;
+            min-width: 260px;
+            background: #03050ec9;
+            border-radius: 1.8rem;
+            padding: 1.4rem;
+            border: 1px solid #2a2f4e;
+        }
+
+        .control-group {
+            margin-bottom: 1.6rem;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: bold;
+            color: #c7d6ff;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.6rem;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            background: #0b0f1f;
+            border: 1px solid #2e3e6e;
+            border-radius: 1.2rem;
+            padding: 0.7rem 1rem;
+            font-family: 'Courier New', monospace;
+            color: #eef5ff;
+            font-size: 0.85rem;
+            transition: 0.2s;
+            outline: none;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            border-color: #6c8eff;
+            box-shadow: 0 0 0 2px #3f5fcf40;
+        }
+
+        .pixel-size-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .pixel-size-row input {
+            flex: 1;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .btn {
+            background: #151e33;
+            border: none;
+            padding: 0.65rem 1.2rem;
+            border-radius: 2rem;
+            font-family: monospace;
+            font-weight: bold;
+            color: #e0ecff;
+            cursor: pointer;
+            transition: 0.15s linear;
+            font-size: 0.8rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 1px solid #2f4172;
+        }
+
+        .btn-primary {
+            background: #2a3f8f;
+            box-shadow: 0 2px 8px #1a2c6e;
+            border-bottom: 1px solid #6f92ff;
+        }
+
+        .btn-primary:hover {
+            background: #3d56b0;
+            transform: translateY(-1px);
+        }
+
+        .btn:hover {
+            background: #232e4e;
+            transform: translateY(-1px);
+        }
+
+        .warning-text {
+            font-size: 0.7rem;
+            color: #ffbb86;
+            margin-top: 0.5rem;
+        }
+
+        /* right side: canvas zone */
+        .display-zone {
+            flex: 2;
+            min-width: 320px;
+            background: #01001370;
+            border-radius: 1.8rem;
+            padding: 1rem;
+            backdrop-filter: blur(4px);
+        }
+
+        .canvas-wrapper {
+            background: #0d0f1c;
+            border-radius: 1.5rem;
+            padding: 1.2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #2f3d70;
+            box-shadow: inset 0 0 10px #00000033, 0 8px 20px black;
+        }
+
+        .pixel-canvas {
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: pixelated;
+            background: #00000022;
+            box-shadow: 0 0 0 3px #00000055, 0 0 0 6px #191e32;
+            cursor: crosshair;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .info-bar {
+            margin-top: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            background: #03040e80;
+            border-radius: 2rem;
+            padding: 0.6rem 1rem;
+            font-size: 0.7rem;
+            font-family: monospace;
+        }
+
+        .pixel-stat {
+            background: #00000070;
+            padding: 0.2rem 0.8rem;
+            border-radius: 20px;
+            color: #b3c7ff;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 1.8rem;
+            font-size: 0.7rem;
+            color: #6b7bb5;
+            border-top: 1px solid #1f2542;
+            padding-top: 1rem;
+        }
+
+        a {
+            color: #8aa9ff;
+        }
+
+        @media (max-width: 760px) {
+            .pixel-lab {
+                padding: 1rem;
+            }
+            .btn {
+                padding: 0.5rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="pixel-lab">
+    <div style="display: flex; justify-content: space-between; flex-wrap: wrap; align-items: baseline;">
+        <div>
+            <h1>
+                ◤ PIXELFORGE.AI ◢
+                <span class="badge-pixel">true resolution control</span>
+            </h1>
+            <div class="sub">Perchance AI + native pixel-perfect canvas · resize pixel matrix, not display</div>
+        </div>
+    </div>
+
+    <div class="grid-2col">
+        <!-- left panel: AI prompt & pixel dimensions -->
+        <div class="controls">
+            <div class="control-group">
+                <label><span>🎨</span> PROMPT · pixel vision</label>
+                <textarea id="promptInput" rows="2" placeholder="Describe pixel art scene... e.g., 'pixel wizard casting fireball, 16-bit rpg style'"></textarea>
+                <div class="warning-text">⚡ Best results: "pixel art", "8-bit", "low resolution", "dithering"</div>
+            </div>
+
+            <div class="control-group">
+                <label><span>🖌️</span> STYLE BOOST (optional)</label>
+                <input type="text" id="styleInput" placeholder="e.g., retro gameboy, limited palette, crisp pixels">
+            </div>
+
+            <div class="control-group">
+                <label><span>📐</span> TRUE PIXEL RESOLUTION (WIDTH × HEIGHT)</label>
+                <div class="pixel-size-row">
+                    <input type="number" id="pixelWidth" value="48" min="16" max="256" step="1">
+                    <span style="color:#6b7eff;">✕</span>
+                    <input type="number" id="pixelHeight" value="48" min="16" max="256" step="1">
+                </div>
+                <div class="warning-text">❗ Changes canvas resolution! Smaller = authentic retro, larger = more detail. Regenerate image to fit new size.</div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" id="generateBtn">✨ GENERATE PIXEL ART</button>
+                <button class="btn" id="randomPromptBtn">🎲 RANDOM VIBE</button>
+            </div>
+            <div class="btn-group">
+                <button class="btn" id="resizeOnlyBtn">🔲 APPLY RESOLUTION</button>
+                <button class="btn" id="clearCanvasBtn">🗑️ CLEAR CANVAS</button>
+            </div>
+            <div class="warning-text" id="generationStatus">💡 AI will create pixel image — then downsampled to exact pixel dimensions!</div>
+        </div>
+
+        <!-- right side: actual pixel canvas -->
+        <div class="display-zone">
+            <div class="canvas-wrapper">
+                <canvas id="pixelCanvas" class="pixel-canvas" style="image-rendering: crisp-edges; image-rendering: pixelated;"></canvas>
+            </div>
+            <div class="info-bar">
+                <div class="pixel-stat">🎯 canvas resolution: <span id="resDisplay">48x48</span></div>
+                <div class="pixel-stat">🖱️ true pixel art — no blur, exact matrix</div>
+                <div class="pixel-stat" id="sourceInfo">✨ awaiting generation</div>
+            </div>
+        </div>
+    </div>
+    <footer>
+        🧩 <strong>Perchance AI</strong> generates base image → resampled to <strong>exact pixel dimensions</strong> without upscaling artifacts.<br>
+        The pixel grid size changes the actual artwork resolution, not just the display. ⚡ <a href="#" id="infoApiLink">about AI plugin</a>
+    </footer>
+</div>
+
+<script>
+    // --------------------------------------------------------------
+    //  PIXEL RESOLUTION CONTROLLER + PERCHANCE AI INTEGRATION
+    //  Core principle: 
+    //    1) User sets true width/height (e.g. 32x32, 64x64, 128x128)
+    //    2) Generate using Perchance AI (which returns a standard image)
+    //    3) We downscale the AI image to EXACT target pixel dimensions using nearest-neighbor
+    //       preserving hard pixel edges. No CSS upscaling trick — real pixel data!
+    //    4) Draw on canvas with actual pixel dimensions.
+    //    5) Additional "Apply Resolution" allows changing canvas buffer.
+    // --------------------------------------------------------------
+
+    // DOM elements
+    const promptInput = document.getElementById('promptInput');
+    const styleInput = document.getElementById('styleInput');
+    const generateBtn = document.getElementById('generateBtn');
+    const randomPromptBtn = document.getElementById('randomPromptBtn');
+    const resizeOnlyBtn = document.getElementById('resizeOnlyBtn');
+    const clearCanvasBtn = document.getElementById('clearCanvasBtn');
+    const pixelCanvas = document.getElementById('pixelCanvas');
+    const resDisplaySpan = document.getElementById('resDisplay');
+    const generationStatusSpan = document.getElementById('generationStatus');
+    const sourceInfoSpan = document.getElementById('sourceInfo');
+    const pixelWidthInput = document.getElementById('pixelWidth');
+    const pixelHeightInput = document.getElementById('pixelHeight');
+
+    // pixel dimension state (actual resolution of canvas)
+    let currentWidth = 48;
+    let currentHeight = 48;
+    let ctx = pixelCanvas.getContext('2d');
+    // store the currently displayed image data (as ImageBitmap or raw image) to allow resize ops without losing content
+    let currentImageData = null; // store ImageData or HTMLImageElement reference? We'll store as ImageBitmap for quality
+
+    // Perchance AI integration state
+    let perchanceReady = false;
+    let generateImageFunc = null;
+
+    // Helper: update canvas resolution (preserve content if possible)
+    function resizeCanvasBuffer(newWidth, newHeight, preserveContent = true) {
+        if (newWidth === currentWidth && newHeight === currentHeight && preserveContent) return true;
+        
+        // capture old image data if preserving content
+        let oldImageData = null;
+        if (preserveContent && currentWidth > 0 && currentHeight > 0) {
+            try {
+                oldImageData = ctx.getImageData(0, 0, currentWidth, currentHeight);
+            } catch(e) { oldImageData = null; }
+        }
+        
+        // set canvas physical size (real pixel dimensions)
+        pixelCanvas.width = newWidth;
+        pixelCanvas.height = newHeight;
+        currentWidth = newWidth;
+        currentHeight = newHeight;
+        // reapply pixelated rendering style
+        pixelCanvas.style.width = `${Math.min(480, newWidth * 8)}px`; // keep display comfortable but not scaling pixels artificially
+        pixelCanvas.style.height = 'auto';
+        pixelCanvas.style.imageRendering = 'pixelated';
+        pixelCanvas.style.imageRendering = 'crisp-edges';
+        
+        ctx = pixelCanvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false; // critical for pixel accuracy when drawing
+        
+        if (preserveContent && oldImageData) {
+            // scale old pixel data to new dimensions using nearest neighbor (preserve pixel look)
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = oldImageData.width;
+            tempCanvas.height = oldImageData.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.putImageData(oldImageData, 0, 0);
+            // draw scaled version onto new canvas using nearest neighbor
+            ctx.drawImage(tempCanvas, 0, 0, oldImageData.width, oldImageData.height, 0, 0, newWidth, newHeight);
+        } else {
+            // fill with checker or black
+            ctx.fillStyle = '#0f1225';
+            ctx.fillRect(0, 0, newWidth, newHeight);
+            // draw subtle grid pattern for empty canvas (optional)
+            ctx.fillStyle = '#1e2344';
+            for (let i = 0; i < newWidth; i += 8) {
+                ctx.fillRect(i, 0, 1, newHeight);
+                ctx.fillRect(0, i, newWidth, 1);
+            }
+        }
+        resDisplaySpan.innerText = `${currentWidth} x ${currentHeight}`;
+        updateStatusMessage(`Canvas resized to ${currentWidth}x${currentHeight} pixel matrix.`);
+    }
+    
+    function updateStatusMessage(msg, isError = false) {
+        generationStatusSpan.innerHTML = isError ? `⚠️ ${msg}` : `✨ ${msg}`;
+        generationStatusSpan.style.color = isError ? '#ffaa88' : '#b7e0ff';
+        setTimeout(() => {
+            if (generationStatusSpan.innerHTML.includes(msg)) {
+                if (!isError) generationStatusSpan.style.color = '#ffbb86';
+            }
+        }, 3000);
+    }
+
+    // load Perchance plugin (same robust method)
+    function loadPerchancePlugin() {
+        return new Promise((resolve, reject) => {
+            if (window.aiTextToImage && typeof window.aiTextToImage === 'function') {
+                generateImageFunc = window.aiTextToImage;
+                perchanceReady = true;
+                resolve(true);
+                return;
+            }
+            const script = document.createElement('script');
+            script.type = 'module';
+            script.textContent = `
+                import aiTextToImage from 'https://perchance.org/ai-text-to-image-plugin';
+                window.aiTextToImage = aiTextToImage;
+                window.dispatchEvent(new CustomEvent('perchanceAIReady'));
+            `;
+            document.head.appendChild(script);
+            const handler = () => {
+                if (window.aiTextToImage && typeof window.aiTextToImage === 'function') {
+                    generateImageFunc = window.aiTextToImage;
+                    perchanceReady = true;
+                    document.removeEventListener('perchanceAIReady', handler);
+                    resolve(true);
+                } else {
+                    reject(new Error("Perchance AI not loaded properly"));
+                }
+            };
+            document.addEventListener('perchanceAIReady', handler);
+            setTimeout(() => {
+                if (!perchanceReady) reject(new Error("Timeout loading Perchance AI plugin"));
+            }, 8000);
+        });
+    }
+
+    // build final prompt for AI (pixel hint forced)
+    function buildAIPrompt() {
+        let mainPrompt = promptInput.value.trim();
+        let styleMod = styleInput.value.trim();
+        if (!mainPrompt) {
+            mainPrompt = "pixel art landscape with mountains and pixel stars, 16-bit era";
+        }
+        let finalPrompt = `${mainPrompt}, pixel art, low resolution, blocky, retro game art, no smooth shading, dithering`;
+        if (styleMod) {
+            finalPrompt += `, ${styleMod}`;
+        }
+        return finalPrompt;
+    }
+
+    // generate AI image (returns ImageBitmap or HTMLImageElement)
+    async function fetchAIBaseImage() {
+        if (!perchanceReady) {
+            updateStatusMessage("Initializing Perchance AI engine...", false);
+            await loadPerchancePlugin();
+        }
+        const fullPrompt = buildAIPrompt();
+        updateStatusMessage(`🧠 AI generating "${fullPrompt.substring(0, 60)}..."`, false);
+        sourceInfoSpan.innerText = "✨ generating...";
+        const imageUrl = await generateImageFunc(fullPrompt);
+        if (!imageUrl || typeof imageUrl !== 'string') throw new Error("No image URL returned");
+        // load image into an HTMLImageElement to get pixel data
+        const img = new Image();
+        img.crossOrigin = "Anonymous"; // but perchance serves CORS friendly
+        return new Promise((resolve, reject) => {
+            img.onload = () => resolve(img);
+            img.onerror = (e) => reject(new Error("Failed to load generated image from Perchance"));
+            img.src = imageUrl;
+        });
+    }
+
+    // core: downsample the AI image to EXACT target canvas resolution (nearest neighbor, pixel perfect)
+    function downsampleToPixelCanvas(sourceImg, targetWidth, targetHeight) {
+        // create temporary canvas with source image size (keep original)
+        const tempCanvas = document.createElement('canvas');
+        const srcWidth = sourceImg.width;
+        const srcHeight = sourceImg.height;
+        tempCanvas.width = srcWidth;
+        tempCanvas.height = srcHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(sourceImg, 0, 0, srcWidth, srcHeight);
+        
+        // now draw onto the main pixel canvas with target dimensions using nearest neighbor
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, currentWidth, currentHeight);
+        // Draw scaled version: from source to exact pixel dimension (targetWidth, targetHeight)
+        // this performs a real nearest neighbor rescale to match the pixel matrix.
+        ctx.drawImage(tempCanvas, 0, 0, srcWidth, srcHeight, 0, 0, targetWidth, targetHeight);
+        
+        // optional: if someone wants pixel perfect indexing, that's it. No extra scaling.
+        sourceInfoSpan.innerText = `🔻 AI → pixel matrix ${targetWidth}x${targetHeight}`;
+    }
+
+    // main generation pipeline: AI -> exact canvas resolution
+    async function generatePixelArt() {
+        // get target pixel dimensions
+        let newW = parseInt(pixelWidthInput.value, 10);
+        let newH = parseInt(pixelHeightInput.value, 10);
+        if (isNaN(newW)) newW = 48;
+        if (isNaN(newH)) newH = 48;
+        newW = Math.min(256, Math.max(16, newW));
+        newH = Math.min(256, Math.max(16, newH));
+        pixelWidthInput.value = newW;
+        pixelHeightInput.value = newH;
+        
+        // resize canvas buffer exactly to requested pixel dimensions (wipe old content but we'll fill with AI)
+        resizeCanvasBuffer(newW, newH, false);
+        
+        updateStatusMessage("Contacting Perchance AI for pixel generation...", false);
+        try {
+            const aiImage = await fetchAIBaseImage();
+            if (!aiImage) throw new Error("Empty AI response");
+            // now downsample to current true pixel size (which equals newW x newH after resize)
+            downsampleToPixelCanvas(aiImage, currentWidth, currentHeight);
+            updateStatusMessage(`✅ Pixel artwork ready! True resolution ${currentWidth}x${currentHeight}`, false);
+        } catch (err) {
+            console.error(err);
+            updateStatusMessage(`AI error: ${err.message}. Retry or check connection.`, true);
+            // fill placeholder pattern
+            ctx.fillStyle = '#120c24';
+            ctx.fillRect(0, 0, currentWidth, currentHeight);
+            ctx.fillStyle = '#3a2c6a';
+            for (let i = 0; i < currentWidth; i+=4) {
+                ctx.fillRect(i, i%8, 2, 2);
+            }
+            sourceInfoSpan.innerText = "❌ generation failed";
+        }
+    }
+
+    // apply resolution only (user wants to change canvas pixel count, keep content via scaled nearest neighbor)
+    function applyResolutionOnly() {
+        let newW = parseInt(pixelWidthInput.value, 10);
+        let newH = parseInt(pixelHeightInput.value, 10);
+        if (isNaN(newW)) newW = currentWidth;
+        if (isNaN(newH)) newH = currentHeight;
+        newW = Math.min(256, Math.max(16, newW));
+        newH = Math.min(256, Math.max(16, newH));
+        pixelWidthInput.value = newW;
+        pixelHeightInput.value = newH;
+        if (newW === currentWidth && newH === currentHeight) {
+            updateStatusMessage("Resolution unchanged", false);
+            return;
+        }
+        // capture current pixel data BEFORE changing resolution
+        let oldImageData = null;
+        try {
+            oldImageData = ctx.getImageData(0, 0, currentWidth, currentHeight);
+        } catch(e) { oldImageData = null; }
+        
+        // resize canvas buffer
+        pixelCanvas.width = newW;
+        pixelCanvas.height = newH;
+        currentWidth = newW;
+        currentHeight = newH;
+        pixelCanvas.style.imageRendering = 'pixelated';
+        ctx = pixelCanvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        
+        if (oldImageData) {
+            // Use temporary canvas to maintain pixelated scaling on resolution change
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = oldImageData.width;
+            tempCanvas.height = oldImageData.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.putImageData(oldImageData, 0, 0);
+            ctx.drawImage(tempCanvas, 0, 0, oldImageData.width, oldImageData.height, 0, 0, newW, newH);
+        } else {
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fillRect(0, 0, newW, newH);
+        }
+        resDisplaySpan.innerText = `${currentWidth} x ${currentHeight}`;
+        updateStatusMessage(`Pixel resolution changed to ${currentWidth}x${currentHeight} — true pixel matrix updated.`);
+    }
+
+    function clearCanvasContent() {
+        ctx.fillStyle = '#0a0c1e';
+        ctx.fillRect(0, 0, currentWidth, currentHeight);
+        ctx.fillStyle = '#1b2042';
+        for (let i=0; i<currentWidth; i+=6) {
+            ctx.fillRect(i, 0, 1, currentHeight);
+            ctx.fillRect(0, i, currentWidth, 1);
+        }
+        sourceInfoSpan.innerText = "🧹 canvas cleared";
+        updateStatusMessage("Canvas cleared. Generate new pixel art!");
+    }
+
+    // random prompt generator
+    const pixelPrompts = [
+        "cyberpunk samurai in neon rain, pixel art", "forest temple with pixel spirit", "8-bit dragon and knight", 
+        "space station pixel, 16 colors", "underground pixel market", "wizard casting ice spell, gameboy palette",
+        "retro arcade racing car", " haunted pixel dungeon", "pixel cat with glowing eyes", "castle siege pixel art"
+    ];
+    function randomPrompt() {
+        const rand = pixelPrompts[Math.floor(Math.random() * pixelPrompts.length)];
+        promptInput.value = rand;
+        styleInput.value = "dithering, pixel perfect, low res";
+        updateStatusMessage(`Random pixel prompt: "${rand}"`);
+    }
+
+    // Initialize default canvas (48x48)
+    function initDefaultCanvas() {
+        currentWidth = 48;
+        currentHeight = 48;
+        pixelCanvas.width = 48;
+        pixelCanvas.height = 48;
+        pixelCanvas.style.imageRendering = 'pixelated';
+        pixelCanvas.style.width = '320px';
+        ctx = pixelCanvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.fillStyle = '#10132b';
+        ctx.fillRect(0, 0, 48, 48);
+        for (let i=0;i<48;i+=4) {
+            ctx.fillStyle = '#1c245a';
+            ctx.fillRect(i,i%6,2,2);
+        }
+        resDisplaySpan.innerText = "48 x 48";
+        pixelWidthInput.value = 48;
+        pixelHeightInput.value = 48;
+        sourceInfoSpan.innerText = "ready";
+    }
+
+    // event bindings
+    generateBtn.addEventListener('click', generatePixelArt);
+    randomPromptBtn.addEventListener('click', randomPrompt);
+    resizeOnlyBtn.addEventListener('click', applyResolutionOnly);
+    clearCanvasBtn.addEventListener('click', clearCanvasContent);
+    document.getElementById('infoApiLink')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.open('https://perchance.org/ai-text-to-image-plugin', '_blank');
+    });
+    
+    // load perchance in background and initialize
+    initDefaultCanvas();
+    loadPerchancePlugin().then(() => {
+        updateStatusMessage("Perchance AI ready! Generate true pixel art now.", false);
+        sourceInfoSpan.innerText = "🧠 AI engine online";
+    }).catch(err => {
+        console.warn(err);
+        updateStatusMessage("AI plugin not ready? Check internet, but you can still resize canvas.", true);
+    });
+</script>
+</body>
+</html>

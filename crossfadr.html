@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audio A/B - Seek + 10-Band EQ</title>
+<style>
+html, body { height:100%; margin:0; font-family:sans-serif; background:#111; color:#eee; overflow:hidden; }
+#waveform { width:100%; height:250px; display:block; background:#222; cursor:pointer; }
+#info { position:absolute; top:10px; width:100%; text-align:center; z-index:10; }
+#crossfade { width:30%; margin:5px auto; display:block; }
+.crossfade-labels { width:30%; display:flex; justify-content:space-between; margin:0 auto; font-size:0.9em; }
+.time-labels { display:flex; justify-content:space-between; width:30%; margin:5px auto; color:#aaa; font-size:0.9em;}
+.eq-container { display:flex; justify-content:center; margin-top:10px; height:220px; }
+.eq { display:flex; flex-direction:column; align-items:center; margin:0 5px; }
+.eq input { writing-mode: bt-lr; -webkit-appearance: slider-vertical; height:120px; }
+button, select { margin:5px; padding:6px 10px; border:none; border-radius:6px; background:#444; color:#fff; cursor:pointer; font-size:0.9em; }
+button:hover, select:hover { background:#666; }
+#loading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#333; padding:20px 40px; border-radius:10px; display:none; }
+</style>
+</head>
+<body>
+
+<canvas id="waveform"></canvas>
+
+<div id="info">
+  <input id="crossfade" type="range" min="0" max="1" step="0.01" value="0">
+  <div class="crossfade-labels">
+    <span id="nameA">Audio A</span>
+    <span id="nameB">Audio B</span>
+  </div>
+  <div>Crossfade: <span id="percent">0%</span></div>
+  <div class="time-labels">
+    <span id="currentTime">0:00</span>
+    <span id="duration">0:00</span>
+  </div>
+  <button id="play">Play / Pause</button>
+  <div>
+    EQ Preset:
+    <select id="eqPreset">
+      <option value="flat">Flat</option>
+      <option value="bass">Bass Boost</option>
+      <option value="vocal">Vocal Boost</option>
+      <option value="treble">Treble Boost</option>
+      <option value="rock">Rock</option>
+      <option value="jazz">Jazz</option>
+      <option value="edm">EDM</option>
+      <option value="pop">Pop</option>
+      <option value="classical">Classical</option>
+    </select>
+  </div>
+</div>
+
+<div class="eq-container">
+  <!-- 10-Band EQ -->
+  <div class="eq"><div>32Hz</div><input id="eq1" type="range" min="-15" max="15" step="1" value="0"></div>
+  <div class="eq"><div>64Hz</div><input id="eq2" type="range" min="-15" max="15" step="1" value="0"></div>
+  <div class="eq"><div>125Hz</div><input id="eq3" type="range" min="-15" max="15" step="1" value="0"></div>
+  <div class="eq"><div>250Hz</div><input id="eq4" type="range" min="-15" max="15" step="1" value="0"></div>
+  <div class="eq"><div>500Hz</div><input id="eq5" type="range" min="-15" max="15" step="1" value="0"></div>
+  <div class="eq"><div>1kHz</div><input id="eq6" type="range" min="-15" max="15" step="1" value="0"></div>
+  <div class="eq"><div>2kHz</div><input id="eq7" type="range" min="-15" max="15" step="1" value="0"></div>
+  <div class="eq"><div>4kHz</div><input id="eq8" type="range" min="-15" max="15" step="1" value="0"></div>
+  <div class="eq"><div>8kHz</div><input id="eq9" type="range" min="-15" max="15" step="1" value="0"></div>
+  <div class="eq"><div>16kHz</div><input id="eq10" type="range" min="-15" max="15" step="1" value="0"></div>
+</div>
+
+<div id="loading">Loading files...</div>
+
+<script>
+let audioCtx, sourceA, sourceB, gainA, gainB, eqNodes=[];
+let buffers={A:null,B:null}, filenames={A:'',B:''};
+let isPlaying=false, startTime=0, pausedAt=0, duration=0;
+let animationFrame;
+const canvas=document.getElementById("waveform");
+const ctx=canvas.getContext("2d");
+const crossfadeSlider=document.getElementById("crossfade");
+const percentDisplay=document.getElementById("percent");
+const currentTimeDisplay=document.getElementById("currentTime");
+const durationDisplay=document.getElementById("duration");
+const loading=document.getElementById("loading");
+const presetSelect=document.getElementById("eqPreset");
+const eqSliders=[...Array(10).keys()].map(i=>document.getElementById(`eq${i+1}`));
+const nameA=document.getElementById("nameA");
+const nameB=document.getElementById("nameB");
+
+// Offscreen canvas for pre-rendered waveform
+let waveformCanvas=document.createElement("canvas");
+let waveformCtx=waveformCanvas.getContext("2d");
+
+// --- Drag & drop ---
+document.body.addEventListener("dragover",e=>{e.preventDefault(); document.body.style.background="#222";});
+document.body.addEventListener("dragleave",e=>{e.preventDefault(); document.body.style.background="#111";});
+document.body.addEventListener("drop",async e=>{
+  e.preventDefault(); document.body.style.background="#111";
+  const files=Array.from(e.dataTransfer.files).slice(0,2);
+  if(files.length<2){alert("Drop 2 audio files"); return;}
+  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  loading.style.display="block";
+  buffers.A=await fileToBuffer(files[0]);
+  buffers.B=await fileToBuffer(files[1]);
+  filenames.A=files[0].name; filenames.B=files[1].name;
+  nameA.textContent=filenames.A; nameB.textContent=filenames.B;
+  duration=Math.max(buffers.A.duration,buffers.B.duration);
+  durationDisplay.textContent=formatTime(duration);
+  preRenderWaveforms(buffers.A,buffers.B);
+  loading.style.display="none";
+});
+
+async function fileToBuffer(file){ const ab=await file.arrayBuffer(); return await audioCtx.decodeAudioData(ab); }
+
+// --- Playback & EQ ---
+function setupNodes(offset=0){
+  stopPlayback();
+  sourceA=audioCtx.createBufferSource(); sourceB=audioCtx.createBufferSource();
+  sourceA.buffer=buffers.A; sourceB.buffer=buffers.B;
+  gainA=audioCtx.createGain(); gainB=audioCtx.createGain();
+
+  const freqs=[32,64,125,250,500,1000,2000,4000,8000,16000];
+  eqNodes=[]; let eqB=[];
+  freqs.forEach((f,i)=>{
+    const fA=audioCtx.createBiquadFilter();
+    fA.type=i==0?"lowshelf":i==9?"highshelf":"peaking";
+    fA.frequency.value=f;
+    fA.gain.value=eqSliders[i].value;
+    eqNodes.push(fA);
+    const fB=audioCtx.createBiquadFilter();
+    fB.type=i==0?"lowshelf":i==9?"highshelf":"peaking";
+    fB.frequency.value=f; fB.gain.value=0; eqB.push(fB);
+  });
+
+  let prevA=sourceA; eqNodes.forEach(f=>{prevA.connect(f); prevA=f;}); prevA.connect(gainA).connect(audioCtx.destination);
+  let prevB=sourceB; eqB.forEach(f=>{prevB.connect(f); prevB=f;}); prevB.connect(gainB).connect(audioCtx.destination);
+
+  updateCrossfade();
+  sourceA.start(0, offset%buffers.A.duration);
+  sourceB.start(0, offset%buffers.B.duration);
+
+  startTime=audioCtx.currentTime-offset; isPlaying=true; updateSeek();
+}
+
+function stopPlayback(){ if(sourceA)try{sourceA.stop();}catch{} if(sourceB)try{sourceB.stop();}catch{} isPlaying=false; cancelAnimationFrame(animationFrame); }
+
+document.getElementById("play").onclick=()=>{
+  if(!buffers.A||!buffers.B){alert("Load files first"); return;}
+  if(!isPlaying) setupNodes(pausedAt);
+  else { pausedAt=audioCtx.currentTime-startTime; stopPlayback();}
+};
+
+// --- Crossfade ---
+crossfadeSlider.oninput=()=>{
+  let value=Math.round(parseFloat(crossfadeSlider.value)*20)/20; crossfadeSlider.value=value;
+  updateCrossfade();
+};
+
+function updateCrossfade(){
+  const x=parseFloat(crossfadeSlider.value);
+  percentDisplay.textContent=Math.round(x*100)+"%";
+  const gain1=Math.cos(x*0.5*Math.PI), gain2=Math.cos((1-x)*0.5*Math.PI);
+  if(gainA&&gainB){ 
+    gainA.gain.setTargetAtTime(gain1,audioCtx.currentTime,0.01);
+    gainB.gain.setTargetAtTime(gain2,audioCtx.currentTime,0.01);
+  }
+}
+
+// --- EQ sliders ---
+eqSliders.forEach((slider,i)=>slider.oninput=()=>{eqNodes[i].gain.value=eqSliders[i].value;});
+
+// --- EQ presets ---
+presetSelect.onchange=()=>{
+  const preset=presetSelect.value;
+  const presets={
+    flat:[0,0,0,0,0,0,0,0,0,0],
+    bass:[5,4,3,2,1,0,-1,-2,-3,-4],
+    vocal:[-2,0,2,4,5,4,2,0,-2,-3],
+    treble:[-5,-4,-3,-2,-1,0,1,2,3,5],
+    rock:[5,4,2,1,0,1,2,3,4,5],
+    jazz:[2,3,2,1,0,1,2,3,2,1],
+    edm:[5,3,0,2,4,3,2,0,3,5],
+    pop:[3,2,1,0,0,1,2,3,4,5],
+    classical:[0,0,0,0,0,0,0,0,0,0]
+  };
+  const values=presets[preset]||presets.flat;
+  eqSliders.forEach((s,i)=>s.value=values[i]);
+  eqNodes.forEach((f,i)=>f.gain.value=values[i]);
+};
+
+// --- Pre-render waveform ---
+function preRenderWaveforms(bufA, bufB){
+  const w=canvas.width=canvas.clientWidth;
+  const h=canvas.height=canvas.clientHeight;
+  waveformCanvas.width=w; waveformCanvas.height=h;
+  waveformCtx.clearRect(0,0,w,h);
+  const dataA=bufA.getChannelData(0), dataB=bufB.getChannelData(0);
+  const step=Math.ceil(Math.max(dataA.length,dataB.length)/w);
+
+  waveformCtx.globalAlpha=0.5;
+  waveformCtx.beginPath();
+  waveformCtx.strokeStyle="#1E90FF";
+  for(let i=0;i<w;i++){
+    const slice=dataA.slice(i*step,(i+1)*step);
+    const max=Math.max(...slice); const min=Math.min(...slice);
+    waveformCtx.moveTo(i,h/2*(1-max)); waveformCtx.lineTo(i,h/2*(1-min));
+  }
+  waveformCtx.stroke();
+
+  waveformCtx.beginPath();
+  waveformCtx.strokeStyle="#FF6347";
+  for(let i=0;i<w;i++){
+    const slice=dataB.slice(i*step,(i+1)*step);
+    const max=Math.max(...slice); const min=Math.min(...slice);
+    waveformCtx.moveTo(i,h/2*(1-max)); waveformCtx.lineTo(i,h/2*(1-min));
+  }
+  waveformCtx.stroke();
+}
+
+// --- Playhead & Seek ---
+function updateSeek(){
+  if(!isPlaying) return;
+  const elapsed=audioCtx.currentTime-startTime;
+  const t=elapsed%duration;
+  currentTimeDisplay.textContent=formatTime(t);
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(waveformCanvas,0,0);
+  const phX = (t/duration)*canvas.width;
+  ctx.strokeStyle="#FFFF00"; ctx.globalAlpha=1;
+  ctx.beginPath();
+  ctx.moveTo(phX,0); ctx.lineTo(phX,canvas.height); ctx.stroke();
+
+  animationFrame=requestAnimationFrame(updateSeek);
+}
+
+// --- Seek by clicking waveform ---
+canvas.addEventListener("click", e=>{
+  if(!buffers.A||!buffers.B) return;
+  const rect=canvas.getBoundingClientRect();
+  const x=e.clientX-rect.left;
+  const ratio=x/canvas.width;
+  pausedAt = ratio*duration;
+  if(isPlaying) setupNodes(pausedAt);
+});
+
+function formatTime(sec){ sec=Math.floor(sec); return Math.floor(sec/60)+":"+String(sec%60).padStart(2,"0"); }
+</script>
+</body>
+</html>

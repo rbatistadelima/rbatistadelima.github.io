@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Text Drum Tracker</title>
+
+<style>
+body {
+  background:#0e0e0e;
+  color:#eee;
+  font-family:system-ui, sans-serif;
+  padding:16px;
+}
+
+textarea {
+  width:100%;
+  height:220px;
+  background:#000;
+  color:#0f0;
+  font-family:monospace;
+  font-size:14px;
+  padding:10px;
+  border:1px solid #333;
+  box-sizing:border-box;
+}
+
+.controls {
+  display:flex;
+  gap:14px;
+  flex-wrap:wrap;
+  align-items:center;
+  margin:12px 0;
+}
+
+label {
+  font-size:12px;
+  opacity:.85;
+}
+
+button, select {
+  background:#222;
+  color:#fff;
+  border:1px solid #444;
+  padding:6px 12px;
+}
+
+input[type=range] {
+  width:130px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Text Drum Tracker</h2>
+
+<textarea id="pattern" spellcheck="false"></textarea>
+
+<div class="controls">
+  <button id="play">Play</button>
+  <button id="stop">Stop</button>
+
+  <label>BPM
+    <input id="bpm" type="range" min="60" max="180" value="100">
+    <span id="bpmVal">100</span>
+  </label>
+
+  <label>Volume
+    <input id="vol" type="range" min="0" max="1.5" step="0.01" value="0.9">
+    <span id="volVal">0.90</span>
+  </label>
+
+  <label>Preset
+    <select id="preset">
+      <option value="">— select —</option>
+      <option value="funk">Funk Carioca</option>
+      <option value="samba">Samba</option>
+      <option value="forro">Forró</option>
+      <option value="maracatu">Maracatu</option>
+    </select>
+  </label>
+</div>
+
+<script>
+/* =====================
+   Audio Core
+   ===================== */
+let ctx, master, timer=null, step=0;
+const STEPS = 16;
+
+function initAudio() {
+  if (ctx) return;
+  ctx = new AudioContext();
+  master = ctx.createGain();
+  master.gain.value = 0.9;
+  master.connect(ctx.destination);
+}
+
+/* =====================
+   UI
+   ===================== */
+const bpmEl = document.getElementById('bpm');
+const bpmVal = document.getElementById('bpmVal');
+const volEl = document.getElementById('vol');
+const volVal = document.getElementById('volVal');
+
+bpmVal.textContent = bpmEl.value;
+volVal.textContent = (+volEl.value).toFixed(2);
+
+bpmEl.oninput = () => bpmVal.textContent = bpmEl.value;
+volEl.oninput = () => {
+  volVal.textContent = (+volEl.value).toFixed(2);
+  if (master) master.gain.value = +volEl.value;
+};
+
+/* =====================
+   Transport
+   ===================== */
+function play() {
+  initAudio();
+  stop();
+  step = 0;
+
+  const bpm = +bpmEl.value;
+  const interval = (60 / bpm) / 4 * 1000;
+
+  timer = setInterval(() => {
+    tick();
+    step = (step + 1) % STEPS;
+  }, interval);
+}
+
+function stop() {
+  if (timer) clearInterval(timer);
+  timer = null;
+}
+
+/* =====================
+   Parser
+   ===================== */
+function parsePattern() {
+  const out = {};
+  const text = document.getElementById('pattern').value;
+
+  text.split('\n').forEach(line => {
+    const m = line.match(/^(\w)\s*\|([^|]*)/);
+    if (!m) return;
+    const inst = m[1];
+    if (!instruments[inst]) return;
+
+    const steps16 = m[2]
+      .replace(/[^xo\-]/gi, '-')
+      .padEnd(16, '-')
+      .slice(0, 16);
+
+    out[inst] = steps16.split('');
+  });
+  return out;
+}
+
+function tick() {
+  const pat = parsePattern();
+  const t = ctx.currentTime;
+  for (const k in pat) {
+    if (pat[k][step] !== '-') instruments[k](t);
+  }
+}
+
+/* =====================
+   Renderers
+   ===================== */
+
+// Noise burst
+function noiseBurst(t, dur, amp, hp=0) {
+  const b = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+
+  const s = ctx.createBufferSource();
+  const g = ctx.createGain();
+  s.buffer = b;
+
+  let node = s;
+  if (hp>0) {
+    const f = ctx.createBiquadFilter();
+    f.type='highpass';
+    f.frequency.value = hp;
+    node.connect(f);
+    node = f;
+  }
+
+  g.gain.setValueAtTime(amp, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+  node.connect(g).connect(master);
+  s.start(t);
+}
+
+// Resonant body
+function resonant(t, freq, dur, amp) {
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type='sine';
+  o.frequency.value=freq;
+  g.gain.setValueAtTime(amp, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+  o.connect(g).connect(master);
+  o.start(t); o.stop(t+dur);
+}
+
+// Metallic FM
+function metallic(t, base, mod, dur, amp) {
+  const c = ctx.createOscillator();
+  const m = ctx.createOscillator();
+  const g = ctx.createGain();
+  m.frequency.value = base * mod;
+  c.frequency.value = base;
+  m.connect(c.frequency);
+  g.gain.setValueAtTime(amp, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+  c.connect(g).connect(master);
+  c.start(t); m.start(t);
+  c.stop(t+dur); m.stop(t+dur);
+}
+
+// Kick
+function kick(t) {
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.frequency.setValueAtTime(150,t);
+  o.frequency.exponentialRampToValueAtTime(45,t+0.12);
+  g.gain.setValueAtTime(1.2,t);
+  g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+  o.connect(g).connect(master);
+  o.start(t); o.stop(t+0.2);
+}
+
+/* =====================
+   Instruments
+   ===================== */
+const instruments = {
+  K: kick,
+  S: t => { noiseBurst(t,0.15,0.4); resonant(t,200,0.12,0.4); },
+  H: t => noiseBurst(t,0.05,0.2,6000),
+  R: t => noiseBurst(t,0.08,0.25,3000),
+  C: t => { for(let i=0;i<3;i++) resonant(t+i*0.015,1200,0.04,0.3); },
+  B: t => metallic(t,540,2.1,0.12,0.4),
+  T: t => resonant(t,180,0.18,0.6),
+  P: t => noiseBurst(t,0.04,0.35,5000),
+  A: t => metallic(t,800,1.5,0.1,0.35)
+};
+
+/* =====================
+   Presets (with BPM)
+   ===================== */
+const presets = {
+  funk:{ bpm:130, pattern:
+`K |o---o---o-o-o--|
+S |----o-------o--|
+H |x--x--x--x--x--|
+C |--------o---o--|
+B |----o-------o--|`},
+
+  samba:{ bpm:98, pattern:
+`K |o-------o---o--|
+S |----o-------o--|
+H |x-x-x-x-x-x-x-x|
+R |--x---x---x---x|
+P |----x---x---x--|`},
+
+  forro:{ bpm:110, pattern:
+`K |o-----o-o-----o|
+S |----o-------o--|
+H |x-x-x-x-x-x-x-x|
+R |--x---x---x---x|
+A |o-------o-------|`},
+
+  maracatu:{ bpm:90, pattern:
+`K |o-------o---o--|
+S |--o---o---o---o|
+H |x-x-x-x-x-x-x-x|
+T |o---o---o---o--|
+A |----o-------o--|`}
+};
+
+document.getElementById('preset').onchange = e => {
+  const p = presets[e.target.value];
+  if (!p) return document.getElementById('pattern').value='';
+  document.getElementById('pattern').value = p.pattern;
+  bpmEl.value = p.bpm;
+  bpmVal.textContent = p.bpm;
+};
+
+document.getElementById('play').onclick = play;
+document.getElementById('stop').onclick = stop;
+</script>
+
+</body>
+</html>

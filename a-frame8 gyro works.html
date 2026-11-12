@@ -1,0 +1,244 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+  <title>Fast Cardboard AR — Fixed Video + Fast Gyro</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    html,body { margin:0; height:100%; background: black; overflow:hidden; }
+    /* fullscreen camera video behind A-Frame canvas */
+    #bgvideo {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      background: black;
+    }
+    /* make A-Frame canvas sit above the video and be transparent */
+    a-scene, a-scene canvas {
+      position: fixed;
+      top:0; left:0;
+      width:100%; height:100%;
+      z-index: 1;
+      pointer-events: auto;
+      background: transparent;
+    }
+    /* small UI overlay */
+    #ui {
+      position: fixed;
+      z-index: 2;
+      right: 12px;
+      top: 12px;
+      color: #fff;
+      font-family: sans-serif;
+      font-size: 13px;
+      background: rgba(0,0,0,0.35);
+      padding: 8px;
+      border-radius: 8px;
+      backdrop-filter: blur(4px);
+    }
+    #debug { margin-top:6px; font-size:12px; color:#ddd; max-width:240px; white-space:pre-wrap; }
+    button { margin-top:6px; width:100%; }
+  </style>
+</head>
+<body>
+  <!-- video sits behind the scene -->
+  <video id="bgvideo" autoplay playsinline muted></video>
+
+  <div id="ui">
+    <strong>Fast Cardboard AR</strong><br>
+    Tap to enable camera & sensors<br>
+    <button id="enableBtn">Enable camera & sensors</button>
+    <label style="display:block;margin-top:6px">
+      <input type="checkbox" id="useRaw"> Use raw gyroscope (devicemotion)
+    </label>
+    <div id="debug">waiting...</div>
+  </div>
+
+  <a-scene embedded renderer="antialias: true; alpha: true;">
+    <!-- camera is static at origin; no look-controls. 3D objects rotate by gyro component. -->
+    <a-entity camera position="0 0 0"></a-entity>
+
+    <!-- the AR object: placed in front (z negative), has fast-gyro component -->
+    <a-entity id="arObject" position="0 0 -2" fast-gyro="useRaw:false; sensitivity:1.0">
+      <a-box color="#ff6b6b" depth="0.4" height="0.4" width="0.4"></a-box>
+      <a-text value="AR Object" align="center" position="0 -0.45 0" baseline="top"></a-text>
+    </a-entity>
+
+    <!-- ground & simple extras for depth cues -->
+    <a-plane rotation="-90 0 0" width="10" height="10" color="#222" position="0 -1 -3" visible="false"></a-plane>
+  </a-scene>
+
+  <script>
+    // -------- helper: request camera & low-res constraints (reduces CPU) ----------
+    async function startCamera() {
+      const video = document.getElementById('bgvideo');
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
+          audio: false
+        });
+        video.srcObject = stream;
+        await video.play();
+        return true;
+      } catch (err) {
+        console.warn('getUserMedia failed', err);
+        return false;
+      }
+    }
+
+    // -------- fast-gyro component (deviceorientation primary, devicemotion fallback) ----------
+    AFRAME.registerComponent('fast-gyro', {
+      schema: {
+        useRaw: { type: 'boolean', default: false },
+        sensitivity: { type: 'number', default: 1.0 }
+      },
+      init: function () {
+        const THREE = AFRAME.THREE;
+        const el = this.el;
+        this.enabled = true;
+        this.useRaw = this.data.useRaw;
+        this.sensitivity = this.data.sensitivity || 1.0;
+
+        // DeviceOrientation -> quaternion utility (same math as DeviceOrientationControls)
+        const zee = new THREE.Vector3(0, 0, 1);
+        const euler = new THREE.Euler();
+        const q0 = new THREE.Quaternion();
+        const q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)); // - PI/2 around x-axis
+        const setObjectQuaternion = function (quaternion, alpha, beta, gamma, orient) {
+          // alpha, beta, gamma are radians
+          euler.set(beta, alpha, -gamma, 'YXZ'); // 'YXZ' is used by DeviceOrientationControls
+          quaternion.setFromEuler(euler);
+          quaternion.multiply(q1); // camera looks out the back of the device, so fix that
+          quaternion.multiply(q0.setFromAxisAngle(zee, -orient));
+        };
+
+        // state
+        this._q = new THREE.Quaternion();
+        this._orient = 0;
+        // deviceorientation event handler
+        this._onDeviceOrientation = (event) => {
+          if (!this.enabled || this.useRaw) return;
+          if (event.alpha === null) return;
+          // convert to radians and apply sensitivity (sensitivity multiplies angles)
+          const alpha = THREE.Math.degToRad(event.alpha || 0) * this.sensitivity;
+          const beta  = THREE.Math.degToRad(event.beta  || 0) * this.sensitivity;
+          const gamma = THREE.Math.degToRad(event.gamma || 0) * this.sensitivity;
+          const orientDeg = (screen.orientation && screen.orientation.angle) || (window.orientation || 0);
+          const orient = THREE.Math.degToRad(orientDeg);
+          setObjectQuaternion(this._q, alpha, beta, gamma, orient);
+          // immediate application (no smoothing)
+          el.object3D.quaternion.copy(this._q);
+          debugDump({alpha: event.alpha, beta: event.beta, gamma: event.gamma});
+        };
+
+        // devicemotion fallback: integrate rotationRate (rad/s)
+        this._useMotion = false;
+        this._motionLast = null;
+        this._curQuat = new THREE.Quaternion();
+        this._onDeviceMotion = (ev) => {
+          if (!this.enabled || !this.useRaw) return;
+          const rates = ev.rotationRate;
+          if (!rates) return;
+          const now = ev.timeStamp || performance.now();
+          if (this._motionLast == null) { this._motionLast = now; return; }
+          const dt = Math.max((now - this._motionLast) / 1000, 0);
+          this._motionLast = now;
+          // rotationRate alpha -> z, beta -> x, gamma -> y (degrees/sec). convert to radians.
+          const a = (rates.alpha || 0) * Math.PI/180 * dt * this.sensitivity;
+          const b = (rates.beta  || 0) * Math.PI/180 * dt * this.sensitivity;
+          const g = (rates.gamma || 0) * Math.PI/180 * dt * this.sensitivity;
+          // make small incremental quaternion: rotate around device axes approx XYZ
+          const dq = new THREE.Quaternion().setFromEuler(new THREE.Euler(b, g, a, 'XYZ'));
+          this._curQuat.multiply(dq); // integrate
+          el.object3D.quaternion.copy(this._curQuat);
+          debugDump({rotAlpha: rates.alpha, rotBeta: rates.beta, rotGamma: rates.gamma});
+        };
+
+        // add listeners
+        window.addEventListener('deviceorientation', this._onDeviceOrientation, true);
+        window.addEventListener('devicemotion', this._onDeviceMotion, true);
+
+        // keep orientation value for when screen rotates
+        const orientChange = () => {
+          const orientDeg = (screen.orientation && screen.orientation.angle) || (window.orientation || 0);
+          this._orient = THREE.Math.degToRad(orientDeg);
+        };
+        window.addEventListener('orientationchange', orientChange);
+        orientChange();
+      },
+
+      update: function (old) {
+        // toggle raw mode at runtime
+        if (old && old.useRaw !== this.data.useRaw) {
+          this.useRaw = this.data.useRaw;
+          // reset motion state if switching to raw
+          if (this.useRaw) {
+            this._motionLast = null;
+            this._curQuat.identity();
+          }
+        }
+      },
+
+      remove: function () {
+        window.removeEventListener('deviceorientation', this._onDeviceOrientation, true);
+        window.removeEventListener('devicemotion', this._onDeviceMotion, true);
+        window.removeEventListener('orientationchange', this._orient);
+      }
+    });
+
+    // --------- debug UI helpers ----------
+    const dbg = document.getElementById('debug');
+    function debugDump(obj) {
+      dbg.textContent = JSON.stringify(obj, null, 2);
+    }
+
+    // --------- enable button handler: request permissions & start camera ----------
+    const enableBtn = document.getElementById('enableBtn');
+    const useRawCheckbox = document.getElementById('useRaw');
+    enableBtn.addEventListener('click', async () => {
+      enableBtn.disabled = true;
+      dbg.textContent = 'requesting permissions...';
+
+      // iOS permission for DeviceOrientation/DeviceMotion
+      try {
+        if (typeof DeviceOrientationEvent !== 'undefined' &&
+            typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const r = await DeviceOrientationEvent.requestPermission();
+          if (r !== 'granted') {
+            dbg.textContent = 'permission denied for DeviceOrientation';
+          }
+        }
+        if (typeof DeviceMotionEvent !== 'undefined' &&
+            typeof DeviceMotionEvent.requestPermission === 'function') {
+          try {
+            await DeviceMotionEvent.requestPermission();
+          } catch (err) {
+            // ignore if not available
+          }
+        }
+      } catch (err) {
+        console.warn('motion permission error', err);
+      }
+
+      // start camera (low-res)
+      const ok = await startCamera();
+      if (!ok) dbg.textContent = 'camera error — check permissions';
+      else dbg.textContent = 'camera running';
+
+      // wire checkbox to component
+      const compEl = document.querySelector('#arObject');
+      compEl.setAttribute('fast-gyro', 'useRaw', useRawCheckbox.checked);
+      useRawCheckbox.addEventListener('change', () => {
+        compEl.setAttribute('fast-gyro', 'useRaw', useRawCheckbox.checked);
+      });
+    });
+  </script>
+</body>
+</html>

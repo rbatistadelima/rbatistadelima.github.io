@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sequential MIDI Instrument Merge</title>
+<style>
+  body {
+    background: #0f0f0f;
+    color: #eee;
+    font-family: system-ui, sans-serif;
+    padding: 20px;
+  }
+  h1 { font-size: 1.3rem; }
+  button {
+    padding: 10px 16px;
+    background: #0af;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; }
+  pre {
+    background: #1b1b1b;
+    padding: 10px;
+    max-height: 220px;
+    overflow: auto;
+  }
+</style>
+</head>
+<body>
+
+<h1>🎼 Sequential MIDI Merge (by Instrument)</h1>
+
+<input type="file" id="files" multiple accept=".mid,.midi">
+<br><br>
+<button id="merge" disabled>Merge Sequentially</button>
+
+<pre id="log"></pre>
+
+<script src="https://unpkg.com/@tonejs/midi/build/Midi.js"></script>
+
+<script>
+const input = document.getElementById("files");
+const btn = document.getElementById("merge");
+const log = document.getElementById("log");
+
+input.onchange = () => btn.disabled = input.files.length < 1;
+
+btn.onclick = async () => {
+  log.textContent = "Reading MIDI files...\n";
+
+  const merged = new Midi();
+  const trackMap = new Map(); // instrumentKey -> track
+  let currentTimeOffset = 0;
+
+  for (const file of input.files) {
+    const buffer = await file.arrayBuffer();
+    const midi = new Midi(buffer);
+
+    let fileEnd = 0;
+
+    midi.tracks.forEach(track => {
+      const instrument = track.instrument.number ?? 0;
+      const channel = track.channel ?? 0;
+      const name = track.name || "Instrument";
+
+      const key = `${instrument}|${channel}|${name}`;
+
+      if (!trackMap.has(key)) {
+        const t = merged.addTrack();
+        t.name = name;
+        t.channel = channel;
+        t.instrument.number = instrument;
+        trackMap.set(key, t);
+      }
+
+      const target = trackMap.get(key);
+
+      track.notes.forEach(n => {
+        target.addNote({
+          ...n,
+          time: n.time + currentTimeOffset
+        });
+        fileEnd = Math.max(fileEnd, n.time + n.duration);
+      });
+
+      if (track.controlChanges) {
+        Object.values(track.controlChanges).forEach(list =>
+          list.forEach(cc => {
+            target.addCC({
+              ...cc,
+              time: cc.time + currentTimeOffset
+            });
+          })
+        );
+      }
+    });
+
+    log.textContent += `✔ ${file.name}\n`;
+    currentTimeOffset += fileEnd;
+  }
+
+  const blob = new Blob([merged.toArray()], { type: "audio/midi" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "sequential-merged.mid";
+  a.click();
+
+  log.textContent += "\n🎉 Merge complete.";
+};
+</script>
+
+</body>
+</html>

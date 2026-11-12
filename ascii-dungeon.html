@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ASCII Dungeon</title>
+<style>
+body{
+    background:#000;
+    color:#fff;
+    font-family:monospace;
+    margin:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+pre{
+    font-size:11px;
+    line-height:11px;
+    margin:0;
+    padding:15px;
+    border:2px solid #555;
+    background:#111;
+}
+</style>
+</head>
+<body>
+
+<pre id="view"></pre>
+
+<script>
+const MAP = [
+"####################",
+"#........#.........#",
+"#........#.........#",
+"#........#.........#",
+"#..................#",
+"#....######........#",
+"#..................#",
+"#...............#..#",
+"#...............#..#",
+"#..................#",
+"####################"
+];
+
+let player = {
+    x: 2,
+    y: 2,
+    dir: 1 // 0=N 1=E 2=S 3=W
+};
+
+const DIRS = [
+    {x:0,y:-1},
+    {x:1,y:0},
+    {x:0,y:1},
+    {x:-1,y:0}
+];
+
+const SCREEN_W = 100;
+const SCREEN_H = 36;
+
+function wall(x,y){
+    if(y<0||y>=MAP.length||x<0||x>=MAP[0].length)
+        return true;
+    return MAP[y][x]==="#";
+}
+
+function getRelativeCell(depth, side){
+    const f = DIRS[player.dir];
+    const l = DIRS[(player.dir+3)%4];
+
+    return {
+        x: player.x + f.x*depth + l.x*side,
+        y: player.y + f.y*depth + l.y*side
+    };
+}
+
+function renderFPV(){
+
+    const buf=[];
+
+    for(let y=0;y<SCREEN_H;y++){
+        buf[y]=[];
+        for(let x=0;x<SCREEN_W;x++)
+            buf[y][x]=" ";
+    }
+
+    const maxDepth=8;
+
+    for(let d=maxDepth; d>=1; d--){
+
+        const leftCell  = getRelativeCell(d,-1);
+        const rightCell = getRelativeCell(d, 1);
+        const frontCell = getRelativeCell(d, 0);
+
+        const scale = (maxDepth-d+1);
+
+        const leftX  = scale*4;
+        const rightX = SCREEN_W-1-scale*4;
+
+        const top    = scale*2;
+        const bottom = SCREEN_H-1-scale*2;
+
+        if(wall(leftCell.x,leftCell.y)){
+            for(let y=top;y<=bottom;y++){
+                for(let x=0;x<=leftX;x++)
+                    buf[y][x]="█";
+            }
+        }else{
+            for(let y=top;y<=bottom;y++){
+                buf[y][leftX]="#";
+            }
+        }
+
+        if(wall(rightCell.x,rightCell.y)){
+            for(let y=top;y<=bottom;y++){
+                for(let x=rightX;x<SCREEN_W;x++)
+                    buf[y][x]="█";
+            }
+        }else{
+            for(let y=top;y<=bottom;y++){
+                buf[y][rightX]="#";
+            }
+        }
+
+        if(wall(frontCell.x,frontCell.y)){
+
+            for(let y=top;y<=bottom;y++){
+                for(let x=leftX;x<=rightX;x++)
+                    buf[y][x]="█";
+            }
+
+            for(let x=leftX;x<=rightX;x++){
+                buf[top][x]="#";
+                buf[bottom][x]="#";
+            }
+
+            for(let y=top;y<=bottom;y++){
+                buf[y][leftX]="#";
+                buf[y][rightX]="#";
+            }
+
+            break;
+        }
+    }
+
+    return buf.map(r=>r.join("")).join("\n");
+}
+
+function mapCharForDir(){
+    return ["^",">","v","<"][player.dir];
+}
+
+function renderMap(){
+
+    const out=[];
+
+    for(let y=0;y<MAP.length;y++){
+
+        let row="";
+
+        for(let x=0;x<MAP[0].length;x++){
+
+            if(x===player.x && y===player.y)
+                row+=mapCharForDir();
+            else
+                row+=MAP[y][x];
+        }
+
+        out.push(row);
+    }
+
+    return out.join("\n");
+}
+
+function draw(){
+
+    document.getElementById("view").textContent =
+`=== OVERHEAD MAP ===
+
+${renderMap()}
+
+=== FIRST PERSON VIEW ===
+
+${renderFPV()}
+
+Controls:
+W/S = Forward/Back
+A/D = Turn
+Q/E = Strafe`;
+}
+
+function move(dx,dy){
+
+    const nx=player.x+dx;
+    const ny=player.y+dy;
+
+    if(!wall(nx,ny)){
+        player.x=nx;
+        player.y=ny;
+    }
+}
+
+document.addEventListener("keydown",e=>{
+
+    const f=DIRS[player.dir];
+    const l=DIRS[(player.dir+3)%4];
+
+    switch(e.key.toLowerCase()){
+
+        case "w":
+            move(f.x,f.y);
+            break;
+
+        case "s":
+            move(-f.x,-f.y);
+            break;
+
+        case "q":
+            move(l.x,l.y);
+            break;
+
+        case "e":
+            move(-l.x,-l.y);
+            break;
+
+        case "a":
+            player.dir=(player.dir+3)%4;
+            break;
+
+        case "d":
+            player.dir=(player.dir+1)%4;
+            break;
+
+        case "arrowup":
+            move(f.x,f.y);
+            break;
+
+        case "arrowdown":
+            move(-f.x,-f.y);
+            break;
+
+        case "arrowleft":
+            player.dir=(player.dir+3)%4;
+            break;
+
+        case "arrowright":
+            player.dir=(player.dir+1)%4;
+            break;
+    }
+
+    draw();
+});
+
+draw();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Color Harmony Studio</title>
+
+<style>
+:root{
+    --bg:#121212;
+    --panel:#1c1c1c;
+    --panel2:#262626;
+    --text:#f0f0f0;
+    --border:#3a3a3a;
+}
+
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+}
+
+body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:system-ui,sans-serif;
+    padding:20px;
+}
+
+.container{
+    max-width:1400px;
+    margin:auto;
+    display:grid;
+    gap:20px;
+    grid-template-columns:350px 1fr;
+}
+
+.panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:15px;
+}
+
+h1{
+    margin-bottom:15px;
+}
+
+h2{
+    margin-bottom:10px;
+    font-size:18px;
+}
+
+.color-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:8px;
+}
+
+.color-row input[type=color]{
+    width:60px;
+    height:40px;
+    border:none;
+}
+
+.color-row input[type=text]{
+    flex:1;
+    background:#333;
+    color:white;
+    border:none;
+    padding:8px;
+}
+
+button{
+    background:#444;
+    color:white;
+    border:none;
+    cursor:pointer;
+    padding:10px;
+    border-radius:6px;
+}
+
+button:hover{
+    background:#555;
+}
+
+.harmony-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:6px;
+}
+
+.mode{
+    background:#333;
+    border-radius:6px;
+    padding:8px;
+    cursor:pointer;
+}
+
+.mode.active{
+    background:#0066ff;
+}
+
+.palette{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(100px,1fr));
+    gap:8px;
+}
+
+.swatch{
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid #444;
+}
+
+.color{
+    height:80px;
+}
+
+.label{
+    padding:6px;
+    text-align:center;
+    background:#222;
+    font-size:12px;
+}
+
+#wheel{
+    display:block;
+    margin:auto;
+    background:#111;
+    border-radius:50%;
+}
+
+.score{
+    font-size:28px;
+    font-weight:bold;
+    text-align:center;
+}
+
+textarea{
+    width:100%;
+    height:180px;
+    background:#111;
+    color:#0f0;
+    border:none;
+    padding:10px;
+    resize:vertical;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div class="panel">
+
+<h1>🎨 Harmony Studio</h1>
+
+<h2>Base Colors</h2>
+
+<div id="colors"></div>
+
+<button id="addColor">➕ Add Color</button>
+
+<br><br>
+
+<h2>Harmony</h2>
+
+<div class="harmony-grid" id="modes"></div>
+
+</div>
+
+<div>
+
+<div class="panel">
+
+<h2>Color Wheel</h2>
+
+<canvas id="wheel" width="420" height="420"></canvas>
+
+</div>
+
+<br>
+
+<div class="panel">
+
+<h2>Harmony Score</h2>
+
+<div class="score" id="score">0</div>
+
+</div>
+
+<br>
+
+<div class="panel">
+
+<h2>Generated Palette</h2>
+
+<div class="palette" id="palette"></div>
+
+</div>
+
+<br>
+
+<div class="panel">
+
+<h2>CSS Export</h2>
+
+<textarea id="export"></textarea>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+const modes = [
+["🎨","Monochromatic"],
+["🌑","Shades"],
+["☀️","Tints"],
+["🌫️","Tones"],
+["🔗","Analogous"],
+["↔️","Adjacent"],
+["⚖️","Complementary"],
+["🔀","Split Complementary"],
+["🔺","Triadic"],
+["▭","Tetradic"],
+["◻️","Square"],
+["🧩","Compound"]
+];
+
+let activeMode="Triadic";
+
+const colorsDiv=document.getElementById("colors");
+const paletteDiv=document.getElementById("palette");
+
+function addColor(value="#DD2D44"){
+    const row=document.createElement("div");
+    row.className="color-row";
+
+    row.innerHTML=`
+    <input type="color" value="${value}">
+    <input type="text" value="${value}">
+    <button>✕</button>
+    `;
+
+    const picker=row.children[0];
+    const text=row.children[1];
+
+    picker.oninput=()=>{
+        text.value=picker.value.toUpperCase();
+        update();
+    };
+
+    text.oninput=()=>{
+        picker.value=text.value;
+        update();
+    };
+
+    row.children[2].onclick=()=>{
+        row.remove();
+        update();
+    };
+
+    colorsDiv.appendChild(row);
+}
+
+addColor("#DD2D44");
+addColor("#2D994D");
+
+document.getElementById("addColor").onclick=()=>{
+    addColor("#4285F4");
+};
+
+const modesDiv=document.getElementById("modes");
+
+modes.forEach(([icon,name])=>{
+    const div=document.createElement("div");
+    div.className="mode";
+    div.textContent=icon+" "+name;
+
+    if(name===activeMode)
+        div.classList.add("active");
+
+    div.onclick=()=>{
+        document.querySelectorAll(".mode")
+        .forEach(x=>x.classList.remove("active"));
+
+        div.classList.add("active");
+        activeMode=name;
+        update();
+    };
+
+    modesDiv.appendChild(div);
+});
+
+function hexToRgb(hex){
+    hex=hex.replace("#","");
+    return {
+        r:parseInt(hex.substring(0,2),16),
+        g:parseInt(hex.substring(2,4),16),
+        b:parseInt(hex.substring(4,6),16)
+    };
+}
+
+function rgbToHex(r,g,b){
+    return "#"+
+    [r,g,b]
+    .map(v=>Math.round(v)
+    .toString(16)
+    .padStart(2,"0"))
+    .join("")
+    .toUpperCase();
+}
+
+function rgbToHsl(r,g,b){
+
+    r/=255;
+    g/=255;
+    b/=255;
+
+    let max=Math.max(r,g,b);
+    let min=Math.min(r,g,b);
+
+    let h,s,l=(max+min)/2;
+
+    if(max===min){
+        h=s=0;
+    }else{
+
+        let d=max-min;
+
+        s=l>0.5
+            ? d/(2-max-min)
+            : d/(max+min);
+
+        switch(max){
+            case r:
+                h=(g-b)/d+(g<b?6:0);
+                break;
+            case g:
+                h=(b-r)/d+2;
+                break;
+            case b:
+                h=(r-g)/d+4;
+                break;
+        }
+
+        h*=60;
+    }
+
+    return {h,s,l};
+}
+
+function hslToRgb(h,s,l){
+
+    let c=(1-Math.abs(2*l-1))*s;
+    let x=c*(1-Math.abs((h/60)%2-1));
+    let m=l-c/2;
+
+    let r=0,g=0,b=0;
+
+    if(h<60){r=c;g=x;}
+    else if(h<120){r=x;g=c;}
+    else if(h<180){g=c;b=x;}
+    else if(h<240){g=x;b=c;}
+    else if(h<300){r=x;b=c;}
+    else{r=c;b=x;}
+
+    return {
+        r:(r+m)*255,
+        g:(g+m)*255,
+        b:(b+m)*255
+    };
+}
+
+function hslHex(h,s,l){
+    let rgb=hslToRgb(
+        (h+360)%360,
+        s,
+        l
+    );
+
+    return rgbToHex(
+        rgb.r,
+        rgb.g,
+        rgb.b
+    );
+}
+
+function generate(){
+
+    const rows=[...document.querySelectorAll(".color-row")];
+
+    const bases=rows.map(r=>{
+        return r.querySelector("input[type=color]").value;
+    });
+
+    let colors=[];
+
+    bases.forEach(hex=>{
+
+        let rgb=hexToRgb(hex);
+        let hsl=rgbToHsl(
+            rgb.r,
+            rgb.g,
+            rgb.b
+        );
+
+        switch(activeMode){
+
+            case "Monochromatic":
+                for(let i=0;i<5;i++)
+                    colors.push(
+                        hslHex(
+                            hsl.h,
+                            hsl.s,
+                            0.15+i*0.18
+                        )
+                    );
+                break;
+
+            case "Shades":
+                for(let i=0;i<5;i++)
+                    colors.push(
+                        hslHex(
+                            hsl.h,
+                            hsl.s,
+                            hsl.l*(1-i*0.18)
+                        )
+                    );
+                break;
+
+            case "Tints":
+                for(let i=0;i<5;i++)
+                    colors.push(
+                        hslHex(
+                            hsl.h,
+                            hsl.s,
+                            Math.min(
+                                1,
+                                hsl.l+i*0.12
+                            )
+                        )
+                    );
+                break;
+
+            case "Tones":
+                for(let i=0;i<5;i++)
+                    colors.push(
+                        hslHex(
+                            hsl.h,
+                            hsl.s*(1-i*0.15),
+                            hsl.l
+                        )
+                    );
+                break;
+
+            case "Analogous":
+                [-30,-15,0,15,30]
+                .forEach(a=>{
+                    colors.push(
+                        hslHex(
+                            hsl.h+a,
+                            hsl.s,
+                            hsl.l
+                        )
+                    );
+                });
+                break;
+
+            case "Adjacent":
+                [-20,0,20]
+                .forEach(a=>{
+                    colors.push(
+                        hslHex(
+                            hsl.h+a,
+                            hsl.s,
+                            hsl.l
+                        )
+                    );
+                });
+                break;
+
+            case "Complementary":
+                [0,180]
+                .forEach(a=>{
+                    colors.push(
+                        hslHex(
+                            hsl.h+a,
+                            hsl.s,
+                            hsl.l
+                        )
+                    );
+                });
+                break;
+
+            case "Split Complementary":
+                [0,150,210]
+                .forEach(a=>{
+                    colors.push(
+                        hslHex(
+                            hsl.h+a,
+                            hsl.s,
+                            hsl.l
+                        )
+                    );
+                });
+                break;
+
+            case "Triadic":
+                [0,120,240]
+                .forEach(a=>{
+                    colors.push(
+                        hslHex(
+                            hsl.h+a,
+                            hsl.s,
+                            hsl.l
+                        )
+                    );
+                });
+                break;
+
+            case "Tetradic":
+                [0,60,180,240]
+                .forEach(a=>{
+                    colors.push(
+                        hslHex(
+                            hsl.h+a,
+                            hsl.s,
+                            hsl.l
+                        )
+                    );
+                });
+                break;
+
+            case "Square":
+                [0,90,180,270]
+                .forEach(a=>{
+                    colors.push(
+                        hslHex(
+                            hsl.h+a,
+                            hsl.s,
+                            hsl.l
+                        )
+                    );
+                });
+                break;
+
+            case "Compound":
+                [0,30,180,210]
+                .forEach(a=>{
+                    colors.push(
+                        hslHex(
+                            hsl.h+a,
+                            hsl.s,
+                            hsl.l
+                        )
+                    );
+                });
+                break;
+        }
+    });
+
+    return [...new Set(colors)];
+}
+
+function drawWheel(colors){
+
+    const c=document.getElementById("wheel");
+    const ctx=c.getContext("2d");
+
+    ctx.clearRect(0,0,c.width,c.height);
+
+    const cx=210;
+    const cy=210;
+    const r=180;
+
+    for(let h=0;h<360;h++){
+
+        ctx.beginPath();
+
+        ctx.strokeStyle=
+            `hsl(${h} 100% 50%)`;
+
+        ctx.lineWidth=20;
+
+        ctx.arc(
+            cx,
+            cy,
+            r,
+            (h-1)*Math.PI/180,
+            h*Math.PI/180
+        );
+
+        ctx.stroke();
+    }
+
+    colors.forEach(color=>{
+
+        const rgb=hexToRgb(color);
+
+        const hsl=rgbToHsl(
+            rgb.r,
+            rgb.g,
+            rgb.b
+        );
+
+        const a=
+            hsl.h*Math.PI/180;
+
+        const x=
+            cx+
+            Math.cos(a)*(r-10);
+
+        const y=
+            cy+
+            Math.sin(a)*(r-10);
+
+        ctx.beginPath();
+        ctx.fillStyle=color;
+        ctx.arc(x,y,10,0,Math.PI*2);
+        ctx.fill();
+
+        ctx.strokeStyle="white";
+        ctx.stroke();
+    });
+}
+
+function update(){
+
+    const colors=generate();
+
+    paletteDiv.innerHTML="";
+
+    colors.forEach(c=>{
+
+        const sw=document.createElement("div");
+        sw.className="swatch";
+
+        sw.innerHTML=`
+        <div class="color"
+        style="background:${c}">
+        </div>
+        <div class="label">${c}</div>
+        `;
+
+        paletteDiv.appendChild(sw);
+    });
+
+    drawWheel(colors);
+
+    const score=
+        Math.min(
+            100,
+            Math.round(
+                50+
+                colors.length*3
+            )
+        );
+
+    document.getElementById("score")
+    .textContent=score+"/100";
+
+    document.getElementById("export")
+    .value=
+        colors.map(
+            (c,i)=>
+            `--color-${i+1}: ${c};`
+        ).join("\n");
+}
+
+update();
+
+</script>
+</body>
+</html>

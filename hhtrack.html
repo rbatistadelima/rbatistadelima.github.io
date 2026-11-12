@@ -2,44 +2,44 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Face + Hand Tracking</title>
+<title>Face + Hands Tracking</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
 <style>
 body{
     margin:0;
     overflow:hidden;
-    background:#111;
-    font-family:Arial,sans-serif;
+    background:#000;
 }
 canvas{
     position:absolute;
-    top:0;
-    left:0;
+    inset:0;
 }
-#info{
+#status{
     position:absolute;
     top:10px;
     left:10px;
+    z-index:100;
     color:white;
-    background:rgba(0,0,0,.6);
+    background:rgba(0,0,0,.7);
     padding:10px;
-    z-index:10;
-    white-space:pre-line;
+    font-family:Arial;
 }
 </style>
 </head>
 <body>
 
-<div id="info">Loading...</div>
+<div id="status">Starting...</div>
 <canvas id="canvas"></canvas>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js"></script>
 
 <script>
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-const info = document.getElementById("info");
+const statusEl = document.getElementById("status");
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -53,26 +53,49 @@ const video = document.createElement("video");
 video.autoplay = true;
 video.playsInline = true;
 
-function drawPoint(x,y,size,color){
+let latestFace = null;
+let latestHands = [];
+
+function drawPoint(x,y,r,color){
     ctx.beginPath();
-    ctx.arc(x,y,size,0,Math.PI*2);
-    ctx.fillStyle=color;
+    ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle = color;
     ctx.fill();
 }
 
-const holistic = new Holistic({
-    locateFile:file =>
-    `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+const faceMesh = new FaceMesh({
+    locateFile:(file)=>
+    `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
 });
 
-holistic.setOptions({
-    modelComplexity:1,
-    smoothLandmarks:true,
+faceMesh.setOptions({
+    maxNumFaces:1,
+    refineLandmarks:true,
     minDetectionConfidence:0.5,
     minTrackingConfidence:0.5
 });
 
-holistic.onResults(results=>{
+faceMesh.onResults(results=>{
+    latestFace = results.multiFaceLandmarks || null;
+});
+
+const hands = new Hands({
+    locateFile:(file)=>
+    `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+
+hands.setOptions({
+    maxNumHands:2,
+    modelComplexity:0,
+    minDetectionConfidence:0.5,
+    minTrackingConfidence:0.5
+});
+
+hands.onResults(results=>{
+    latestHands = results.multiHandLandmarks || [];
+});
+
+async function render(){
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
@@ -82,82 +105,78 @@ holistic.onResults(results=>{
     ctx.scale(-1,1);
 
     ctx.drawImage(
-        results.image,
+        video,
         0,
         0,
         canvas.width,
         canvas.height
     );
 
-    let text = "";
+    if(latestFace){
 
-    // FACE
-    if(results.faceLandmarks){
+        for(const face of latestFace){
 
-        for(const p of results.faceLandmarks){
+            for(const p of face){
 
-            drawPoint(
-                p.x*canvas.width,
-                p.y*canvas.height,
-                1.5,
-                "#00ff88"
-            );
+                drawPoint(
+                    p.x * canvas.width,
+                    p.y * canvas.height,
+                    1.5,
+                    "#00ff88"
+                );
+            }
         }
-
-        const nose = results.faceLandmarks[1];
-
-        text +=
-        "FACE\n" +
-        "Nose X: " + nose.x.toFixed(3) + "\n" +
-        "Nose Y: " + nose.y.toFixed(3) + "\n\n";
     }
 
-    // LEFT HAND
-    if(results.leftHandLandmarks){
+    for(const hand of latestHands){
 
-        for(const p of results.leftHandLandmarks){
+        for(const p of hand){
 
             drawPoint(
-                p.x*canvas.width,
-                p.y*canvas.height,
+                p.x * canvas.width,
+                p.y * canvas.height,
                 5,
-                "#00aaff"
+                "#ff9900"
             );
         }
 
-        const tip = results.leftHandLandmarks[8];
+        for(let i=0;i<21;i++){
 
-        text +=
-        "LEFT HAND\n" +
-        "Index X: " + tip.x.toFixed(3) + "\n" +
-        "Index Y: " + tip.y.toFixed(3) + "\n\n";
-    }
+            const p = hand[i];
 
-    // RIGHT HAND
-    if(results.rightHandLandmarks){
-
-        for(const p of results.rightHandLandmarks){
-
-            drawPoint(
-                p.x*canvas.width,
-                p.y*canvas.height,
-                5,
-                "#ff8800"
+            ctx.fillStyle="white";
+            ctx.font="12px Arial";
+            ctx.fillText(
+                i,
+                p.x*canvas.width+8,
+                p.y*canvas.height
             );
         }
-
-        const tip = results.rightHandLandmarks[8];
-
-        text +=
-        "RIGHT HAND\n" +
-        "Index X: " + tip.x.toFixed(3) + "\n" +
-        "Index Y: " + tip.y.toFixed(3);
     }
-
-    info.textContent = text || "No face or hands detected";
 
     ctx.restore();
-});
+
+    let text = "";
+
+    if(latestFace && latestFace.length){
+
+        const nose = latestFace[0][1];
+
+        text +=
+        "Face detected\n" +
+        "Nose: " +
+        nose.x.toFixed(3) +
+        ", " +
+        nose.y.toFixed(3) +
+        "\n";
+    }
+
+    text += "\nHands: " + latestHands.length;
+
+    statusEl.textContent = text;
+
+    requestAnimationFrame(render);
+}
 
 navigator.mediaDevices.getUserMedia({
     video:{
@@ -165,22 +184,26 @@ navigator.mediaDevices.getUserMedia({
         height:720
     }
 })
-.then(stream=>{
+.then(async stream=>{
 
     video.srcObject = stream;
 
-    const camera = new Camera(video,{
-        onFrame: async ()=>{
-            await holistic.send({image:video});
-        },
-        width:1280,
-        height:720
-    });
+    await video.play();
 
-    camera.start();
+    async function process(){
+
+        await faceMesh.send({image:video});
+        await hands.send({image:video});
+
+        requestAnimationFrame(process);
+    }
+
+    process();
+    render();
+
 })
 .catch(err=>{
-    info.textContent = "Camera error: " + err;
+    statusEl.textContent = err.message;
 });
 
 </script>

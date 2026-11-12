@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web RPG Demo</title>
+  <style>
+    /* Reset and Core Layout */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Courier New', Courier, monospace; /* Retro arcade feel */
+      background-color: #000;
+    }
+
+    /* Game Window Wrapper */
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      /* Full-screen atmospheric background image */
+      background-image: url('https://images.unsplash.com/photo-1518818419601-72c8673f5852?auto=format&fit=crop&w=1920&q=80');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    /* Overlay to darken background slightly for UI readability */
+    .bg-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.7) 100%);
+      z-index: 1;
+    }
+
+    /* Stage Area for Sprites */
+    #stage {
+      position: absolute;
+      width: 100%;
+      height: 70%;
+      top: 0;
+      left: 0;
+      z-index: 2;
+      display: flex;
+      justify-content: rgba(255,255,255,0);
+      align-items: flex-end;
+    }
+
+    /* Transparent Sprite Styling */
+    .sprite-container {
+      position: absolute;
+      bottom: 10%;
+      width: 220px;
+      height: 220px;
+      transition: all 0.3s ease;
+    }
+
+    /* Position the Hero on the left */
+    #hero-sprite {
+      left: 15%;
+    }
+
+    /* Position the Enemy/NPC on the right */
+    #npc-sprite {
+      right: 15%;
+      transform: scaleX(-1); /* Flips the sprite to face the hero */
+    }
+
+    .sprite-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      /* Crisp pixel rendering for pixel art assets */
+      image-rendering: pixelated; 
+      image-rendering: crisp-edges;
+    }
+
+    /* Classic RPG Textbox UI */
+    #ui-dialog-box {
+      position: absolute;
+      bottom: 5%;
+      left: 5%;
+      width: 90%;
+      height: 22%;
+      z-index: 3;
+      
+      /* Retro Blue Gradient Windows (Classic Final Fantasy Style) */
+      background: linear-gradient(180deg, #000066 0%, #000033 100%);
+      border: 4px solid #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 0 0 4px #000000, 0 10px 20px rgba(0,0,0,0.5);
+      
+      padding: 20px;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    #speaker-name {
+      font-weight: bold;
+      font-size: 1.2rem;
+      color: #ffcc00; /* Distinct name color */
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    #dialog-text {
+      font-size: 1.1rem;
+      line-height: 1.4;
+      flex-grow: 1;
+    }
+
+    /* Blinking prompt marker at the bottom right of the textbox */
+    .pointer {
+      align-self: flex-end;
+      font-size: 1.2rem;
+      color: #ffcc00;
+      animation: blink 0.8s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div class="bg-overlay"></div>
+
+    <!-- The Stage where transparent sprites live -->
+    <div id="stage">
+      <!-- Hero Sprite (Transparent background SVG from DiceBear) -->
+      <div class="sprite-container" id="hero-sprite">
+        <img src="https://api.dicebear.com/9.x/pixel-art/svg?seed=Galahad" alt="Hero Sprite">
+      </div>
+
+      <!-- Enemy/NPC Sprite (Transparent background SVG from DiceBear) -->
+      <div class="sprite-container" id="npc-sprite">
+        <img src="https://api.dicebear.com/9.x/pixel-art/svg?seed=Shadow" alt="NPC Sprite">
+      </div>
+    </div>
+
+    <!-- The Dialogue / Action UI Windows -->
+    <div id="ui-dialog-box" onclick="advanceDialogue()">
+      <div>
+        <div id="speaker-name">Knight Galahad</div>
+        <div id="dialog-text">The mist runs deep in this forgotten forest... Hold your ground!</div>
+      </div>
+      <div class="pointer">▼</div>
+    </div>
+  </div>
+
+  <script>
+    // Simple script to handle switching text frames on click
+    const dialogueSequence = [
+      { speaker: "Knight Galahad", text: "The mist runs deep in this forgotten forest... Hold your ground!" },
+      { speaker: "???", text: "You should not have traveled this far into the woods, traveler." },
+      { speaker: "Knight Galahad", text: "Show yourself! This heavy hammer speaks louder than warnings." },
+      { speaker: "System", text: "An eerie silence fills the air. Prepare for battle!" }
+    ];
+
+    let currentStep = 0;
+
+    function advanceDialogue() {
+      currentStep++;
+      if (currentStep >= dialogueSequence.length) {
+        currentStep = 0; // Loop back to start for the demo
+      }
+
+      document.getElementById("speaker-name").innerText = dialogueSequence[currentStep].speaker;
+      document.getElementById("dialog-text").innerText = dialogueSequence[currentStep].text;
+    }
+  </script>
+</body>
+</html>

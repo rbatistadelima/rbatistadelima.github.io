@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MIDI to Guitar Pro 5 Fixer</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      background: radial-gradient(circle at top, #20253a, #0b0d14 60%);
+      color: #f4f6ff;
+      display: flex;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+    .app {
+      width: 100%;
+      max-width: 980px;
+    }
+    .hero {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 4rem);
+      margin: 0 0 10px;
+      letter-spacing: -0.05em;
+    }
+    .subtitle {
+      color: #b8bfd8;
+      max-width: 760px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+    .panel {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 24px;
+      padding: 22px;
+      box-shadow: 0 20px 80px rgba(0,0,0,0.35);
+      backdrop-filter: blur(12px);
+      margin-bottom: 18px;
+    }
+    .dropzone {
+      border: 2px dashed rgba(255,255,255,0.35);
+      border-radius: 20px;
+      padding: 34px 18px;
+      text-align: center;
+      background: rgba(255,255,255,0.045);
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+    .dropzone.dragover {
+      border-color: #94a3ff;
+      background: rgba(148,163,255,0.12);
+      transform: scale(1.01);
+    }
+    input[type="file"] { display: none; }
+    .file-name {
+      margin-top: 10px;
+      color: #d8ddff;
+      font-size: 0.95rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    label.option {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.09);
+      line-height: 1.35;
+    }
+    label.option strong { display: block; margin-bottom: 3px; }
+    label.option span { color: #b8bfd8; font-size: 0.9rem; }
+    input[type="checkbox"] { transform: translateY(2px) scale(1.15); }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-top: 18px;
+    }
+    button, a.download {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 13px 18px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      color: #0b0d14;
+      background: #eef2ff;
+      transition: 0.18s ease;
+    }
+    button:hover, a.download:hover { transform: translateY(-1px); filter: brightness(1.06); }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .secondary {
+      background: rgba(255,255,255,0.12);
+      color: #f4f6ff;
+      border: 1px solid rgba(255,255,255,0.16);
+    }
+    .download { display: none; }
+    .status {
+      margin-top: 12px;
+      color: #cdd3ee;
+      min-height: 22px;
+    }
+    .log {
+      white-space: pre-wrap;
+      font-family: Consolas, Monaco, monospace;
+      background: rgba(0,0,0,0.32);
+      border-radius: 18px;
+      padding: 16px;
+      min-height: 180px;
+      max-height: 340px;
+      overflow: auto;
+      color: #dce2ff;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    .warning {
+      color: #ffdca8;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      margin-top: 12px;
+    }
+    .small { color: #9fa8c8; font-size: 0.86rem; }
+    select, input[type="number"] {
+      background: rgba(0,0,0,0.26);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .control {
+      display: grid;
+      gap: 6px;
+      color: #dbe1ff;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <h1>MIDI Fixer for Guitar Pro 5</h1>
+      <p class="subtitle">
+        Repairs common MIDI import problems before opening in Guitar Pro 5: running status, SMPTE timing, channel 10 drums, bad note lengths, overlapping notes, strange controllers, and track names.
+      </p>
+    </section>
+
+    <section class="panel">
+      <label class="dropzone" id="dropzone">
+        <input id="fileInput" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" />
+        <strong>Drop a MIDI file here</strong><br />
+        <span class="small">or click to choose a .mid / .midi file</span>
+        <div class="file-name" id="fileName">No file selected</div>
+      </label>
+
+      <div class="grid">
+        <label class="option"><input id="typeOne" type="checkbox"><div><strong>Export as Type 1 MIDI</strong><span>Off = Type 0 ultra-compatible. On = separated tracks.</span></div></label>
+        <label class="option"><input id="cleanControllers" type="checkbox" checked><div><strong>Clean controller events</strong><span>Keeps volume, pan, expression, sustain; removes noisy automation.</span></div></label>
+        <label class="option"><input id="fixOverlaps" type="checkbox" checked><div><strong>Fix overlapping notes</strong><span>Ends repeated notes before the next same pitch starts.</span></div></label>
+        <label class="option"><input id="minNote" type="checkbox" checked><div><strong>Fix tiny notes</strong><span>Extends very short notes so Guitar Pro can read them better.</span></div></label>
+        <label class="option"><input id="splitDrums" type="checkbox" checked><div><strong>Keep drums on channel 10</strong><span>Preserves percussion mapping for GP5 drum import.</span></div></label>
+        <label class="option"><input id="renameTracks" type="checkbox" checked><div><strong>Rename tracks</strong><span>Uses simple names like Guitar 1, Bass, Drums, Piano.</span></div></label>
+      </div>
+
+      <div class="grid">
+        <label class="control">Ticks per quarter note
+          <input id="ppq" type="number" min="96" max="960" step="24" value="480" />
+        </label>
+        <label class="control">Quantize notes
+          <select id="quantize">
+            <option value="0">Off</option>
+            <option value="120" selected>1/16 at 480 PPQ</option>
+            <option value="60">1/32 at 480 PPQ</option>
+            <option value="30">1/64 at 480 PPQ</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="fixBtn" disabled>Fix MIDI</button>
+        <button id="resetBtn" class="secondary">Reset</button>
+        <a id="download" class="download" download="fixed-for-guitar-pro-5.mid">Download fixed MIDI</a>
+      </div>
+      <div class="status" id="status"></div>
+      <div class="warning">
+        Note: this does not create a native .gp5 file. Guitar Pro 5 uses a proprietary format, so the goal is to export a cleaner MIDI that imports more reliably into Guitar Pro 5, then you save it as .gp5 inside Guitar Pro.
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Repair log</h2>
+      <div class="log" id="log">Load a MIDI file to begin.</div>
+    </section>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const state = { file: null, bytes: null };
+
+    const status = msg => $('status').textContent = msg;
+    const log = msg => $('log').textContent = msg;
+
+    function readU16(b, o) { return (b[o] << 8) | b[o+1]; }
+    function readU32(b, o) { return ((b[o] << 24) | (b[o+1] << 16) | (b[o+2] << 8) | b[o+3]) >>> 0; }
+    function writeU16(v) { return [(v >> 8) & 255, v & 255]; }
+    function writeU32(v) { return [(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255]; }
+    function ascii(s) { return [...s].map(c => c.charCodeAt(0)); }
+
+    function readVar(b, pos) {
+      let value = 0, i = pos, c;
+      do { c = b[i++]; value = (value << 7) | (c & 0x7f); } while (c & 0x80);
+      return { value, next: i };
+    }
+    function writeVar(value) {
+      let buffer = value & 0x7f;
+      const out = [];
+      while ((value >>= 7)) { buffer <<= 8; buffer |= ((value & 0x7f) | 0x80); }
+      while (true) { out.push(buffer & 0xff); if (buffer & 0x80) buffer >>= 8; else break; }
+      return out;
+    }
+
+    function parseMidi(bytes) {
+      let o = 0;
+      if (String.fromCharCode(...bytes.slice(0,4)) !== 'MThd') throw new Error('Not a valid MIDI file: missing MThd header.');
+      const headerLen = readU32(bytes, 4);
+      const format = readU16(bytes, 8);
+      const tracksCount = readU16(bytes, 10);
+      const division = readU16(bytes, 12);
+      o = 8 + headerLen;
+      const tracks = [];
+      for (let t = 0; t < tracksCount; t++) {
+        if (String.fromCharCode(...bytes.slice(o,o+4)) !== 'MTrk') throw new Error('Bad MIDI track header at track ' + (t+1));
+        const len = readU32(bytes, o+4);
+        const data = bytes.slice(o+8, o+8+len);
+        tracks.push(parseTrack(data, t));
+        o += 8 + len;
+      }
+      return { format, division, tracks };
+    }
+
+    function parseTrack(data, trackIndex) {
+      let pos = 0, time = 0, running = null;
+      const events = [];
+      while (pos < data.length) {
+        const d = readVar(data, pos); pos = d.next; time += d.value;
+        if (pos >= data.length) break;
+
+        let statusByte = data[pos++];
+
+        // MIDI real-time/system bytes sometimes appear in exported files and can break old importers.
+        // Guitar Pro 5 does not need them, so this fixer safely ignores them.
+        if (statusByte >= 0xf8 && statusByte <= 0xff && statusByte !== 0xff) {
+          continue;
+        }
+        if (statusByte === 0xf1 || statusByte === 0xf3) { pos += 1; continue; }
+        if (statusByte === 0xf2) { pos += 2; continue; }
+        if (statusByte === 0xf6) { continue; }
+
+        if (statusByte < 0x80) {
+          // Running status. If no valid running status exists, skip this byte instead of crashing.
+          if (running === null) continue;
+          pos--;
+          statusByte = running;
+        } else if (statusByte < 0xf0) {
+          running = statusByte;
+        }
+
+        if (statusByte === 0xff) {
+          if (pos >= data.length) break;
+          const type = data[pos++];
+          const len = readVar(data, pos); pos = len.next;
+          const bytes = [...data.slice(pos, pos + len.value)]; pos += len.value;
+          events.push({ time, kind: 'meta', type, bytes, trackIndex });
+          if (type === 0x2f) break;
+        } else if (statusByte === 0xf0 || statusByte === 0xf7) {
+          const len = readVar(data, pos); pos = len.next + len.value;
+          events.push({ time, kind: 'sysex', trackIndex });
+        } else if (statusByte >= 0x80 && statusByte <= 0xef) {
+          const cmd = statusByte & 0xf0;
+          const ch = statusByte & 0x0f;
+          const n = (cmd === 0xc0 || cmd === 0xd0) ? 1 : 2;
+          if (pos >= data.length) break;
+          const a = data[pos++];
+          const b = n === 2 && pos < data.length ? data[pos++] : 0;
+          events.push({ time, kind: 'midi', cmd, ch, a, b, trackIndex });
+        } else {
+          // Unknown system event: ignore instead of failing the whole repair.
+          continue;
+        }
+      }
+      return events;
+    }
+
+    function detectInstrument(track) {
+      const programs = track.filter(e => e.kind === 'midi' && e.cmd === 0xc0).map(e => e.a);
+      const channels = new Set(track.filter(e => e.kind === 'midi').map(e => e.ch));
+      if (channels.has(9)) return 'Drums';
+      const p = programs[0] ?? 0;
+      if (p >= 24 && p <= 31) return 'Guitar';
+      if (p >= 32 && p <= 39) return 'Bass';
+      if (p >= 0 && p <= 7) return 'Piano';
+      if (p >= 40 && p <= 51) return 'Strings';
+      if (p >= 56 && p <= 63) return 'Brass';
+      return 'Track';
+    }
+
+    function quant(v, grid) { return grid ? Math.max(0, Math.round(v / grid) * grid) : v; }
+
+    function cleanMidi(midi, options) {
+      const report = [];
+      let removed = 0, overlaps = 0, tiny = 0, quantized = 0, renamed = 0, salvaged = 0;
+      const originalDivision = midi.division;
+      const targetPPQ = options.ppq;
+      const isSmpte = originalDivision & 0x8000;
+      const scale = isSmpte ? 1 : targetPPQ / originalDivision;
+      const allTracks = [];
+
+      midi.tracks.forEach((track, idx) => {
+        let events = [];
+        let hasNotes = false;
+
+        for (const e of track) {
+          const ne = { ...e, time: Math.max(0, Math.round(e.time * scale)) };
+
+          if (ne.kind === 'sysex') { removed++; continue; }
+
+          if (ne.kind === 'meta') {
+            // Ultra-safe GP5 mode: keep only tempo, time signature, key signature and track names.
+            if ([0x03, 0x51, 0x58, 0x59].includes(ne.type)) events.push(ne);
+            else removed++;
+            continue;
+          }
+
+          if (ne.kind === 'midi') {
+            // Keep only events that Guitar Pro can understand reliably.
+            if (ne.cmd === 0x90 || ne.cmd === 0x80 || ne.cmd === 0xc0) {
+              if (ne.cmd === 0x90 && ne.b > 0) hasNotes = true;
+              events.push(ne);
+            } else if (!options.cleanControllers && ne.cmd === 0xb0 && [7,10,11,64].includes(ne.a)) {
+              events.push(ne);
+            } else {
+              removed++;
+            }
+          }
+        }
+
+        if (!hasNotes) {
+          // Avoid empty Type 1 tracks; some old apps dislike them.
+          removed += events.length;
+          return;
+        }
+
+        const grid = options.quantize;
+        if (grid) {
+          events.forEach(e => {
+            if (e.kind === 'midi' && (e.cmd === 0x90 || e.cmd === 0x80)) {
+              const before = e.time;
+              e.time = quant(e.time, grid);
+              if (before !== e.time) quantized++;
+            }
+          });
+        }
+
+        if (options.fixOverlaps || options.minNote) {
+          events.sort((a,b) => a.time - b.time || orderEvent(a) - orderEvent(b));
+          const active = new Map();
+          const extraOffs = [];
+          const minLen = Math.max(1, Math.round(targetPPQ / 32));
+          for (const e of events) {
+            if (e.kind !== 'midi') continue;
+            const key = e.ch + ':' + e.a;
+            const isOn = e.cmd === 0x90 && e.b > 0;
+            const isOff = e.cmd === 0x80 || (e.cmd === 0x90 && e.b === 0);
+            if (isOn) {
+              if (active.has(key) && options.fixOverlaps) {
+                const prev = active.get(key);
+                extraOffs.push({ time: Math.max(prev.time + 1, e.time - 1), kind: 'midi', cmd: 0x80, ch: e.ch, a: e.a, b: 0, trackIndex: idx });
+                overlaps++;
+              }
+              active.set(key, e);
+            } else if (isOff && active.has(key)) {
+              const on = active.get(key);
+              if (options.minNote && e.time - on.time < minLen) {
+                e.time = on.time + minLen;
+                tiny++;
+              }
+              active.delete(key);
+            }
+          }
+          // Close hanging notes so GP5 does not reject the file.
+          for (const [key, on] of active.entries()) {
+            extraOffs.push({ time: on.time + targetPPQ, kind: 'midi', cmd: 0x80, ch: on.ch, a: on.a, b: 0, trackIndex: idx });
+            salvaged++;
+          }
+          events.push(...extraOffs);
+        }
+
+        if (options.renameTracks) {
+          const base = detectInstrument(events);
+          events = events.filter(e => !(e.kind === 'meta' && e.type === 0x03));
+          events.unshift({ time: 0, kind: 'meta', type: 0x03, bytes: ascii(base + ' ' + (allTracks.length + 1)), trackIndex: idx });
+          renamed++;
+        }
+
+        // Add a safe default program at the start if none exists.
+        if (!events.some(e => e.kind === 'midi' && e.cmd === 0xc0)) {
+          const firstChannel = events.find(e => e.kind === 'midi')?.ch ?? 0;
+          events.unshift({ time: 0, kind: 'midi', cmd: 0xc0, ch: firstChannel, a: firstChannel === 9 ? 0 : 24, b: 0, trackIndex: idx });
+        }
+
+        events.sort((a,b) => a.time - b.time || orderEvent(a) - orderEvent(b));
+        allTracks.push(events);
+      });
+
+      if (!allTracks.length) throw new Error('No playable note events were found after cleaning.');
+
+      report.push('Original format: MIDI Type ' + midi.format);
+      report.push('Original tracks: ' + midi.tracks.length);
+      report.push('Playable tracks exported: ' + allTracks.length);
+      report.push('Original division: ' + (isSmpte ? 'SMPTE timing' : originalDivision + ' PPQ'));
+      report.push('Export division: ' + targetPPQ + ' PPQ');
+      report.push('Removed unsupported/noisy events: ' + removed);
+      report.push('Fixed overlapping notes: ' + overlaps);
+      report.push('Extended tiny notes: ' + tiny);
+      report.push('Closed hanging notes: ' + salvaged);
+      report.push('Quantized note events: ' + quantized);
+      report.push('Renamed tracks: ' + renamed);
+      report.push('Result: ultra-safe MIDI rebuilt for Guitar Pro 5 import.');
+
+      return { midi: { format: options.typeOne ? 1 : 0, division: targetPPQ, tracks: allTracks }, report: report.join('\n') };
+    }
+
+    function orderEvent(e) {
+      if (e.kind === 'meta') return e.type === 0x03 ? 0 : 1;
+      if (e.kind === 'midi' && (e.cmd === 0x80 || (e.cmd === 0x90 && e.b === 0))) return 2;
+      if (e.kind === 'midi' && e.cmd === 0xc0) return 3;
+      if (e.kind === 'midi') return 4;
+      return 9;
+    }
+
+    function serializeTrack(events) {
+      const out = [];
+      let last = 0;
+      let hasEnd = false;
+      for (const e of events) {
+        const dt = Math.max(0, e.time - last);
+        out.push(...writeVar(dt));
+        last = e.time;
+        if (e.kind === 'meta') {
+          out.push(0xff, e.type, ...writeVar(e.bytes.length), ...e.bytes);
+          if (e.type === 0x2f) hasEnd = true;
+        } else if (e.kind === 'midi') {
+          out.push(e.cmd | e.ch, e.a);
+          if (e.cmd !== 0xc0 && e.cmd !== 0xd0) out.push(e.b);
+        }
+      }
+      if (!hasEnd) out.push(0x00, 0xff, 0x2f, 0x00);
+      return out;
+    }
+
+    function serializeMidi(midi) {
+      let tracks = midi.tracks;
+      if (midi.format === 0) tracks = [tracks.flat().sort((a,b) => a.time - b.time || orderEvent(a) - orderEvent(b))];
+      const out = [...ascii('MThd'), ...writeU32(6), ...writeU16(midi.format), ...writeU16(tracks.length), ...writeU16(midi.division)];
+      tracks.forEach(t => {
+        const bytes = serializeTrack(t);
+        out.push(...ascii('MTrk'), ...writeU32(bytes.length), ...bytes);
+      });
+      return new Uint8Array(out);
+    }
+
+    function handleFile(file) {
+      if (!file) return;
+      state.file = file;
+      $('fileName').textContent = file.name;
+      $('fixBtn').disabled = false;
+      $('download').style.display = 'none';
+      status('File loaded. Ready to fix.');
+      log('Loaded: ' + file.name + '\nSize: ' + file.size + ' bytes');
+      const reader = new FileReader();
+      reader.onload = e => { state.bytes = new Uint8Array(e.target.result); };
+      reader.readAsArrayBuffer(file);
+    }
+
+    $('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
+    $('dropzone').addEventListener('dragover', e => { e.preventDefault(); $('dropzone').classList.add('dragover'); });
+    $('dropzone').addEventListener('dragleave', () => $('dropzone').classList.remove('dragover'));
+    $('dropzone').addEventListener('drop', e => {
+      e.preventDefault(); $('dropzone').classList.remove('dragover'); handleFile(e.dataTransfer.files[0]);
+    });
+
+    $('fixBtn').addEventListener('click', () => {
+      try {
+        if (!state.bytes) throw new Error('File is still loading. Try again.');
+        const midi = parseMidi(state.bytes);
+        const options = {
+          typeOne: $('typeOne').checked,
+          cleanControllers: $('cleanControllers').checked,
+          fixOverlaps: $('fixOverlaps').checked,
+          minNote: $('minNote').checked,
+          splitDrums: $('splitDrums').checked,
+          renameTracks: $('renameTracks').checked,
+          ppq: parseInt($('ppq').value, 10) || 480,
+          quantize: parseInt($('quantize').value, 10) || 0
+        };
+        const fixed = cleanMidi(midi, options);
+        const bytes = serializeMidi(fixed.midi);
+        const blob = new Blob([bytes], { type: 'audio/midi' });
+        const url = URL.createObjectURL(blob);
+        const base = state.file.name.replace(/\.(mid|midi)$/i, '');
+        $('download').href = url;
+        $('download').download = base + '-fixed-for-gp5.mid';
+        $('download').style.display = 'inline-block';
+        status('Fixed MIDI created successfully.');
+        log(fixed.report);
+      } catch (err) {
+        status('Could not fix this MIDI.');
+        log('Error: ' + err.message + '\n\nTry exporting the source MIDI again as Standard MIDI File if possible.');
+      }
+    });
+
+    $('resetBtn').addEventListener('click', () => {
+      state.file = null; state.bytes = null;
+      $('fileInput').value = '';
+      $('fileName').textContent = 'No file selected';
+      $('fixBtn').disabled = true;
+      $('download').style.display = 'none';
+      status('');
+      log('Load a MIDI file to begin.');
+    });
+  </script>
+</body>
+</html>

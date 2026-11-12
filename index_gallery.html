@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>project index</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 40px;
+    background: #f4f4f4;
+    color: #222;
+    font-family: Arial, sans-serif;
+}
+
+h1 {
+    font-size: 28px;
+    font-weight: 500;
+    margin: 0 0 30px;
+    text-transform: lowercase;
+}
+
+#fileList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.project {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px #0000000d;
+    display: flex;
+    flex-direction: column;
+    transition: transform .2s, box-shadow .2s;
+}
+
+.project:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 18px #00000015;
+}
+
+.preview {
+    width: 100%;
+    height: 190px;
+    background: #e8e8e8;
+    overflow: hidden;
+    position: relative;
+}
+
+.preview iframe {
+    width: 200%;
+    height: 200%;
+    border: 0;
+    transform: scale(.5);
+    transform-origin: top left;
+    pointer-events: none;
+}
+
+.project-info {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.project h2 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0 0 10px;
+    text-transform: lowercase;
+}
+
+.project p {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #777;
+    margin: 0 0 18px;
+    flex: 1;
+}
+
+.project a {
+    display: inline-block;
+    align-self: flex-start;
+    background: #222;
+    color: white;
+    padding: 9px 15px;
+    border-radius: 4px;
+    font-size: 12px;
+    text-decoration: none;
+}
+
+.project a:hover {
+    background: #555;
+}
+
+.status {
+    color: #888;
+    font-size: 14px;
+}
+
+@media(max-width: 600px) {
+    body {
+        padding: 20px;
+    }
+
+    #fileList {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<h1>project index</h1>
+
+<ul id="fileList">
+    <li class="status">loading projects...</li>
+</ul>
+
+<script>
+const USERNAME = 'rbatistadelima';
+const REPO = 'rbatistadelima.github.io';
+
+function formatFileName(fileName) {
+    return fileName
+        .replace(/\.html$/i, '')
+        .replace(/[-_]/g, ' ')
+        .toLowerCase();
+}
+
+// Fetch all HTML files from GitHub repository.
+async function getHtmlFiles() {
+    const apiUrl =
+        `https://api.github.com/repos/${USERNAME}/${REPO}/contents/`;
+
+    try {
+        const response = await fetch(apiUrl);
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch repository contents');
+        }
+
+        const contents = await response.json();
+
+        return contents
+            .filter(item =>
+                item.type === 'file' &&
+                item.name.toLowerCase().endsWith('.html') &&
+                item.name.toLowerCase() !== 'index.html'
+            )
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+}
+
+// Read metadata from each HTML page.
+async function getDescription(file) {
+    const fallback = formatFileName(file.name);
+
+    try {
+        const response = await fetch(file.name);
+
+        if (!response.ok) {
+            throw new Error('Page unavailable');
+        }
+
+        const html = await response.text();
+
+        const doc = new DOMParser().parseFromString(
+            html,
+            'text/html'
+        );
+
+        const description =
+            doc.querySelector('meta[name="description"]')?.content ||
+            doc.querySelector('meta[property="og:description"]')?.content ||
+            doc.querySelector('meta[name="twitter:description"]')?.content ||
+            doc.querySelector('title')?.textContent;
+
+        return (description || fallback)
+            .trim()
+            .toLowerCase();
+
+    } catch (error) {
+        console.warn('Could not read metadata:', file.name);
+        return fallback;
+    }
+}
+
+// Intersection Observer to dynamically mount/unmount iframes based on viewport visibility
+const iframeObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+        const preview = entry.target;
+        const fileSrc = preview.dataset.src;
+
+        if (entry.isIntersecting) {
+            // Mount iframe when visible in viewport
+            if (!preview.querySelector('iframe')) {
+                const iframe = document.createElement('iframe');
+                iframe.src = fileSrc;
+                iframe.title = preview.dataset.title + ' preview';
+                preview.appendChild(iframe);
+            }
+        } else {
+            // Unload / destroy iframe when scrolled out of view to free memory
+            const iframe = preview.querySelector('iframe');
+            if (iframe) {
+                iframe.remove();
+            }
+        }
+    });
+}, { rootMargin: '200px 0px' }); // Pre-load slightly before scrolling into view
+
+// Create individual project card.
+async function createProjectCard(file) {
+    const title = formatFileName(file.name);
+
+    const li = document.createElement('li');
+    li.className = 'project';
+
+    // Preview container
+    const preview = document.createElement('div');
+    preview.className = 'preview';
+    preview.dataset.src = file.name;
+    preview.dataset.title = title;
+
+    // Information
+    const info = document.createElement('div');
+    info.className = 'project-info';
+
+    const heading = document.createElement('h2');
+    heading.textContent = title;
+
+    const description = document.createElement('p');
+    description.textContent = 'loading description...';
+
+    const link = document.createElement('a');
+    link.href = file.name;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = 'open project';
+
+    info.appendChild(heading);
+    info.appendChild(description);
+    info.appendChild(link);
+
+    li.appendChild(preview);
+    li.appendChild(info);
+
+    // Observe preview element for viewport changes
+    iframeObserver.observe(preview);
+
+    // Load description independently.
+    getDescription(file).then(text => {
+        description.textContent = text;
+    });
+
+    return li;
+}
+
+// Display project index.
+async function displayFileList() {
+    const fileList = document.getElementById('fileList');
+
+    const files = await getHtmlFiles();
+
+    fileList.innerHTML = '';
+
+    if (files.length === 0) {
+        const message = document.createElement('li');
+        message.className = 'status';
+        message.textContent = 'no html files found.';
+        fileList.appendChild(message);
+        return;
+    }
+
+    const cards = await Promise.all(
+        files.map(file => createProjectCard(file))
+    );
+
+    cards.forEach(card => {
+        fileList.appendChild(card);
+    });
+}
+
+document.addEventListener(
+    'DOMContentLoaded',
+    displayFileList
+);
+</script>
+
+</body>
+</html>

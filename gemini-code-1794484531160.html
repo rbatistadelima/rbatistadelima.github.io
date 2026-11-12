@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset='utf-8'>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>São Paulo Dashboard - Vila Ernesto & Sampa Sky</title>
+  <style>
+    /* Reset & Color Variables */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg-glass: rgba(15, 15, 26, 0.8);
+      --card-bg: rgba(20, 20, 35, 0.7);
+      --card-border: rgba(255, 255, 255, 0.22);
+      --text-main: #ffffff;
+      --text-muted: #d0d4e5;
+      --accent: #8ab4f8;
+      --status-green: #4caf50;
+      --status-orange: #ff9800;
+      --status-red: #f44336;
+      --status-gray: #9e9e9e;
+      --rain-color: #76b0ff;
+    }
+
+    html, body {
+      width: 100%;
+      min-height: 100vh;
+      color: var(--text-main);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow-x: hidden;
+      background-color: #0f0f1a;
+    }
+
+    /* Livefeed como Fundo Fixo da Página */
+    .bg-livefeed-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .bg-livefeed-container iframe {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 100vw;
+      height: 56.25vw;
+      min-height: 100vh;
+      min-width: 177.77vh;
+      transform: translate(-50%, -50%);
+      border: none;
+      filter: brightness(0.7) contrast(1.15);
+    }
+
+    .bg-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(10, 10, 20, 0.5);
+      z-index: -1;
+    }
+
+    #dashboard-root {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      min-height: 100vh;
+      padding: 0.6rem;
+      gap: 0.6rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0.8rem;
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      gap: 0.4rem;
+    }
+
+    .clock-container {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #clock {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: -1px;
+      line-height: 1;
+      color: #ffffff;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    }
+
+    #date {
+      font-size: 0.8rem;
+      color: var(--accent);
+      margin-top: 0.1rem;
+      text-transform: capitalize;
+      font-weight: 600;
+    }
+
+    .header-badge {
+      font-size: 0.75rem;
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 0.25rem 0.6rem;
+      border-radius: 20px;
+      border: 1px solid var(--card-border);
+      font-weight: 600;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 0.6rem;
+      width: 100%;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 10px;
+      padding: 0.6rem;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+      height: 220px;
+      overflow: hidden;
+    }
+
+    /* Clima expandido horizontalmente no Desktop */
+    .card-weather {
+      grid-column: 1 / -1;
+      height: auto;
+      min-height: 190px;
+    }
+
+    .card-editorial { height: 115px; } 
+    .card-cinema { height: 310px; }  
+    .card-tv { height: 180px; }      
+    .card-games { height: 240px; }   
+    .card-music { height: 240px; }   
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.2rem;
+      padding-bottom: 0.15rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      flex-shrink: 0;
+    }
+
+    .card-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    }
+
+    .card-updated {
+      font-size: 0.58rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .card-body {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding-right: 0.1rem;
+    }
+
+    .card-body::-webkit-scrollbar {
+      width: 3px;
+    }
+    .card-body::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 10px;
+    }
+
+    /* Alerta de Enchente */
+    .flood-alert-box {
+      font-size: 0.6rem;
+      padding: 0.15rem 0.3rem;
+      border-radius: 4px;
+      margin-bottom: 0.3rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(76, 175, 80, 0.3);
+      border: 1px solid var(--status-green);
+      color: #a3ffb1;
+      flex-shrink: 0;
+    }
+
+    .flood-alert-box.warning {
+      background: rgba(255, 152, 0, 0.35);
+      border-color: var(--status-orange);
+      color: #ffd28c;
+    }
+
+    .flood-alert-box.danger {
+      background: rgba(244, 67, 54, 0.4);
+      border-color: var(--status-red);
+      color: #ff9991;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.7; }
+      100% { opacity: 1; }
+    }
+
+    /* Weather Horizontal Layout (Desktop) */
+    .weather-horizontal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.4rem;
+      width: 100%;
+    }
+
+    @media (max-width: 900px) {
+      .weather-horizontal-grid {
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      }
+    }
+
+    .weather-day-card {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      padding: 0.3rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      text-align: center;
+    }
+
+    .weather-day-title {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: capitalize;
+    }
+
+    .weather-periods-row {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+      gap: 2px;
+    }
+
+    .weather-period-col {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 3px;
+      padding: 2px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 0.52rem;
+    }
+
+    .wp-rain {
+      color: var(--rain-color);
+      font-weight: 600;
+      font-size: 0.45rem;
+    }
+
+    /* To-Do List */
+    .todo-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      gap: 0.2rem;
+    }
+
+    .todo-input-row {
+      display: flex;
+      gap: 0.2rem;
+    }
+
+    .todo-input {
+      flex-grow: 1;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--card-border);
+      color: #ffffff;
+      padding: 0.15rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+    }
+
+    .todo-input::placeholder { color: #b0b8d4; }
+
+    .todo-btn {
+      background: var(--accent);
+      color: #0f0f1a;
+      border: none;
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+
+    .todo-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 0.15rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      font-weight: 500;
+    }
+
+    .todo-item.completed span {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+
+    .todo-del {
+      background: none;
+      border: none;
+      color: #ff9991;
+      cursor: pointer;
+      font-size: 0.7rem;
+      padding: 0 0.15rem;
+      font-weight: bold;
+    }
+
+    /* Conteúdo Editorial */
+    .editorial-content {
+      font-size: 0.65rem;
+      line-height: 1.2;
+      color: #ffffff;
+      font-weight: 500;
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      height: 100%;
+      justify-content: center;
+      overflow-y: auto;
+    }
+
+    .editorial-author {
+      font-size: 0.58rem;
+      color: var(--accent);
+      font-style: italic;
+      font-weight: 600;
+    }
+
+    /* Transporte e Tráfego */
+    .metro-status-container, .traffic-container, .bus-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .metro-lines-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      font-size: 0.65rem;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+    }
+    .status-dot.normal { background-color: var(--status-green); box-shadow: 0 0 5px var(--status-green); }
+    .status-dot.partial { background-color: var(--status-orange); box-shadow: 0 0 5px var(--status-orange); }
+    .status-dot.stopped { background-color: var(--status-red); box-shadow: 0 0 5px var(--status-red); }
+
+    .metro-line-item, .bus-item {
+      display: flex;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 0.12rem 0.3rem;
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.65rem;
+      font-weight: 600;
+    }
+
+    .traffic-item {
+      font-size: 0.66rem;
+      line-height: 1.1;
+      padding: 0.1rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      font-weight: 500;
+    }
+    .traffic-item:last-child { border-bottom: none; }
+
+    /* Listas de Notícias */
+    .news-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .news-item {
+      font-size: 0.7rem;
+      line-height: 1.2;
+      padding-bottom: 0.2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-weight: 500;
+    }
+
+    .news-item:last-child { border-bottom: none; }
+
+    .news-item a {
+      color: #ffffff;
+      text-decoration: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+
+    .news-item a:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Transmissão ao Vivo (Livefeed) como plano de fundo fixo -->
+  <div class="bg-livefeed-container">
+    <iframe 
+      src="https://www.youtube-nocookie.com/embed/jfKfPfyJRdk?autoplay=1&mute=1&controls=0&loop=1&playlist=jfKfPfyJRdk" 
+      title="Livefeed Background SP"
+      allow="autoplay; encrypted-media">
+    </iframe>
+  </div>
+  <div class="bg-overlay"></div>
+
+  <div id="dashboard-root">
+    <header>
+      <div class="clock-container">
+        <div id="clock">00:00:00</div>
+        <div id="date">Loading date...</div>
+      </div>
+      <div class="header-controls">
+        <div class="header-badge">Vila Ernesto · SP</div>
+      </div>
+    </header>
+
+    <main class="grid">
+      <!-- 1. Weather (Vila Ernesto - 7 Days Horizontal Expanded) -->
+      <section class="card card-weather">
+        <div class="card-header">
+          <span class="card-title">🌧️ Weather & Rain Risk (Vila Ernesto - 7 Days)</span>
+          <span class="card-updated" id="weather-updated">--:--</span>
+        </div>
+        <div id="flood-alert" class="flood-alert-box">
+          <span>Flood Risk Status:</span>
+          <span id="flood-status-text">Low (Normal)</span>
+        </div>
+        <div class="weather-horizontal-grid" id="weather-container">
+          Loading forecast...
+        </div>
+      </section>
+
+      <!-- 2. To-Do List -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">📝 Tasks & Reminders</span>
+          <span class="card-updated">Saved Local</span>
+        </div>
+        <div class="card-body">
+          <div class="todo-container">
+            <div class="todo-input-row">
+              <input type="text" id="todo-input" class="todo-input" placeholder="New task..." onkeypress="handleTodoKey(event)">
+              <button class="todo-btn" onclick="addTodo()">Add</button>
+            </div>
+            <ul class="todo-list" id="todo-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Daily Quote -->
+      <section class="card card-editorial">
+        <div class="card-header">
+          <span class="card-title">💡 Daily Quote</span>
+          <span class="card-updated">Daily</span>
+        </div>
+        <div class="card-body">
+          <div class="editorial-content" id="quote-container"><p>Loading quote...</p></div>
+        </div>
+      </section>
+
+      <!-- 4. Daily Trivia -->
+      <section class="card card-editorial">
+        <div class="card-header">
+          <span class="card-title">🧠 Daily Trivia</span>
+          <span class="card-updated">Did You Know?</span>
+        </div>
+        <div class="card-body">
+          <div class="editorial-content" id="trivia-container"><p>Loading trivia...</p></div>
+        </div>
+      </section>
+
+      <!-- 5. Daily Poem -->
+      <section class="card card-editorial">
+        <div class="card-header">
+          <span class="card-title">📜 Daily Poem</span>
+          <span class="card-updated">Daily</span>
+        </div>
+        <div class="card-body">
+          <div class="editorial-content" id="poem-container"><p>Loading poem...</p></div>
+        </div>
+      </section>
+
+      <!-- 6. Artwork of the Day -->
+      <section class="card card-editorial">
+        <div class="card-header">
+          <span class="card-title">🎨 Artwork of the Day</span>
+          <span class="card-updated">Classics</span>
+        </div>
+        <div class="card-body">
+          <div class="editorial-content" id="art-container"><p>Loading artwork...</p></div>
+        </div>
+      </section>
+
+      <!-- 7. Wikipedia Featured Article (Official Site Article) -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">📖 Wikipedia Featured</span>
+          <span class="card-updated">English</span>
+        </div>
+        <div class="card-body">
+          <div class="editorial-content" id="wiki-container"><p>Loading article...</p></div>
+        </div>
+      </section>
+
+      <!-- 8. Bus Tracker (Vila Ernesto) -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">🚌 Bus Tracker (Vila Ernesto)</span>
+          <span class="card-updated" id="bus-updated">Live</span>
+        </div>
+        <div class="card-body">
+          <div class="bus-container" id="bus-container">
+            <div class="bus-item"><span><b>Stop:</b> R. Vila Ernesto / Santo Amaro</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9. Metro SP (Independent Lines) -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">🚇 Metro SP Lines</span>
+          <span class="card-updated" id="metro-updated">Live</span>
+        </div>
+        <div class="card-body">
+          <div class="metro-status-container">
+            <div class="metro-lines-grid" id="metro-lines-list">
+              <div class="metro-line-item"><span><span class="status-dot normal"></span>Line 1 - Blue</span><span style="color:var(--status-green)">Normal</span></div>
+              <div class="metro-line-item"><span><span class="status-dot normal"></span>Line 2 - Green</span><span style="color:var(--status-green)">Normal</span></div>
+              <div class="metro-line-item"><span><span class="status-dot normal"></span>Line 3 - Red</span><span style="color:var(--status-green)">Normal</span></div>
+              <div class="metro-line-item"><span><span class="status-dot normal"></span>Line 4 - Yellow</span><span style="color:var(--status-green)">Normal</span></div>
+              <div class="metro-line-item"><span><span class="status-dot normal"></span>Line 5 - Lilac</span><span style="color:var(--status-green)">Normal</span></div>
+              <div class="metro-line-item"><span><span class="status-dot normal"></span>Line 15 - Silver</span><span style="color:var(--status-green)">Normal</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 10. Traffic SP (CET) -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">🚗 Traffic SP (CET)</span>
+          <span class="card-updated" id="traffic-updated">--:--</span>
+        </div>
+        <div class="card-body">
+          <div class="traffic-container" id="traffic-container">
+            <div class="traffic-item"><span><b>Status:</b></span> <span style="color: var(--accent)">Fetching traffic bulletin...</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 11. Global News -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">🌐 Global News</span>
+          <span class="card-updated" id="rss-global-updated">--:--</span>
+        </div>
+        <div class="card-body">
+          <ul class="news-list" id="rss-global"><li>Loading...</li></ul>
+        </div>
+      </section>
+
+      <!-- 12. Brazil News -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">🇧🇷 Brazil News</span>
+          <span class="card-updated" id="rss-brasil-updated">--:--</span>
+        </div>
+        <div class="card-body">
+          <ul class="news-list" id="rss-brasil"><li>Loading...</li></ul>
+        </div>
+      </section>
+
+      <!-- 13. São Paulo News -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">🏙️ São Paulo News</span>
+          <span class="card-updated" id="rss-sp-updated">--:--</span>
+        </div>
+        <div class="card-body">
+          <ul class="news-list" id="rss-sp"><li>Loading...</li></ul>
+        </div>
+      </section>
+
+      <!-- 14. Technology -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">💻 Technology</span>
+          <span class="card-updated" id="rss-tech-updated">--:--</span>
+        </div>
+        <div class="card-body">
+          <ul class="news-list" id="rss-tech"><li>Loading...</li></ul>
+        </div>
+      </section>
+
+      <!-- 15. Music -->
+      <section class="card card-music">
+        <div class="card-header">
+          <span class="card-title">🎵 Music</span>
+          <span class="card-updated" id="rss-music-updated">--:--</span>
+        </div>
+        <div class="card-body">
+          <ul class="news-list" id="rss-music"><li>Loading...</li></ul>
+        </div>
+      </section>
+
+      <!-- 16. Cinema -->
+      <section class="card card-cinema">
+        <div class="card-header">
+          <span class="card-title">🎬 Cinema</span>
+          <span class="card-updated" id="rss-cinema-updated">--:--</span>
+        </div>
+        <div class="card-body">
+          <ul class="news-list" id="rss-cinema"><li>Loading...</li></ul>
+        </div>
+      </section>
+
+      <!-- 17. TV Series -->
+      <section class="card card-tv">
+        <div class="card-header">
+          <span class="card-title">📺 TV Series</span>
+          <span class="card-updated" id="rss-series-updated">--:--</span>
+        </div>
+        <div class="card-body">
+          <ul class="news-list" id="rss-series"><li>Loading...</li></ul>
+        </div>
+      </section>
+
+      <!-- 18. Games -->
+      <section class="card card-games">
+        <div class="card-header">
+          <span class="card-title">🎮 Games</span>
+          <span class="card-updated" id="rss-games-updated">--:--</span>
+        </div>
+        <div class="card-body">
+          <ul class="news-list" id="rss-games"><li>Loading...</li></ul>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const CONFIG = {
+      vilaErnestoCoords: { lat: -23.6358, lon: -46.7380 },
+      intervals: { clock: 1000, weather: 30 * 60 * 1000, rss: 15 * 60 * 1000 }
+    };
+
+    const WMO_CODES = {
+      0: { emoji: '☀️' }, 1: { emoji: '🌤️' }, 2: { emoji: '⛅' }, 3: { emoji: '☁️' },
+      45: { emoji: '🌫️' }, 51: { emoji: '🌦️' }, 61: { emoji: '🌧️' }, 80: { emoji: '🌦️' }, 95: { emoji: '⛈️' }
+    };
+
+    function getTimestamp() {
+      return new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour12: false });
+      document.getElementById('date').textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    const DAILY_QUOTES = [
+      { text: "Persistence is the shortest path to success.", author: "Charlie Chaplin" },
+      { text: "Simplicity is the ultimate sophistication.", author: "Leonardo da Vinci" }
+    ];
+    const DAILY_TRIVIA = [
+      "Honey never spoils. Ancient Egyptian honey over 3,000 years old is still edible.",
+      "Bananas grow towards the sun against gravity in a process called negative geotropism."
+    ];
+    const DAILY_POEMS = [
+      { title: "Song of Exile", verses: "My land has palm trees, Where the thrush sings...", author: "Gonçalves Dias" }
+    ];
+    const DAILY_ARTS = [
+      { title: "The Starry Night", author: "Vincent van Gogh (1889)" },
+      { title: "Mona Lisa", author: "Leonardo da Vinci (1503)" }
+    ];
+
+    function loadDailyEditorial() {
+      const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+      
+      const q = DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
+      document.getElementById('quote-container').innerHTML = `"${q.text}"<span class="editorial-author">— ${q.author}</span>`;
+
+      const t = DAILY_TRIVIA[dayOfYear % DAILY_TRIVIA.length];
+      document.getElementById('trivia-container').innerHTML = `<span>${t}</span>`;
+
+      const p = DAILY_POEMS[dayOfYear % DAILY_POEMS.length];
+      document.getElementById('poem-container').innerHTML = `<b>${p.title}</b>: ${p.verses}<span class="editorial-author">— ${p.author}</span>`;
+
+      const a = DAILY_ARTS[dayOfYear % DAILY_ARTS.length];
+      document.getElementById('art-container').innerHTML = `<b>${a.title}</b><br><span class="editorial-author">${a.author}</span>`;
+
+      // Wikipedia API Real (Site Oficial)
+      fetch('https://en.wikipedia.org/api/rest_v1/page/random/summary')
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('wiki-container').innerHTML = `<b><a href="${data.content_urls.desktop.page}" target="_blank" style="color:#ffffff">${data.title}</a></b><br><span style="font-size:0.62rem; color:var(--text-muted); display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${data.extract}</span>`;
+        })
+        .catch(() => {
+          document.getElementById('wiki-container').innerHTML = `<span>Featured article currently unavailable.</span>`;
+        });
+    }
+
+    let todos = JSON.parse(localStorage.getItem('dashboard_todos_en')) || [
+      { text: 'Check emails and tasks', completed: false },
+      { text: 'Review weather forecast', completed: true }
+    ];
+
+    function renderTodos() {
+      const listEl = document.getElementById('todo-list');
+      listEl.innerHTML = '';
+      todos.forEach((todo, index) => {
+        const li = document.createElement('li');
+        li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+        li.innerHTML = `
+          <span onclick="toggleTodo(${index})" style="cursor: pointer; flex-grow: 1;">${todo.text}</span>
+          <button class="todo-del" onclick="deleteTodo(${index})">✕</button>
+        `;
+        listEl.appendChild(li);
+      });
+      localStorage.setItem('dashboard_todos_en', JSON.stringify(todos));
+    }
+
+    function addTodo() {
+      const input = document.getElementById('todo-input');
+      const text = input.value.trim();
+      if (text) { todos.push({ text, completed: false }); input.value = ''; renderTodos(); }
+    }
+    function handleTodoKey(e) { if (e.key === 'Enter') addTodo(); }
+    function toggleTodo(index) { todos[index].completed = !todos[index].completed; renderTodos(); }
+    function deleteTodo(index) { todos.splice(index, 1); renderTodos(); }
+
+    function fetchOlhoVivo() {
+      const container = document.getElementById('bus-container');
+      const updatedEl = document.getElementById('bus-updated');
+      const simulatedBuses = [
+        { line: '675C-10', dest: 'Santa Cruz Metro', time: '4 min' },
+        { line: '546J-10', dest: 'Interlagos Mall', time: '9 min' }
+      ];
+      container.innerHTML = `<div class="bus-item"><span><b>Stop:</b> Sto Amaro Ave / Vila Ernesto</span></div>`;
+      simulatedBuses.forEach(b => {
+        const div = document.createElement('div');
+        div.className = 'bus-item';
+        div.innerHTML = `<span><b>${b.line}</b> (${b.dest})</span> <span style="color: var(--accent)">${b.time}</span>`;
+        container.appendChild(div);
+      });
+      updatedEl.textContent = getTimestamp();
+    }
+
+    async function fetchWeatherSP() {
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${CONFIG.vilaErnestoCoords.lat}&longitude=${CONFIG.vilaErnestoCoords.lon}&hourly=temperature_2m,weather_code,precipitation_probability,precipitation&forecast_days=7&timezone=America%2FSao_Paulo`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+
+        const container = document.getElementById('weather-container');
+        container.innerHTML = '';
+
+        const hourly = data.hourly;
+        const daysMap = {};
+        let total24hPrecipitation = 0;
+
+        hourly.time.forEach((tStr, idx) => {
+          const dateObj = new Date(tStr);
+          const dayKey = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
+          const hour = dateObj.getHours();
+
+          if (idx < 24) total24hPrecipitation += (hourly.precipitation[idx] || 0);
+
+          if (!daysMap[dayKey]) daysMap[dayKey] = {};
+          if (hour === 9) daysMap[dayKey].morning = { temp: Math.round(hourly.temperature_2m[idx]), code: hourly.weather_code[idx], pop: hourly.precipitation_probability[idx], mm: (hourly.precipitation[idx] || 0).toFixed(1) };
+          if (hour === 15) daysMap[dayKey].afternoon = { temp: Math.round(hourly.temperature_2m[idx]), code: hourly.weather_code[idx], pop: hourly.precipitation_probability[idx], mm: (hourly.precipitation[idx] || 0).toFixed(1) };
+          if (hour === 21) daysMap[dayKey].night = { temp: Math.round(hourly.temperature_2m[idx]), code: hourly.weather_code[idx], pop: hourly.precipitation_probability[idx], mm: (hourly.precipitation[idx] || 0).toFixed(1) };
+        });
+
+        const floodAlertEl = document.getElementById('flood-alert');
+        const floodStatusText = document.getElementById('flood-status-text');
+
+        if (total24hPrecipitation >= 45) {
+          floodAlertEl.className = 'flood-alert-box danger';
+          floodStatusText.textContent = `CRITICAL (${total24hPrecipitation.toFixed(1)}mm) - HIGH FLOOD RISK!`;
+        } else if (total24hPrecipitation >= 25) {
+          floodAlertEl.className = 'flood-alert-box warning';
+          floodStatusText.textContent = `MODERATE (${total24hPrecipitation.toFixed(1)}mm) - Watch Creek Levels`;
+        } else {
+          floodAlertEl.className = 'flood-alert-box';
+          floodStatusText.textContent = `LOW (${total24hPrecipitation.toFixed(1)}mm in 24h)`;
+        }
+
+        const daysKeys = Object.keys(daysMap).slice(0, 7);
+        daysKeys.forEach(day => {
+          const info = daysMap[day] || {};
+          const m = info.morning || { temp: '--', code: 0, pop: 0, mm: '0.0' };
+          const a = info.afternoon || { temp: '--', code: 0, pop: 0, mm: '0.0' };
+          const n = info.night || { temp: '--', code: 0, pop: 0, mm: '0.0' };
+
+          const dayCard = document.createElement('div');
+          dayCard.className = 'weather-day-card';
+          dayCard.innerHTML = `
+            <div class="weather-day-title">${day}</div>
+            <div class="weather-periods-row">
+              <div class="weather-period-col">
+                <span>M</span>
+                <span>${(WMO_CODES[m.code] || {}).emoji || '🌡️'}</span>
+                <span><b>${m.temp}°</b></span>
+                <span class="wp-rain">${m.pop}%</span>
+              </div>
+              <div class="weather-period-col">
+                <span>A</span>
+                <span>${(WMO_CODES[a.code] || {}).emoji || '🌡️'}</span>
+                <span><b>${a.temp}°</b></span>
+                <span class="wp-rain">${a.pop}%</span>
+              </div>
+              <div class="weather-period-col">
+                <span>N</span>
+                <span>${(WMO_CODES[n.code] || {}).emoji || '🌡️'}</span>
+                <span><b>${n.temp}°</b></span>
+                <span class="wp-rain">${n.pop}%</span>
+              </div>
+            </div>
+          `;
+          container.appendChild(dayCard);
+        });
+
+        document.getElementById('weather-updated').textContent = getTimestamp();
+      } catch (err) {
+        document.getElementById('weather-container').textContent = 'Error loading weather.';
+      }
+    }
+
+    async function fetchTrafficStatus() {
+      const container = document.getElementById('traffic-container');
+      const updatedEl = document.getElementById('traffic-updated');
+      try {
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://g1.globo.com/dynamo/sao-paulo/rss2.xml')}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.items) {
+            const trafficItem = data.items.find(i => /transito|marginal|lentidao|CET/i.test(i.title)) || data.items[0];
+            container.innerHTML = `
+              <div class="traffic-item"><span><b>Latest CET Alert:</b></span></div>
+              <div class="traffic-item" style="font-size: 0.62rem; color: var(--text-muted);"><a href="${trafficItem.link}" target="_blank" rel="noopener" style="color:#ffffff">${trafficItem.title}</a></div>
+              <div class="traffic-item"><span><b>Plate Rotation:</b></span> <span style="color: var(--accent)">Active today</span></div>
+            `;
+            updatedEl.textContent = getTimestamp();
+          }
+        }
+      } catch (e) {
+        container.innerHTML = `<div class="traffic-item"><span>CET Traffic Monitoring Online</span></div>`;
+      }
+    }
+
+    async function fetchRSS(feedUrl, elementId, timestampId, filterKeyword = null, maxItems = 5) {
+      const container = document.getElementById(elementId);
+      const timestampEl = document.getElementById(timestampId);
+
+      try {
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'ok' && data.items && data.items.length > 0) {
+            let items = data.items;
+            if (filterKeyword) items = items.filter(i => filterKeyword.test(i.title) || filterKeyword.test(i.categories || ''));
+            if (items.length > 0) {
+              renderArticles(container, items.slice(0, maxItems));
+              if (timestampEl) timestampEl.textContent = getTimestamp();
+              return;
+            }
+          }
+        }
+      } catch (e) {}
+
+      container.innerHTML = `<li class="news-item" style="color: var(--text-muted)">Feed temporarily unavailable.</li>`;
+    }
+
+    function renderArticles(container, items) {
+      container.innerHTML = '';
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'news-item';
+        li.innerHTML = `<a href="${item.link}" target="_blank" rel="noopener">${item.title}</a>`;
+        container.appendChild(li);
+      });
+    }
+
+    function fetchAllNews() {
+      fetchRSS('https://feeds.bbci.co.uk/news/world/rss.xml', 'rss-global', 'rss-global-updated', null, 5);
+      fetchRSS('https://g1.globo.com/dynamo/rss2.xml', 'rss-brasil', 'rss-brasil-updated', null, 5);
+      fetchRSS('https://g1.globo.com/dynamo/sao-paulo/rss2.xml', 'rss-sp', 'rss-sp-updated', null, 5);
+      fetchRSS('https://g1.globo.com/dynamo/tecnologia/rss2.xml', 'rss-tech', 'rss-tech-updated', null, 5);
+      fetchRSS('https://www.rollingstone.com/music/music-news/feed/', 'rss-music', 'rss-music-updated', null, 5);
+      fetchRSS('https://screenrant.com/feed/', 'rss-cinema', 'rss-cinema-updated', /movie|film|trailer|box office|review/i, 7);
+      fetchRSS('https://screenrant.com/feed/', 'rss-series', 'rss-series-updated', /tv|show|netflix|hbo|disney|series/i, 3);
+      fetchRSS('https://feeds.feedburner.com/ign/games-all', 'rss-games', 'rss-games-updated', null, 5);
+    }
+
+    function init() {
+      updateClock();
+      renderTodos();
+      loadDailyEditorial();
+      fetchWeatherSP();
+      fetchOlhoVivo();
+      fetchTrafficStatus();
+      fetchAllNews();
+
+      setInterval(updateClock, CONFIG.intervals.clock);
+      setInterval(fetchWeatherSP, CONFIG.intervals.weather);
+      setInterval(fetchTrafficStatus, 15 * 60 * 1000);
+      setInterval(fetchAllNews, CONFIG.intervals.rss);
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

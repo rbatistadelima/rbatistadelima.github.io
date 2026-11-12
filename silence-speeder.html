@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Silence Speed Splitter & Waveform Timeline</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col py-10 px-6 lg:px-12">
+
+    <div class="w-full max-w-7xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 md:p-10 space-y-6">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight text-white mb-1">Silence Splitter & Waveform Timeline</h1>
+            <p class="text-sm text-slate-400">Full-width layout with Left/Right Arrow seeking (±1s normal, ±5s with Shift), global Spacebar play/pause, lockable controls, and pitch preservation.</p>
+        </div>
+
+        <!-- File Upload -->
+        <div class="space-y-2">
+            <label class="block text-sm font-medium text-slate-300">Upload Video or Audio File</label>
+            <input type="file" id="mediaFile" accept="video/*,audio/*" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer border border-slate-700 rounded-xl bg-slate-950 p-2">
+        </div>
+
+        <!-- Settings Controls -->
+        <div id="controlsContainer" class="hidden space-y-4 p-4 bg-slate-950 border border-slate-800 rounded-xl">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                
+                <!-- 1. Silence Threshold Control -->
+                <div class="space-y-1 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-semibold uppercase text-slate-400">Threshold (dB)</label>
+                        <button type="button" id="lockThresholdBtn" class="text-slate-400 hover:text-slate-200 transition p-1 rounded hover:bg-slate-800" title="Lock parameter from auto-adjusting">
+                            <svg id="iconThreshold" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+                        </button>
+                    </div>
+                    <div class="relative flex items-center">
+                        <input type="number" id="thresholdInput" value="-40" step="1" min="-80" max="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- 2. Silence Speedup Control -->
+                <div class="space-y-1 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-semibold uppercase text-slate-400">Silence Speedup</label>
+                        <button type="button" id="lockSpeedBtn" class="text-slate-400 hover:text-slate-200 transition p-1 rounded hover:bg-slate-800" title="Lock parameter from auto-adjusting">
+                            <svg id="iconSpeed" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+                        </button>
+                    </div>
+                    <div class="relative flex items-center">
+                        <input type="number" id="speedInput" value="3" step="0.5" min="1" max="50" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <span class="absolute right-3 text-xs text-slate-500 pointer-events-none">x</span>
+                    </div>
+                </div>
+
+                <!-- 3. Crossfade Control -->
+                <div class="space-y-1 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-semibold uppercase text-slate-400">Crossfade (ms)</label>
+                        <button type="button" id="lockCrossfadeBtn" class="text-slate-400 hover:text-slate-200 transition p-1 rounded hover:bg-slate-800" title="Lock parameter from auto-adjusting">
+                            <svg id="iconCrossfade" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
+                        </button>
+                    </div>
+                    <div class="relative flex items-center">
+                        <input type="number" id="crossfadeInput" value="40" step="5" min="0" max="200" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <span class="absolute right-3 text-xs text-slate-500 pointer-events-none">ms</span>
+                    </div>
+                </div>
+
+                <!-- 4. Output Speed Scale Control (Default Locked) -->
+                <div class="space-y-1 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-semibold uppercase text-slate-400">Output Speed Scale</label>
+                        <button type="button" id="lockFinalSpeedBtn" class="text-amber-400 hover:text-amber-300 transition p-1 rounded hover:bg-amber-950/40" title="Lock parameter from auto-adjusting">
+                            <svg id="iconFinalSpeed" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        </button>
+                    </div>
+                    <div class="relative flex items-center">
+                        <input type="number" id="finalSpeedInput" value="1.0" step="0.1" min="0.5" max="5.0" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <span class="absolute right-3 text-xs text-slate-500 pointer-events-none">x</span>
+                    </div>
+                </div>
+
+                <!-- 5. Keep Original Pitch Checkbox -->
+                <div class="space-y-1 bg-slate-900/60 p-3 rounded-xl border border-slate-800 flex flex-col justify-between">
+                    <label class="block text-xs font-semibold uppercase text-slate-400">Pitch Preservation</label>
+                    <div class="flex items-center space-x-2 py-2">
+                        <input type="checkbox" id="preservePitchCheckbox" checked class="w-4 h-4 accent-indigo-600 rounded cursor-pointer">
+                        <label for="preservePitchCheckbox" class="text-xs text-slate-300 cursor-pointer">Keep original pitch</label>
+                    </div>
+                </div>
+
+                <!-- 6. Target Final Time Control -->
+                <div class="space-y-1 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-semibold uppercase text-slate-400">Target Time (sec)</label>
+                    </div>
+                    <div class="relative flex items-center">
+                        <input type="number" id="targetTimeInput" placeholder="Auto" step="1" min="1" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <span class="absolute right-3 text-xs text-slate-500 pointer-events-none">s</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Estimated Duration Box & Percentage Difference -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center pt-3 border-t border-slate-800 text-sm gap-2">
+                <div>
+                    <span class="text-slate-400">Original:</span> <strong id="origDuration" class="text-white">0.00s</strong>
+                </div>
+                <div>
+                    <span class="text-slate-400">Calculated Final:</span> <strong id="newDuration" class="text-emerald-400">0.00s</strong>
+                </div>
+                <div>
+                    <span class="text-slate-400">Time Difference:</span> <strong id="timeDiffDisplay" class="text-indigo-400">0% (0.00s saved)</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Timeline Player Canvas -->
+        <div id="timelineContainer" class="hidden space-y-3 p-4 bg-slate-950 border border-slate-800 rounded-xl">
+            <div class="flex justify-between items-center text-xs font-medium text-slate-400">
+                <div class="space-x-3">
+                    <span>Adjusted Waveform Timeline Player</span>
+                    <span class="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-sm ml-2"></span> Speech 
+                    <span class="inline-block w-2.5 h-2.5 bg-rose-500 rounded-sm ml-2"></span> Sped-Up Silence Waveform (Red)
+                </div>
+                <div id="timeDisplay" class="text-white font-mono">0:00 / 0:00</div>
+            </div>
+
+            <!-- Player Controls -->
+            <div class="flex items-center space-x-3">
+                <button id="playPauseBtn" class="bg-indigo-600 hover:bg-indigo-500 transition px-4 py-2 rounded-xl text-xs font-semibold text-white">Play</button>
+            </div>
+
+            <div class="relative w-full bg-slate-900 border border-slate-800 rounded-xl overflow-hidden cursor-pointer p-1" id="canvasWrapper">
+                <canvas id="timelineCanvas" class="w-full h-24 rounded block"></canvas>
+            </div>
+        </div>
+
+        <!-- Status & Progress -->
+        <div id="statusContainer" class="hidden space-y-2">
+            <div class="flex justify-between text-xs text-slate-400">
+                <span id="statusText">Initializing...</span>
+                <span id="progressText">0%</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div id="progressBar" class="bg-indigo-500 h-full w-0 transition-all duration-150"></div>
+            </div>
+        </div>
+
+        <!-- Result Section -->
+        <div id="resultContainer" class="hidden space-y-4 pt-4 border-t border-slate-800">
+            <h3 class="text-sm font-semibold text-slate-300">Download Rendered File</h3>
+            <a id="downloadBtn" class="block text-center bg-emerald-600 hover:bg-emerald-500 transition font-medium py-3 rounded-xl shadow-lg shadow-indigo-600/20 text-white cursor-pointer">
+                Download Adjusted Media File
+            </a>
+        </div>
+    </div>
+
+    <!-- Script Logic -->
+    <script>
+        let audioBuffer = null;
+        let segments = []; 
+        let totalFileDuration = 0;
+        let processedTotalDuration = 0;
+        let rawFile = null;
+        let renderDebounceTimer = null;
+        let isAutoUpdatingTarget = false;
+
+        let currentAudioSource = null;
+        let audioCtx = null;
+        let isPlaying = false;
+        let playbackStartTime = 0;
+        let playbackOffset = 0;
+        let animationFrameId = null;
+        let renderedAudioBuffer = null;
+
+        const locks = {
+            threshold: false,
+            speed: false,
+            crossfade: false,
+            finalSpeed: true
+        };
+
+        const mediaFileInput = document.getElementById('mediaFile');
+        const controlsContainer = document.getElementById('controlsContainer');
+        const timelineContainer = document.getElementById('timelineContainer');
+        const thresholdInput = document.getElementById('thresholdInput');
+        const speedInput = document.getElementById('speedInput');
+        const crossfadeInput = document.getElementById('crossfadeInput');
+        const finalSpeedInput = document.getElementById('finalSpeedInput');
+        const preservePitchCheckbox = document.getElementById('preservePitchCheckbox');
+        const targetTimeInput = document.getElementById('targetTimeInput');
+
+        const lockThresholdBtn = document.getElementById('lockThresholdBtn');
+        const lockSpeedBtn = document.getElementById('lockSpeedBtn');
+        const lockCrossfadeBtn = document.getElementById('lockCrossfadeBtn');
+        const lockFinalSpeedBtn = document.getElementById('lockFinalSpeedBtn');
+
+        const iconThreshold = document.getElementById('iconThreshold');
+        const iconSpeed = document.getElementById('iconSpeed');
+        const iconCrossfade = document.getElementById('iconCrossfade');
+        const iconFinalSpeed = document.getElementById('iconFinalSpeed');
+
+        const origDurationEl = document.getElementById('origDuration');
+        const newDurationEl = document.getElementById('newDuration');
+        const timeDiffDisplay = document.getElementById('timeDiffDisplay');
+        const timelineCanvas = document.getElementById('timelineCanvas');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const statusContainer = document.getElementById('statusContainer');
+        const statusText = document.getElementById('statusText');
+        const progressText = document.getElementById('progressText');
+        const progressBar = document.getElementById('progressBar');
+        const resultContainer = document.getElementById('resultContainer');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        const unlockedSvgPath = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path>';
+        const lockedSvgPath = '<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>';
+
+        function setupLock(btn, svgEl, key, isLockedDefault = false) {
+            if (isLockedDefault) {
+                svgEl.innerHTML = lockedSvgPath;
+            }
+            btn.addEventListener('click', () => {
+                locks[key] = !locks[key];
+                if (locks[key]) {
+                    svgEl.innerHTML = lockedSvgPath;
+                    btn.className = "text-amber-400 hover:text-amber-300 transition p-1 rounded hover:bg-amber-950/40";
+                } else {
+                    svgEl.innerHTML = unlockedSvgPath;
+                    btn.className = "text-slate-400 hover:text-slate-200 transition p-1 rounded hover:bg-slate-800";
+                }
+            });
+        }
+
+        setupLock(lockThresholdBtn, iconThreshold, 'threshold', false);
+        setupLock(lockSpeedBtn, iconSpeed, 'speed', false);
+        setupLock(lockCrossfadeBtn, iconCrossfade, 'crossfade', false);
+        setupLock(lockFinalSpeedBtn, iconFinalSpeed, 'finalSpeed', true);
+
+        // Global Keyboard Shortcuts (Spacebar for Play/Pause, Left/Right Arrow for seeking audio ±1s or ±5s with Shift)
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                if (renderedAudioBuffer) {
+                    e.preventDefault();
+                    if (isPlaying) {
+                        stopPlayback();
+                    } else {
+                        startPlayback();
+                    }
+                }
+            } else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+                if (renderedAudioBuffer && processedTotalDuration > 0) {
+                    // Do not interfere if user is inside an input field unless they want global seeking, 
+                    // but standard is allowing seeking or checking if focused element is a number input.
+                    // To ensure arrow keys seek audio even when focused in inputs or anywhere:
+                    e.preventDefault();
+                    let seekAmount = e.shiftKey ? 5 : 1;
+                    if (e.code === 'ArrowLeft') {
+                        playbackOffset = Math.max(0, playbackOffset - seekAmount);
+                    } else {
+                        playbackOffset = Math.min(processedTotalDuration, playbackOffset + seekAmount);
+                    }
+
+                    if (isPlaying) {
+                        stopPlayback();
+                        startPlayback();
+                    } else {
+                        drawTimeline(playbackOffset);
+                        timeDisplay.textContent = `${formatTime(playbackOffset)} / ${formatTime(processedTotalDuration)}`;
+                    }
+                }
+            }
+        });
+
+        function formatTime(sec) {
+            let m = Math.floor(sec / 60);
+            let s = (sec % 60).toFixed(2);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        mediaFileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            rawFile = file;
+
+            stopPlayback();
+
+            statusContainer.classList.remove('hidden');
+            statusText.textContent = "Decoding audio tracks for analysis...";
+            progressBar.style.width = "50%";
+            progressText.textContent = "50%";
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                totalFileDuration = audioBuffer.duration;
+                origDurationEl.textContent = formatTime(totalFileDuration);
+
+                controlsContainer.classList.remove('hidden');
+                timelineContainer.classList.remove('hidden');
+
+                triggerUpdate(true, 'manual');
+            } catch (err) {
+                console.error("Decoding error:", err);
+                statusText.textContent = "Error decoding audio. Try an MP3/WAV or standard MP4 file.";
+            }
+        });
+
+        thresholdInput.addEventListener('input', () => { if (audioBuffer) triggerUpdate(true, 'manual'); });
+        speedInput.addEventListener('input', () => { if (audioBuffer) triggerUpdate(true, 'manual'); });
+        crossfadeInput.addEventListener('input', () => { if (audioBuffer) triggerUpdate(true, 'manual'); });
+        finalSpeedInput.addEventListener('input', () => { if (audioBuffer) triggerUpdate(true, 'manual'); });
+        preservePitchCheckbox.addEventListener('change', () => { if (audioBuffer) triggerUpdate(true, 'manual'); });
+        targetTimeInput.addEventListener('input', () => { if (audioBuffer && !isAutoUpdatingTarget) triggerUpdate(true, 'target'); });
+
+        function triggerUpdate(autoPlay = false, source = 'manual') {
+            recalculateSegmentsAndTimeline(source);
+            clearTimeout(renderDebounceTimer);
+            renderDebounceTimer = setTimeout(() => {
+                autoRenderProcessedMedia(autoPlay);
+            }, 300);
+        }
+
+        function extractSegments(dbThreshold) {
+            const channelData = audioBuffer.getChannelData(0);
+            const sampleRate = audioBuffer.sampleRate;
+            const windowSize = Math.floor(sampleRate * 0.04);
+            
+            let rawSegments = [];
+            let isSilence = false;
+            let segStart = 0;
+
+            for (let i = 0; i < channelData.length; i += windowSize) {
+                let sum = 0;
+                let count = 0;
+                for (let j = i; j < Math.min(i + windowSize, channelData.length); j++) {
+                    sum += channelData[j] * channelData[j];
+                    count++;
+                }
+                const rms = Math.sqrt(sum / count);
+                const db = 20 * Math.log10(rms === 0 ? 0.00001 : rms);
+                
+                const currentIsSilence = db < dbThreshold;
+                const currentTime = i / sampleRate;
+
+                if (currentIsSilence !== isSilence) {
+                    if (currentTime - segStart > 0.02) {
+                        rawSegments.push({
+                            start: segStart,
+                            end: currentTime,
+                            type: isSilence ? 'silence' : 'speech'
+                        });
+                        segStart = currentTime;
+                    }
+                    isSilence = currentIsSilence;
+                }
+            }
+            rawSegments.push({
+                start: segStart,
+                end: totalFileDuration,
+                type: isSilence ? 'silence' : 'speech'
+            });
+
+            return rawSegments.filter(s => (s.end - s.start) > 0.002);
+        }
+
+        function recalculateSegmentsAndTimeline(source = 'manual') {
+            if (!audioBuffer) return;
+
+            let dbThreshold = parseFloat(thresholdInput.value) || -40;
+            const targetSec = parseFloat(targetTimeInput.value);
+            let silenceSpeedup = parseFloat(speedInput.value) || 3;
+            let finalSpeedMult = parseFloat(finalSpeedInput.value) || 1.0;
+
+            if (source === 'target' && !isNaN(targetSec) && targetSec > 0) {
+                let bestThreshold = dbThreshold;
+                let bestSpeedup = silenceSpeedup;
+                let bestDiff = Infinity;
+
+                let tMin = locks.threshold ? dbThreshold : -70;
+                let tMax = locks.threshold ? dbThreshold : -10;
+                let tStep = 5;
+
+                for (let t = tMin; t <= tMax; t += tStep) {
+                    let testSegments = extractSegments(t);
+                    let sDur = 0, silDur = 0;
+                    testSegments.forEach(seg => {
+                        let l = seg.end - seg.start;
+                        if (seg.type === 'speech') sDur += l; else silDur += l;
+                    });
+
+                    let testSpeed = silenceSpeedup;
+                    if (!locks.speed && silDur > 0) {
+                        let neededSilTime = (targetSec * finalSpeedMult) - sDur;
+                        if (neededSilTime > 0) testSpeed = silDur / neededSilTime;
+                    }
+                    testSpeed = Math.max(1, testSpeed);
+
+                    let totalCalc = sDur + (silDur / testSpeed);
+                    let finalCalc = totalCalc / finalSpeedMult;
+                    let diff = Math.abs(finalCalc - targetSec);
+
+                    if (diff < bestDiff) {
+                        bestDiff = diff;
+                        bestThreshold = t;
+                        bestSpeedup = testSpeed;
+                    }
+                }
+
+                if (!locks.threshold) {
+                    dbThreshold = bestThreshold;
+                    thresholdInput.value = dbThreshold;
+                }
+                if (!locks.speed) {
+                    silenceSpeedup = Math.max(1, bestSpeedup);
+                    speedInput.value = silenceSpeedup.toFixed(1);
+                }
+            }
+
+            segments = extractSegments(dbThreshold);
+
+            let speechDuration = 0;
+            let silenceDuration = 0;
+            segments.forEach(seg => {
+                const len = seg.end - seg.start;
+                if (seg.type === 'speech') speechDuration += len;
+                else silenceDuration += len;
+            });
+
+            if (silenceSpeedup < 1) silenceSpeedup = 1;
+            if (finalSpeedMult < 0.1) finalSpeedMult = 0.1;
+
+            const baseProcessedDuration = speechDuration + (silenceDuration / silenceSpeedup);
+            processedTotalDuration = baseProcessedDuration / finalSpeedMult;
+            newDurationEl.textContent = formatTime(processedTotalDuration);
+
+            if (source === 'manual') {
+                isAutoUpdatingTarget = true;
+                targetTimeInput.value = Math.round(processedTotalDuration);
+                isAutoUpdatingTarget = false;
+            }
+
+            const timeDiffSec = totalFileDuration - processedTotalDuration;
+            const pct = totalFileDuration > 0 ? ((Math.abs(timeDiffSec) / totalFileDuration) * 100).toFixed(1) : 0;
+            if (timeDiffSec >= 0) {
+                timeDiffDisplay.textContent = `-${pct}% (${formatTime(timeDiffSec)} saved)`;
+                timeDiffDisplay.className = "text-emerald-400 font-semibold";
+            } else {
+                timeDiffDisplay.textContent = `+${pct}% (${formatTime(Math.abs(timeDiffSec))} added)`;
+                timeDiffDisplay.className = "text-rose-400 font-semibold";
+            }
+        }
+
+        function drawTimeline(currentTime = 0) {
+            const canvas = timelineCanvas;
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvasWrapper.clientWidth;
+            canvas.height = 96;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (!renderedAudioBuffer || processedTotalDuration === 0) return;
+
+            const channelData = renderedAudioBuffer.getChannelData(0);
+            const sampleRate = renderedAudioBuffer.sampleRate;
+            const totalSamples = channelData.length;
+            const barWidth = 2.5;
+            const totalBars = Math.floor(canvas.width / barWidth);
+            const samplesPerBar = Math.floor(totalSamples / totalBars);
+
+            for (let i = 0; i < totalBars; i++) {
+                let sum = 0;
+                const startSample = i * samplesPerBar;
+                const endSample = Math.min(startSample + samplesPerBar, totalSamples);
+                
+                for (let j = startSample; j < endSample; j++) {
+                    sum += Math.abs(channelData[j]);
+                }
+                const avg = sum / (endSample - startSample > 0 ? endSample - startSample : 1);
+                
+                const renderedBarTime = (startSample / sampleRate);
+                let origBarTime = getOriginalTimeFromProcessedTime(renderedBarTime);
+
+                let isSpeech = true;
+                for (let seg of segments) {
+                    if (origBarTime >= seg.start && origBarTime <= seg.end) {
+                        isSpeech = (seg.type === 'speech');
+                        break;
+                    }
+                }
+
+                let barHeight = avg * (canvas.height * 1.5);
+                if (!isSpeech) {
+                    barHeight = Math.max(16, barHeight); 
+                }
+                barHeight = Math.min(canvas.height - 12, Math.max(4, barHeight));
+
+                ctx.fillStyle = isSpeech ? '#10b981' : '#f43f5e';
+                const x = i * barWidth;
+                const y = (canvas.height - barHeight) / 2;
+                
+                ctx.fillRect(x, y, barWidth + 0.2, barHeight);
+            }
+
+            const playlineX = (currentTime / processedTotalDuration) * canvas.width;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(playlineX - 1.5, 0, 3, canvas.height);
+        }
+
+        function getOriginalTimeFromProcessedTime(procTime) {
+            let accumulatedProc = 0;
+            const silenceSpeedup = parseFloat(speedInput.value) || 3;
+            const finalSpeedMult = parseFloat(finalSpeedInput.value) || 1.0;
+            const scaledProcTime = procTime * finalSpeedMult;
+
+            for (let seg of segments) {
+                const segDuration = seg.end - seg.start;
+                const speed = seg.type === 'silence' ? silenceSpeedup : 1.0;
+                const procDuration = segDuration / speed;
+
+                if (scaledProcTime <= accumulatedProc + procDuration) {
+                    const localProcOffset = scaledProcTime - accumulatedProc;
+                    return seg.start + (localProcOffset * speed);
+                }
+                accumulatedProc += procDuration;
+            }
+            return totalFileDuration;
+        }
+
+        canvasWrapper.addEventListener('click', (e) => {
+            if (!renderedAudioBuffer || processedTotalDuration === 0) return;
+            const rect = canvasWrapper.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            playbackOffset = (clickX / canvasWrapper.clientWidth) * processedTotalDuration;
+            
+            if (isPlaying) {
+                stopPlayback();
+                startPlayback();
+            } else {
+                drawTimeline(playbackOffset);
+                timeDisplay.textContent = `${formatTime(playbackOffset)} / ${formatTime(processedTotalDuration)}`;
+            }
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            if (!renderedAudioBuffer) return;
+            if (isPlaying) {
+                stopPlayback();
+            } else {
+                startPlayback();
+            }
+        });
+
+        function stopPlayback() {
+            isPlaying = false;
+            if (currentAudioSource) {
+                try { currentAudioSource.stop(); } catch(e){}
+                currentAudioSource.disconnect();
+                currentAudioSource = null;
+            }
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            playPauseBtn.textContent = "Play";
+        }
+
+        function startPlayback() {
+            if (!renderedAudioBuffer || isPlaying) return;
+            if (playbackOffset >= processedTotalDuration) playbackOffset = 0;
+
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            isPlaying = true;
+            playPauseBtn.textContent = "Pause";
+
+            currentAudioSource = audioCtx.createBufferSource();
+            currentAudioSource.buffer = renderedAudioBuffer;
+            currentAudioSource.connect(audioCtx.destination);
+            
+            currentAudioSource.start(0, playbackOffset);
+            playbackStartTime = audioCtx.currentTime - playbackOffset;
+
+            currentAudioSource.onended = () => {
+                if (isPlaying) {
+                    stopPlayback();
+                    playbackOffset = 0;
+                    drawTimeline(0);
+                    timeDisplay.textContent = `${formatTime(0)} / ${formatTime(processedTotalDuration)}`;
+                }
+            };
+
+            trackPlaybackProgress();
+        }
+
+        function trackPlaybackProgress() {
+            if (!isPlaying) return;
+            playbackOffset = audioCtx.currentTime - playbackStartTime;
+            if (playbackOffset >= processedTotalDuration) {
+                stopPlayback();
+                playbackOffset = 0;
+                drawTimeline(0);
+                timeDisplay.textContent = `${formatTime(0)} / ${formatTime(processedTotalDuration)}`;
+                return;
+            }
+
+            drawTimeline(playbackOffset);
+            timeDisplay.textContent = `${formatTime(playbackOffset)} / ${formatTime(processedTotalDuration)}`;
+            animationFrameId = requestAnimationFrame(trackPlaybackProgress);
+        }
+
+        async function renderCurrentAudioBuffer() {
+            const silenceSpeedup = parseFloat(speedInput.value) || 3;
+            const crossfadeMs = parseFloat(crossfadeInput.value) || 40;
+            const finalSpeedMult = parseFloat(finalSpeedInput.value) || 1.0;
+            const preservePitch = preservePitchCheckbox.checked;
+            const sampleRate = audioBuffer.sampleRate;
+            const numChannels = audioBuffer.numberOfChannels;
+            const crossfadeLen = Math.floor(sampleRate * (crossfadeMs / 1000)); 
+
+            let renderedChannels = [];
+            for (let c = 0; c < numChannels; c++) {
+                renderedChannels.push([]);
+            }
+
+            for (let i = 0; i < segments.length; i++) {
+                const seg = segments[i];
+                let segStart = seg.start;
+                let segEnd = seg.end;
+                const segDuration = segEnd - segStart;
+                if (segDuration <= 0) continue;
+
+                const speed = (seg.type === 'silence' ? silenceSpeedup : 1.0) * finalSpeedMult;
+                const startSample = Math.floor(segStart * sampleRate);
+                const endSample = Math.min(Math.floor(segEnd * sampleRate), audioBuffer.length);
+                const sourceLen = endSample - startSample;
+                if (sourceLen <= 0) continue;
+
+                for (let c = 0; c < numChannels; c++) {
+                    const srcData = audioBuffer.getChannelData(c);
+                    const chunkLength = Math.floor(segDuration * sampleRate / speed);
+                    const chunk = new Float32Array(chunkLength);
+                    
+                    if (preservePitch && speed !== 1.0) {
+                        const grainSize = Math.floor(sampleRate * 0.05);
+                        let srcPos = startSample;
+                        let dstPos = 0;
+                        while (dstPos < chunkLength && srcPos < endSample) {
+                            let currentGrainLen = Math.min(grainSize, chunkLength - dstPos, endSample - srcPos);
+                            for (let g = 0; g < currentGrainLen; g++) {
+                                let windowFactor = 0.5 * (1 - Math.cos((2 * Math.PI * g) / currentGrainLen));
+                                chunk[dstPos + g] += srcData[Math.min(endSample - 1, srcPos + g)] * windowFactor;
+                            }
+                            dstPos += Math.floor(currentGrainLen / 2);
+                            srcPos += Math.floor((currentGrainLen / 2) * speed);
+                        }
+                    } else {
+                        for (let j = 0; j < chunkLength; j++) {
+                            const srcIdx = startSample + (j * speed);
+                            const idxInt = Math.floor(srcIdx);
+                            const mu = srcIdx - idxInt;
+
+                            const y0 = srcData[Math.max(0, idxInt - 1)];
+                            const y1 = srcData[idxInt];
+                            const y2 = srcData[Math.min(endSample - 1, idxInt + 1)];
+                            const y3 = srcData[Math.min(endSample - 1, idxInt + 2)];
+
+                            const c0 = y1;
+                            const c1 = 0.5 * (y2 - y0);
+                            const c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3;
+                            const c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
+
+                            chunk[j] = ((c3 * mu + c2) * mu + c1) * mu + c0;
+                        }
+                    }
+
+                    if (speed > 2.0 && !preservePitch) {
+                        for (let j = 1; j < chunk.length - 1; j++) {
+                            chunk[j] = (chunk[j - 1] * 0.25) + (chunk[j] * 0.5) + (chunk[j + 1] * 0.25);
+                        }
+                    }
+
+                    if (seg.type === 'speech' && chunk.length > crossfadeLen * 2) {
+                        for (let k = 0; k < crossfadeLen; k++) {
+                            const factor = k / crossfadeLen;
+                            chunk[k] *= factor;
+                            chunk[chunk.length - 1 - k] *= factor;
+                        }
+                    }
+
+                    const master = renderedChannels[c];
+                    if (master.length === 0 || crossfadeLen <= 0) {
+                        for (let k = 0; k < chunk.length; k++) master.push(chunk[k]);
+                    } else {
+                        const overlap = Math.min(crossfadeLen, master.length, chunk.length);
+                        const masterStartIdx = master.length - overlap;
+
+                        for (let k = 0; k < overlap; k++) {
+                            const ratio = k / overlap;
+                            const fadeOut = 0.5 * (1 + Math.cos(ratio * Math.PI));
+                            const fadeIn = 1 - fadeOut;
+                            master[masterStartIdx + k] = master[masterStartIdx + k] * fadeOut + chunk[k] * fadeIn;
+                        }
+
+                        for (let k = overlap; k < chunk.length; k++) {
+                            master.push(chunk[k]);
+                        }
+                    }
+                }
+            }
+
+            const finalLength = renderedChannels[0].length;
+            const finalBuffer = audioCtx.createBuffer(numChannels, finalLength, sampleRate);
+            for (let c = 0; c < numChannels; c++) {
+                finalBuffer.getChannelData(c).set(renderedChannels[c]);
+            }
+
+            return finalBuffer;
+        }
+
+        async function autoRenderProcessedMedia(autoPlay = false) {
+            if (!audioBuffer) return;
+            if (isPlaying) stopPlayback();
+
+            statusContainer.classList.remove('hidden');
+            statusText.textContent = "Auto-rendering clean audio stream...";
+            progressBar.style.width = "60%";
+            progressText.textContent = "60%";
+
+            try {
+                renderedAudioBuffer = await renderCurrentAudioBuffer();
+                const wavBlob = audioBufferToWavBlob(renderedAudioBuffer);
+                const outputUrl = URL.createObjectURL(wavBlob);
+
+                downloadBtn.href = outputUrl;
+                downloadBtn.download = "speed_adjusted_output.wav";
+
+                statusText.textContent = "Ready!";
+                progressBar.style.width = "100%";
+                progressText.textContent = "100%";
+                statusContainer.classList.add('hidden');
+                resultContainer.classList.remove('hidden');
+
+                playbackOffset = 0;
+                drawTimeline(0);
+                timeDisplay.textContent = `${formatTime(0)} / ${formatTime(processedTotalDuration)}`;
+
+                if (autoPlay) {
+                    startPlayback();
+                }
+            } catch (err) {
+                console.error("Rendering error:", err);
+                statusText.textContent = "Error rendering audio timeline.";
+            }
+        }
+
+        function audioBufferToWavBlob(buffer) {
+            const numOfChan = buffer.numberOfChannels;
+            const length = buffer.length * numOfChan * 2 + 44;
+            const out = new DataView(new ArrayBuffer(length));
+            let channels = [];
+            let sampleRate = buffer.sampleRate;
+            let offset = 0;
+            let pos = 0;
+
+            function writeString(str) {
+                for (let i = 0; i < str.length; i++) {
+                    out.setUint8(pos++, str.charCodeAt(i));
+                }
+            }
+
+            writeString('RIFF');
+            out.setUint32(pos, length - 8, true); pos += 4;
+            writeString('WAVE');
+            writeString('fmt ');
+            out.setUint32(pos, 16, true); pos += 4;
+            out.setUint16(pos, 1, true); pos += 2;
+            out.setUint16(pos, numOfChan, true); pos += 2;
+            out.setUint32(pos, sampleRate, true); pos += 4;
+            out.setUint32(pos, sampleRate * numOfChan * 2, true); pos += 4;
+            out.setUint16(pos, numOfChan * 2, true); pos += 2;
+            out.setUint16(pos, 16, true); pos += 2;
+            writeString('data');
+            out.setUint32(pos, length - pos - 4, true); pos += 4;
+
+            for (let i = 0; i < buffer.numberOfChannels; i++) {
+                channels.push(buffer.getChannelData(i));
+            }
+
+            while (offset < buffer.length) {
+                for (let i = 0; i < numOfChan; i++) {
+                    let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767);
+                    out.setInt16(pos, sample, true);
+                    pos += 2;
+                }
+                offset++;
+            }
+
+            return new Blob([out.buffer], { type: 'audio/wav' });
+        }
+    </script>
+</body>
+</html>

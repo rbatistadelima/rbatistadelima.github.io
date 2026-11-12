@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gen 1 Pokémon Cry Synthesizer (Web Audio API)</title>
+    <style>
+        :root {
+            --gb-darkest: #0f380f;
+            --gb-dark: #306230;
+            --gb-light: #8bac0f;
+            --gb-lightest: #9bbc0f;
+            --pokedex-red: #dc0a2d;
+            --pokedex-dark-red: #8b0000;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .pokedex {
+            background-color: var(--pokedex-red);
+            border: 4px solid var(--pokedex-dark-red);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 900px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 3px solid var(--pokedex-dark-red);
+            padding-bottom: 15px;
+        }
+
+        .blue-lens {
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle at 30% 30%, #00d2ff, #004080);
+            border-radius: 50%;
+            border: 4px solid #fff;
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.8);
+        }
+
+        .leds {
+            display: flex;
+            gap: 8px;
+        }
+
+        .led {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            border: 1px solid #000;
+        }
+
+        .led.red { background-color: #ff0000; }
+        .led.yellow { background-color: #ffff00; }
+        .led.green { background-color: #00ff00; }
+
+        .main-screen-container {
+            background-color: #dedede;
+            border-radius: 10px 10px 10px 40px;
+            padding: 20px;
+            border: 3px solid #999;
+        }
+
+        .lcd-screen {
+            background-color: var(--gb-lightest);
+            border: 4px solid var(--gb-darkest);
+            border-radius: 5px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .visualizer-container {
+            height: 80px;
+            background-color: var(--gb-darkest);
+            border: 2px solid var(--gb-dark);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .audio-status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--gb-lightest);
+            font-size: 12px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid var(--gb-darkest);
+            background-color: var(--gb-light);
+            color: var(--gb-darkest);
+            font-weight: bold;
+            font-size: 16px;
+            outline: none;
+        }
+
+        input[type="text"]::placeholder {
+            color: var(--gb-dark);
+        }
+
+        .btn {
+            background-color: var(--gb-dark);
+            color: var(--gb-lightest);
+            border: 2px solid var(--gb-darkest);
+            padding: 10px 15px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .btn:hover {
+            background-color: var(--gb-darkest);
+            color: var(--gb-light);
+        }
+
+        .grid-container {
+            height: 350px;
+            overflow-y: auto;
+            border: 2px solid var(--gb-darkest);
+            background-color: var(--gb-light);
+            padding: 10px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+        }
+
+        .grid-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .grid-container::-webkit-scrollbar-track {
+            background: var(--gb-light);
+        }
+        .grid-container::-webkit-scrollbar-thumb {
+            background: var(--gb-dark);
+        }
+
+        .pokemon-card {
+            background-color: var(--gb-lightest);
+            border: 2px solid var(--gb-darkest);
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+        }
+
+        .pokemon-card:hover {
+            background-color: var(--gb-dark);
+            color: var(--gb-lightest);
+        }
+
+        .pokemon-card.active {
+            outline: 3px solid var(--gb-darkest);
+            background-color: var(--gb-dark);
+            color: var(--gb-lightest);
+        }
+
+        .pokemon-number {
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .pokemon-name {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .synth-params {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            background-color: var(--gb-light);
+            padding: 10px;
+            border: 2px solid var(--gb-darkest);
+            font-size: 12px;
+            color: var(--gb-darkest);
+            font-weight: bold;
+        }
+
+        .param-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .param-group label {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type="range"] {
+            accent-color: var(--gb-darkest);
+        }
+    </style>
+</head>
+<body>
+
+<div class="pokedex">
+    <div class="header">
+        <div class="blue-lens"></div>
+        <div class="leds">
+            <div class="led red"></div>
+            <div class="led yellow"></div>
+            <div class="led green"></div>
+        </div>
+    </div>
+
+    <div class="main-screen-container">
+        <div class="lcd-screen">
+            <div class="visualizer-container">
+                <canvas id="visualizer"></canvas>
+                <div class="audio-status" id="audio-status">CLICK ANY POKÉMON TO START AUDIO</div>
+            </div>
+
+            <div class="controls-row">
+                <input type="text" id="search" placeholder="SEARCH POKÉMON..." />
+                <button class="btn" id="play-btn">PLAY CRY</button>
+                <button class="btn" id="random-btn">RANDOM</button>
+            </div>
+
+            <div class="synth-params">
+                <div class="param-group">
+                    <label>PITCH OFFSET <span id="pitch-val">0</span></label>
+                    <input type="range" id="pitch-offset" min="-12" max="12" value="0" step="1">
+                </div>
+                <div class="param-group">
+                    <label>SPEED SCALER <span id="speed-val">1.0x</span></label>
+                    <input type="range" id="speed-scale" min="0.5" max="2.0" value="1.0" step="0.1">
+                </div>
+                <div class="param-group">
+                    <label>VIBRATO DEPTH <span id="vib-val">1.0x</span></label>
+                    <input type="range" id="vibrato-scale" min="0" max="2.0" value="1.0" step="0.1">
+                </div>
+            </div>
+
+            <div class="grid-container" id="pokemon-grid"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const baseTemplates = [
+        { type: 'pulse', wave: 'square', sweep: -300, vibFreq: 15, vibDepth: 20, noise: false },
+        { type: 'pulse', wave: 'square', sweep: 400, vibFreq: 35, vibDepth: 40, noise: false },
+        { type: 'pulse', wave: 'sawtooth', sweep: -800, vibFreq: 10, vibDepth: 10, noise: false },
+        { type: 'hybrid', wave: 'square', sweep: -100, vibFreq: 50, vibDepth: 80, noise: true },
+        { type: 'pulse', wave: 'sawtooth', sweep: -1200, vibFreq: 8, vibDepth: 30, noise: true },
+        { type: 'pulse', wave: 'triangle', sweep: 600, vibFreq: 20, vibDepth: 15, noise: false },
+        { type: 'pulse', wave: 'square', sweep: 0, vibFreq: 60, vibDepth: 100, noise: false },
+        { type: 'noise', wave: 'square', sweep: -400, vibFreq: 5, vibDepth: 10, noise: true }
+    ];
+
+    const pokemonData = [
+        { id: 1, name: "Bulbasaur", baseFreq: 280, duration: 0.35, template: 0 },
+        { id: 2, name: "Ivysaur", baseFreq: 230, duration: 0.45, template: 0 },
+        { id: 3, name: "Venusaur", baseFreq: 150, duration: 0.65, template: 4 },
+        { id: 4, name: "Charmander", baseFreq: 320, duration: 0.30, template: 0 },
+        { id: 5, name: "Charmeleon", baseFreq: 260, duration: 0.40, template: 0 },
+        { id: 6, name: "Charizard", baseFreq: 140, duration: 0.70, template: 4 },
+        { id: 7, name: "Squirtle", baseFreq: 350, duration: 0.25, template: 5 },
+        { id: 8, name: "Wartortle", baseFreq: 270, duration: 0.38, template: 5 },
+        { id: 9, name: "Blastoise", baseFreq: 160, duration: 0.60, template: 4 },
+        { id: 10, name: "Caterpie", baseFreq: 450, duration: 0.20, template: 5 },
+        { id: 11, name: "Metapod", baseFreq: 380, duration: 0.25, template: 0 },
+        { id: 12, name: "Butterfree", baseFreq: 520, duration: 0.50, template: 1 },
+        { id: 13, name: "Weedle", baseFreq: 460, duration: 0.18, template: 5 },
+        { id: 14, name: "Kakuna", baseFreq: 390, duration: 0.22, template: 0 },
+        { id: 15, name: "Beedrill", baseFreq: 300, duration: 0.55, template: 6 },
+        { id: 16, name: "Pidgey", baseFreq: 480, duration: 0.25, template: 5 },
+        { id: 17, name: "Pidgeotto", baseFreq: 360, duration: 0.40, template: 5 },
+        { id: 18, name: "Pidgeot", baseFreq: 240, duration: 0.55, template: 2 },
+        { id: 19, name: "Rattata", baseFreq: 500, duration: 0.20, template: 1 },
+        { id: 20, name: "Raticate", baseFreq: 320, duration: 0.45, template: 3 },
+        { id: 25, name: "Pikachu", baseFreq: 350, duration: 0.35, template: 1 },
+        { id: 26, name: "Raichu", baseFreq: 200, duration: 0.50, template: 6 },
+        { id: 39, name: "Jigglypuff", baseFreq: 400, duration: 0.40, template: 5 },
+        { id: 52, name: "Meowth", baseFreq: 420, duration: 0.30, template: 1 },
+        { id: 54, name: "Psyduck", baseFreq: 310, duration: 0.35, template: 0 },
+        { id: 65, name: "Alakazam", baseFreq: 180, duration: 0.60, template: 6 },
+        { id: 94, name: "Gengar", baseFreq: 160, duration: 0.65, template: 3 },
+        { id: 129, name: "Magikarp", baseFreq: 500, duration: 0.35, template: 7 },
+        { id: 130, name: "Gyarados", baseFreq: 100, duration: 0.80, template: 4 },
+        { id: 131, name: "Lapras", baseFreq: 160, duration: 0.70, template: 5 },
+        { id: 133, name: "Eevee", baseFreq: 380, duration: 0.32, template: 1 },
+        { id: 143, name: "Snorlax", baseFreq: 90, duration: 0.85, template: 2 },
+        { id: 150, name: "Mewtwo", baseFreq: 120, duration: 0.80, template: 6 },
+        { id: 151, name: "Mew", baseFreq: 420, duration: 0.40, template: 1 }
+    ];
+
+    let audioCtx = null;
+    let selectedPokemon = pokemonData[0];
+    let analyser = null;
+    let noiseBuffer = null;
+
+    const gridEl = document.getElementById('pokemon-grid');
+    const searchEl = document.getElementById('search');
+    const playBtn = document.getElementById('play-btn');
+    const randomBtn = document.getElementById('random-btn');
+    const statusEl = document.getElementById('audio-status');
+    const canvas = document.getElementById('visualizer');
+    const canvasCtx = canvas.getContext('2d');
+
+    const pitchInput = document.getElementById('pitch-offset');
+    const speedInput = document.getElementById('speed-scale');
+    const vibratoInput = document.getElementById('vibrato-scale');
+
+    const pitchVal = document.getElementById('pitch-val');
+    const speedVal = document.getElementById('speed-val');
+    const vibVal = document.getElementById('vib-val');
+
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth || 300;
+        canvas.height = canvas.parentElement.clientHeight || 80;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function renderGrid(filter = '') {
+        gridEl.innerHTML = '';
+        const filtered = pokemonData.filter(p => 
+            p.name.toLowerCase().includes(filter.toLowerCase()) || 
+            p.id.toString().includes(filter)
+        );
+
+        filtered.forEach(pokemon => {
+            const card = document.createElement('div');
+            card.className = `pokemon-card ${selectedPokemon.id === pokemon.id ? 'active' : ''}`;
+            card.innerHTML = `
+                <div class="pokemon-number">#${String(pokemon.id).padStart(3, '0')}</div>
+                <div class="pokemon-name">${pokemon.name}</div>
+            `;
+            card.addEventListener('click', () => {
+                selectedPokemon = pokemon;
+                document.querySelectorAll('.pokemon-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+                playCry(pokemon);
+            });
+            gridEl.appendChild(card);
+        });
+    }
+
+    async function initAudio() {
+        if (!audioCtx) {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContextClass();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            analyser.connect(audioCtx.destination);
+            createNoiseBuffer();
+            drawVisualizer();
+        }
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+        statusEl.style.display = 'none';
+    }
+
+    function createNoiseBuffer() {
+        const bufferSize = audioCtx.sampleRate * 2;
+        noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+        }
+    }
+
+    async function playCry(pokemon) {
+        await initAudio();
+
+        const now = audioCtx.currentTime + 0.01;
+        const pitchOffset = parseInt(pitchInput.value, 10);
+        const speedScale = parseFloat(speedInput.value);
+        const vibratoScale = parseFloat(vibratoInput.value);
+
+        const template = baseTemplates[pokemon.template];
+        const duration = Math.max(0.1, pokemon.duration / speedScale);
+        
+        const pitchMultiplier = Math.pow(2, pitchOffset / 12);
+        const baseFreq = pokemon.baseFreq * pitchMultiplier;
+
+        const masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(0.2, now);
+        masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        masterGain.connect(analyser);
+
+        const osc = audioCtx.createOscillator();
+        osc.type = template.wave;
+
+        const endFreq = Math.max(20, baseFreq + template.sweep);
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
+
+        if (template.vibDepth > 0 && vibratoScale > 0) {
+            const lfo = audioCtx.createOscillator();
+            const lfoGain = audioCtx.createGain();
+            
+            lfo.frequency.setValueAtTime(template.vibFreq, now);
+            lfoGain.gain.setValueAtTime(template.vibDepth * vibratoScale, now);
+            
+            lfo.connect(osc.frequency);
+            lfo.start(now);
+            lfo.stop(now + duration);
+        }
+
+        osc.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + duration);
+
+        if (template.noise && noiseBuffer) {
+            const noiseSource = audioCtx.createBufferSource();
+            noiseSource.buffer = noiseBuffer;
+
+            const noiseFilter = audioCtx.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.setValueAtTime(Math.max(100, baseFreq * 1.5), now);
+            noiseFilter.Q.setValueAtTime(2.0, now);
+
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(0.1, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+            noiseSource.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(masterGain);
+
+            noiseSource.start(now);
+            noiseSource.stop(now + duration);
+        }
+    }
+
+    function drawVisualizer() {
+        requestAnimationFrame(drawVisualizer);
+        if (!analyser) return;
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteTimeDomainData(dataArray);
+
+        canvasCtx.fillStyle = '#0f380f';
+        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+        canvasCtx.lineWidth = 2;
+        canvasCtx.strokeStyle = '#9bbc0f';
+        canvasCtx.beginPath();
+
+        const sliceWidth = canvas.width * 1.0 / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = v * canvas.height / 2;
+
+            if (i === 0) {
+                canvasCtx.moveTo(x, y);
+            } else {
+                canvasCtx.lineTo(x, y);
+            }
+
+            x += sliceWidth;
+        }
+
+        canvasCtx.lineTo(canvas.width, canvas.height / 2);
+        canvasCtx.stroke();
+    }
+
+    searchEl.addEventListener('input', (e) => renderGrid(e.target.value));
+
+    playBtn.addEventListener('click', () => playCry(selectedPokemon));
+
+    randomBtn.addEventListener('click', () => {
+        const randomIndex = Math.floor(Math.random() * pokemonData.length);
+        selectedPokemon = pokemonData[randomIndex];
+        renderGrid(searchEl.value);
+        playCry(selectedPokemon);
+    });
+
+    pitchInput.addEventListener('input', (e) => pitchVal.textContent = e.target.value);
+    speedInput.addEventListener('input', (e) => speedVal.textContent = parseFloat(e.target.value).toFixed(1) + 'x');
+    vibratoInput.addEventListener('input', (e) => vibVal.textContent = parseFloat(e.target.value).toFixed(1) + 'x');
+
+    renderGrid();
+</script>
+</body>
+</html>

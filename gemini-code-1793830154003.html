@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gen 1 Pokémon Cry Synthesizer + Signal Bar Sequencer</title>
+    <style>
+        :root {
+            --gb-darkest: #0f380f;
+            --gb-dark: #306230;
+            --gb-light: #8bac0f;
+            --gb-lightest: #9bbc0f;
+            --pokedex-red: #dc0a2d;
+            --pokedex-dark: #8b0000;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: monospace; }
+        body { background: #121212; color: #333; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        
+        .pokedex {
+            background: var(--pokedex-red);
+            border: 4px solid var(--pokedex-dark);
+            border-radius: 15px;
+            width: 100%; max-width: 950px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            display: flex; flex-direction: column; gap: 15px;
+        }
+
+        .screen-container {
+            background: #dcdcdc;
+            border-radius: 10px 10px 10px 30px;
+            padding: 15px;
+            border: 3px solid #777;
+        }
+
+        .lcd-screen {
+            background: var(--gb-lightest);
+            border: 3px solid var(--gb-darkest);
+            border-radius: 5px;
+            padding: 12px;
+            display: flex; flex-direction: column; gap: 12px;
+        }
+
+        .viz-box {
+            height: 60px;
+            background: var(--gb-darkest);
+            border: 2px solid var(--gb-dark);
+            position: relative;
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .status-text {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: var(--gb-lightest); font-size: 11px; font-weight: bold; pointer-events: none;
+        }
+
+        .controls { display: flex; gap: 10px; }
+        input[type="text"] {
+            flex: 1; padding: 8px; border: 2px solid var(--gb-darkest);
+            background: var(--gb-light); color: var(--gb-darkest); font-weight: bold; outline: none;
+        }
+        .btn {
+            background: var(--gb-dark); color: var(--gb-lightest);
+            border: 2px solid var(--gb-darkest); padding: 8px 12px;
+            font-weight: bold; cursor: pointer; text-transform: uppercase;
+        }
+        .btn:hover { background: var(--gb-darkest); color: var(--gb-light); }
+
+        /* Signal Bar Pitch & Scale Editor Panel */
+        .note-editor {
+            background: var(--gb-light);
+            border: 2px solid var(--gb-darkest);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .editor-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--gb-darkest);
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        select, input[type="range"].horizontal-slider {
+            padding: 3px;
+            border: 2px solid var(--gb-darkest);
+            background: var(--gb-lightest);
+            color: var(--gb-darkest);
+            font-weight: bold;
+            font-size: 10px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* Mobile Signal Indicator Bars Layout */
+        .signal-bars-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            height: 140px;
+            background: var(--gb-darkest);
+            border: 2px solid var(--gb-dark);
+            padding: 12px;
+            gap: 8px;
+        }
+
+        .signal-column {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+        }
+
+        /* Signal Bar Container */
+        .bar-wrapper {
+            width: 100%;
+            height: 95px;
+            background: rgba(48, 98, 48, 0.3);
+            border: 1px solid var(--gb-dark);
+            display: flex;
+            align-items: flex-end;
+            position: relative;
+            cursor: pointer;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .signal-bar-fill {
+            width: 100%;
+            background: var(--gb-light);
+            border-top: 2px solid var(--gb-lightest);
+            transition: height 0.05s ease-out, background-color 0.1s;
+        }
+
+        .signal-column.playing .signal-bar-fill {
+            background: #e0f8d0;
+            box-shadow: 0 0 8px #e0f8d0;
+        }
+
+        .bar-label {
+            font-size: 9px;
+            font-weight: bold;
+            color: var(--gb-lightest);
+            text-align: center;
+            user-select: none;
+        }
+
+        .bar-num {
+            font-size: 8px;
+            color: var(--gb-dark);
+            font-weight: bold;
+        }
+        .signal-column.playing .bar-num {
+            color: var(--gb-lightest);
+        }
+
+        .grid {
+            height: 220px; overflow-y: auto;
+            border: 2px solid var(--gb-darkest); background: var(--gb-light);
+            padding: 8px; display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px;
+        }
+        .grid::-webkit-scrollbar { width: 6px; }
+        .grid::-webkit-scrollbar-thumb { background: var(--gb-dark); }
+
+        .card {
+            background: var(--gb-lightest); border: 2px solid var(--gb-darkest);
+            padding: 6px; text-align: center; cursor: pointer; user-select: none;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .card:hover, .card.active { background: var(--gb-dark); color: var(--gb-lightest); }
+        .num { font-size: 9px; font-weight: bold; }
+        .name { font-size: 11px; font-weight: bold; text-transform: uppercase; margin-top: 2px; }
+    </style>
+</head>
+<body>
+
+<div class="pokedex">
+    <div class="screen-container">
+        <div class="lcd-screen">
+            <div class="viz-box">
+                <canvas id="canvas"></canvas>
+                <div class="status-text" id="status">CLICK ANY POKÉMON TO PLAY</div>
+            </div>
+
+            <div class="controls">
+                <input type="text" id="search" placeholder="SEARCH POKÉMON..." />
+                <button class="btn" id="play-btn">PLAY</button>
+                <button class="btn" id="rand-btn">RANDOM</button>
+            </div>
+
+            <!-- Signal Bar Pitch & Scale Editor -->
+            <div class="note-editor">
+                <div class="editor-top-bar">
+                    <div class="control-group">
+                        <label for="scale-select">SCALE:</label>
+                        <select id="scale-select"></select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="count-slider">NOTES: <span id="count-val">4</span></label>
+                        <input type="range" id="count-slider" class="horizontal-slider" min="1" max="8" value="4" step="1">
+                    </div>
+
+                    <button class="btn" id="reset-notes-btn" style="padding: 2px 6px; font-size: 9px;">RESET</button>
+                </div>
+
+                <div class="signal-bars-container" id="signal-bars"></div>
+            </div>
+
+            <div class="grid" id="grid"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- Sound Engine Templates ---
+const BaseTemplates = {
+    0x00: { sweep: -400, vibRate: 0, vibDepth: 0, wave: 'square', noise: false },
+    0x01: { sweep: 250, vibRate: 20, vibDepth: 15, wave: 'square', noise: false },
+    0x02: { sweep: -800, vibRate: 10, vibDepth: 8, wave: 'sawtooth', noise: false },
+    0x03: { sweep: -100, vibRate: 40, vibDepth: 60, wave: 'square', noise: true },
+    0x04: { sweep: -1200, vibRate: 6, vibDepth: 25, wave: 'sawtooth', noise: true },
+    0x05: { sweep: 500, vibRate: 15, vibDepth: 10, wave: 'triangle', noise: false },
+    0x06: { sweep: 0, vibRate: 60, vibDepth: 80, wave: 'square', noise: false },
+    0x07: { sweep: -300, vibRate: 5, vibDepth: 5, wave: 'square', noise: true },
+    0x08: { sweep: 300, vibRate: 30, vibDepth: 20, wave: 'square', noise: false },
+    0x09: { sweep: -500, vibRate: 0, vibDepth: 0, wave: 'sawtooth', noise: false },
+    0x0A: { sweep: 100, vibRate: 50, vibDepth: 40, wave: 'square', noise: true },
+    0x0B: { sweep: -200, vibRate: 8, vibDepth: 12, wave: 'triangle', noise: false },
+    0x0C: { sweep: 600, vibRate: 25, vibDepth: 30, wave: 'sawtooth', noise: false },
+    0x0D: { sweep: -900, vibRate: 12, vibDepth: 50, wave: 'square', noise: true },
+    0x0E: { sweep: 0, vibRate: 20, vibDepth: 10, wave: 'square', noise: false },
+    0x0F: { sweep: -150, vibRate: 35, vibDepth: 45, wave: 'square', noise: true }
+};
+
+// --- Complete Gen 1 Parameter Table (All 151 Pokémon) ---
+const pkmn = [
+    {id:1,  n:"Bulbasaur",  b:0x00, p:0x80, l:0x10}, {id:2,  n:"Ivysaur",    b:0x00, p:0x20, l:0x20},
+    {id:3,  n:"Venusaur",   b:0x04, p:0x00, l:0x40}, {id:4,  n:"Charmander", b:0x01, p:0x60, l:0x0C},
+    {id:5,  n:"Charmeleon", b:0x01, p:0x20, l:0x18}, {id:6,  n:"Charizard",  b:0x04, p:0x20, l:0x48},
+    {id:7,  n:"Squirtle",   b:0x0D, p:0x60, l:0x0A}, {id:8,  n:"Wartortle",  b:0x0D, p:0x20, l:0x18},
+    {id:9,  n:"Blastoise",  b:0x0D, p:0x00, l:0x38}, {id:10, n:"Caterpie",  b:0x0A, p:0x80, l:0x05},
+    {id:11, n:"Metapod",    b:0x0A, p:0x40, l:0x0A}, {id:12, n:"Butterfree", b:0x08, p:0xA0, l:0x20},
+    {id:13, n:"Weedle",     b:0x0A, p:0x90, l:0x05}, {id:14, n:"Kakuna",     b:0x0A, p:0x30, l:0x08},
+    {id:15, n:"Beedrill",   b:0x06, p:0x80, l:0x20}, {id:16, n:"Pidgey",     b:0x01, p:0x80, l:0x0A},
+    {id:17, n:"Pidgeotto",  b:0x01, p:0x40, l:0x18}, {id:18, n:"Pidgeot",    b:0x02, p:0x40, l:0x28},
+    {id:19, n:"Rattata",    b:0x0A, p:0xE0, l:0x05}, {id:20, n:"Raticate",   b:0x03, p:0x40, l:0x20},
+    {id:21, n:"Spearow",    b:0x01, p:0xA0, l:0x0E}, {id:22, n:"Fearow",    b:0x03, p:0x10, l:0x30},
+    {id:23, n:"Ekans",      b:0x09, p:0x40, l:0x18}, {id:24, n:"Arbok",      b:0x04, p:0x10, l:0x38},
+    {id:25, n:"Pikachu",    b:0x01, p:0x70, l:0x12}, {id:26, n:"Raichu",     b:0x06, p:0x20, l:0x28},
+    {id:27, n:"Sandshrew",  b:0x00, p:0x90, l:0x0C}, {id:28, n:"Sandslash",  b:0x03, p:0x30, l:0x20},
+    {id:29, n:"Nidoran♀",   b:0x00, p:0xA0, l:0x0B}, {id:30, n:"Nidorina",   b:0x00, p:0x50, l:0x19},
+    {id:31, n:"Nidoqueen",  b:0x04, p:0x08, l:0x3C}, {id:32, n:"Nidoran♂",   b:0x00, p:0xB0, l:0x0A},
+    {id:33, n:"Nidorino",   b:0x00, p:0x60, l:0x18}, {id:34, n:"Nidoking",   b:0x04, p:0x04, l:0x40},
+    {id:35, n:"Clefairy",   b:0x0B, p:0x80, l:0x14}, {id:36, n:"Clefable",   b:0x0B, p:0x20, l:0x2A},
+    {id:37, n:"Vulpix",     b:0x08, p:0x70, l:0x14}, {id:38, n:"Ninetales",  b:0x08, p:0x10, l:0x30},
+    {id:39, n:"Jigglypuff", b:0x0B, p:0x70, l:0x18}, {id:40, n:"Wigglytuff", b:0x0B, p:0x10, l:0x34},
+    {id:41, n:"Zubat",      b:0x06, p:0xD0, l:0x0C}, {id:42, n:"Golbat",     b:0x03, p:0x50, l:0x20},
+    {id:43, n:"Oddish",     b:0x0E, p:0x80, l:0x0A}, {id:44, n:"Gloom",      b:0x0E, p:0x30, l:0x1A},
+    {id:45, n:"Vileplume",  b:0x02, p:0x20, l:0x28}, {id:46, n:"Paras",      b:0x06, p:0x60, l:0x10},
+    {id:47, n:"Parasect",   b:0x03, p:0x18, l:0x2A}, {id:48, n:"Venonat",    b:0x08, p:0x80, l:0x12},
+    {id:49, n:"Venomoth",   b:0x08, p:0x20, l:0x28}, {id:50, n:"Diglett",    b:0x00, p:0xC0, l:0x06},
+    {id:51, n:"Dugtrio",    b:0x03, p:0x38, l:0x1E}, {id:52, n:"Meowth",     b:0x08, p:0x90, l:0x0E},
+    {id:53, n:"Persian",    b:0x08, p:0x30, l:0x24}, {id:54, n:"Psyduck",    b:0x0E, p:0x50, l:0x14},
+    {id:55, n:"Golduck",    b:0x09, p:0x20, l:0x28}, {id:56, n:"Mankey",     b:0x01, p:0x90, l:0x0B},
+    {id:57, n:"Primeape",   b:0x03, p:0x28, l:0x24}, {id:58, n:"Growlithe",  b:0x00, p:0x70, l:0x14},
+    {id:59, n:"Arcanine",   b:0x04, p:0x18, l:0x38}, {id:60, n:"Poliwag",    b:0x05, p:0x90, l:0x0A},
+    {id:61, n:"Poliwhirl",  b:0x05, p:0x40, l:0x18}, {id:62, n:"Poliwrath",  b:0x04, p:0x28, l:0x30},
+    {id:63, n:"Abra",       b:0x06, p:0xB0, l:0x0A}, {id:64, n:"Kadabra",    b:0x06, p:0x40, l:0x20},
+    {id:65, n:"Alakazam",   b:0x06, p:0x10, l:0x30}, {id:66, n:"Machop",     b:0x00, p:0x78, l:0x10},
+    {id:67, n:"Machoke",    b:0x09, p:0x30, l:0x20}, {id:68, n:"Machamp",    b:0x04, p:0x14, l:0x36},
+    {id:69, n:"Bellsprout", b:0x05, p:0x80, l:0x0B}, {id:70, n:"Weepinbell", b:0x05, p:0x30, l:0x1A},
+    {id:71, n:"Victreebel", b:0x03, p:0x08, l:0x2E}, {id:72, n:"Tentacool",  b:0x08, p:0x60, l:0x10},
+    {id:73, n:"Tentacruel", b:0x03, p:0x20, l:0x2C}, {id:74, n:"Geodude",    b:0x07, p:0x50, l:0x12},
+    {id:75, n:"Graveler",   b:0x07, p:0x20, l:0x24}, {id:76, n:"Golem",      b:0x07, p:0x04, l:0x3C},
+    {id:77, n:"Ponyta",     b:0x01, p:0x68, l:0x14}, {id:78, n:"Rapidash",   b:0x01, p:0x10, l:0x2A},
+    {id:79, n:"Slowpoke",   b:0x09, p:0x38, l:0x22}, {id:80, n:"Slowbro",    b:0x09, p:0x08, l:0x38},
+    {id:81, n:"Magnemite",  b:0x06, p:0xE0, l:0x0D}, {id:82, n:"Magneton",   b:0x06, p:0x50, l:0x24},
+    {id:83, n:"Farfetch'd", b:0x05, p:0x70, l:0x0E}, {id:84, n:"Doduo",      b:0x01, p:0x88, l:0x0C},
+    {id:85, n:"Dodrio",     b:0x01, p:0x30, l:0x22}, {id:86, n:"Seel",       b:0x00, p:0x88, l:0x12},
+    {id:87, n:"Dewgong",    b:0x09, p:0x18, l:0x2C}, {id:88, n:"Grimer",     b:0x07, p:0x38, l:0x1B},
+    {id:89, n:"Muk",        b:0x07, p:0x08, l:0x34}, {id:90, n:"Shellder",   b:0x00, p:0x84, l:0x0A},
+    {id:91, n:"Cloyster",   b:0x03, p:0x14, l:0x28}, {id:92, n:"Gastly",     b:0x06, p:0x90, l:0x0E},
+    {id:93, n:"Haunter",    b:0x06, p:0x38, l:0x22}, {id:94, n:"Gengar",     b:0x03, p:0x0C, l:0x32},
+    {id:95, n:"Onix",       b:0x07, p:0x00, l:0x40}, {id:96, n:"Drowzee",    b:0x09, p:0x50, l:0x1B},
+    {id:97, n:"Hypno",      b:0x09, p:0x10, l:0x2E}, {id:98, n:"Krabby",     b:0x00, p:0x74, l:0x0F},
+    {id:99, n:"Kingler",    b:0x03, p:0x24, l:0x26}, {id:100,n:"Voltorb",    b:0x06, p:0xA0, l:0x0A},
+    {id:101,n:"Electrode",  b:0x06, p:0x48, l:0x20}, {id:102,n:"Exeggcute",  b:0x01, p:0x98, l:0x10},
+    {id:103,n:"Exeggutor",  b:0x03, p:0x10, l:0x2D}, {id:104,n:"Cubone",     b:0x00, p:0x78, l:0x0E},
+    {id:105,n:"Marowak",    b:0x09, p:0x28, l:0x24}, {id:106,n:"Hitmonlee",  b:0x03, p:0x34, l:0x20},
+    {id:107,n:"Hitmonchan", b:0x00, p:0x68, l:0x1C}, {id:108,n:"Lickitung",  b:0x09, p:0x2C, l:0x24},
+    {id:109,n:"Koffing",    b:0x07, p:0x48, l:0x16}, {id:110,n:"Weezing",    b:0x07, p:0x10, l:0x2C},
+    {id:111,n:"Rhyhorn",    b:0x04, p:0x24, l:0x2B}, {id:112,n:"Rhydon",     b:0x04, p:0x00, l:0x45},
+    {id:113,n:"Chansey",    b:0x05, p:0x50, l:0x1E}, {id:114,n:"Tangela",    b:0x00, p:0x6C, l:0x16},
+    {id:115,n:"Kangaskhan", b:0x04, p:0x08, l:0x3E}, {id:116,n:"Horsea",     b:0x05, p:0x98, l:0x0A},
+    {id:117,n:"Seadra",     b:0x05, p:0x38, l:0x20}, {id:118,n:"Goldeen",    b:0x08, p:0x88, l:0x0D},
+    {id:119,n:"Seaking",    b:0x08, p:0x28, l:0x26}, {id:120,n:"Staryu",     b:0x06, p:0x98, l:0x0C},
+    {id:121,n:"Starmie",    b:0x06, p:0x30, l:0x24}, {id:122,n:"Mr. Mime",   b:0x08, p:0x48, l:0x1A},
+    {id:123,n:"Scyther",    b:0x03, p:0x3C, l:0x22}, {id:124,n:"Jynx",       b:0x08, p:0x18, l:0x32},
+    {id:125,n:"Electabuzz", b:0x06, p:0x24, l:0x28}, {id:126,n:"Magmar",     b:0x03, p:0x1C, l:0x2C},
+    {id:127,n:"Pinsir",     b:0x03, p:0x2C, l:0x24}, {id:128,n:"Tauros",     b:0x04, p:0x1C, l:0x38},
+    {id:129,n:"Magikarp",   b:0x07, p:0x80, l:0x14}, {id:130,n:"Gyarados",   b:0x04, p:0x00, l:0x50},
+    {id:131,n:"Lapras",     b:0x05, p:0x10, l:0x38}, {id:132,n:"Ditto",      b:0x00, p:0x70, l:0x12},
+    {id:133,n:"Eevee",      b:0x08, p:0x78, l:0x12}, {id:134,n:"Vaporeon",   b:0x05, p:0x20, l:0x2A},
+    {id:135,n:"Jolteon",    b:0x06, p:0x38, l:0x26}, {id:136,n:"Flareon",    b:0x04, p:0x30, l:0x2C},
+    {id:137,n:"Porygon",    b:0x06, p:0xA8, l:0x12}, {id:138,n:"Omanyte",    b:0x00, p:0x64, l:0x16},
+    {id:139,n:"Omastar",    b:0x03, p:0x20, l:0x2A}, {id:140,n:"Kabuto",     b:0x00, p:0x68, l:0x14},
+    {id:141,n:"Kabutops",   b:0x03, p:0x18, l:0x2C}, {id:142,n:"Aerodactyl",b:0x04, p:0x20, l:0x3D},
+    {id:143,n:"Snorlax",    b:0x09, p:0x00, l:0x48}, {id:144,n:"Articuno",  b:0x05, p:0x18, l:0x3C},
+    {id:145,n:"Zapdos",     b:0x06, p:0x18, l:0x38}, {id:146,n:"Moltres",    b:0x08, p:0x08, l:0x3C},
+    {id:147,n:"Dratini",    b:0x05, p:0x80, l:0x14}, {id:148,n:"Dragonair",  b:0x05, p:0x30, l:0x28},
+    {id:149,n:"Dragonite",  b:0x04, p:0x04, l:0x42}, {id:150,n:"Mewtwo",     b:0x06, p:0x00, l:0x48},
+    {id:151,n:"Mew",        b:0x08, p:0x88, l:0x1E}
+];
+
+// Scales used in musical composition
+const Scales = {
+    major:      { name: "Major Scale", intervals: [-12,-7,-5,0,2,4,5,7,9,11,12] },
+    minor:      { name: "Natural Minor Scale", intervals: [-12,-7,-5,0,2,3,5,7,8,10,12] },
+    chromatic:  { name: "Chromatic (All Notes)", intervals: [-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12] },
+    pentatonic: { name: "Major Pentatonic", intervals: [-12,-7,-5,0,2,4,7,9,12] },
+    minPenta:   { name: "Minor Pentatonic", intervals: [-12,-7,-5,0,3,5,7,10,12] },
+    blues:      { name: "Blues Scale", intervals: [-12,-7,-5,0,3,5,6,7,10,12] },
+    dorian:     { name: "Dorian Mode", intervals: [-12,-7,-5,0,2,3,5,7,9,10,12] },
+    phrygian:   { name: "Phrygian Mode", intervals: [-12,-7,-5,0,1,3,5,7,8,10,12] },
+    lydian:     { name: "Lydian Mode", intervals: [-12,-7,-5,0,2,4,6,7,9,11,12] },
+    mixolydian: { name: "Mixolydian Mode", intervals: [-12,-7,-5,0,2,4,5,7,9,10,12] },
+    locrian:    { name: "Locrian Mode", intervals: [-12,-7,-5,0,1,3,5,6,8,10,12] },
+    wholeTone:  { name: "Whole Tone Scale", intervals: [-12,-6,0,2,4,6,8,10,12] }
+};
+
+let currentScaleKey = 'major';
+let noteCount = 4;
+let notePitches = [3, 4, 6, 7, 8, 7, 6, 4];
+
+let audioCtx = null;
+let analyser = null;
+let noiseBuffer = null;
+let activePokemon = pkmn[0];
+let isDragging = false;
+let playDebounceTimer = null;
+
+const gridEl = document.getElementById('grid');
+const searchEl = document.getElementById('search');
+const playBtn = document.getElementById('play-btn');
+const randBtn = document.getElementById('rand-btn');
+const resetBtn = document.getElementById('reset-notes-btn');
+const scaleSelectEl = document.getElementById('scale-select');
+const countSliderEl = document.getElementById('count-slider');
+const countValEl = document.getElementById('count-val');
+const signalBarsEl = document.getElementById('signal-bars');
+const statusEl = document.getElementById('status');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function populateScaleDropdown() {
+    scaleSelectEl.innerHTML = '';
+    Object.keys(Scales).forEach(key => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = Scales[key].name;
+        if (key === currentScaleKey) opt.selected = true;
+        scaleSelectEl.appendChild(opt);
+    });
+}
+
+function triggerAutoPlay() {
+    clearTimeout(playDebounceTimer);
+    playDebounceTimer = setTimeout(() => {
+        playCrySequence(activePokemon);
+    }, 40);
+}
+
+function renderSignalBars() {
+    signalBarsEl.innerHTML = '';
+    const intervals = Scales[currentScaleKey].intervals;
+    const maxIndex = intervals.length - 1;
+
+    for (let i = 0; i < noteCount; i++) {
+        const pitchIdx = notePitches[i] % intervals.length;
+        const semitone = intervals[pitchIdx];
+        const heightPercent = Math.max(10, Math.min(100, ((pitchIdx + 1) / intervals.length) * 100));
+
+        const col = document.createElement('div');
+        col.className = 'signal-column';
+        col.id = `signal-col-${i}`;
+
+        const numLabel = document.createElement('div');
+        numLabel.className = 'bar-num';
+        numLabel.textContent = `N${i+1}`;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'bar-wrapper';
+
+        const fill = document.createElement('div');
+        fill.className = 'signal-bar-fill';
+        fill.style.height = `${heightPercent}%`;
+
+        const textLabel = document.createElement('div');
+        textLabel.className = 'bar-label';
+        textLabel.textContent = `${semitone >= 0 ? '+' : ''}${semitone}`;
+
+        const updatePitchFromEvent = (e) => {
+            const rect = wrapper.getBoundingClientRect();
+            const clickY = e.clientY - rect.top;
+            const ratio = 1 - Math.max(0, Math.min(1, clickY / rect.height));
+            const newPitchIdx = Math.round(ratio * maxIndex);
+            
+            if (notePitches[i] !== newPitchIdx) {
+                notePitches[i] = newPitchIdx;
+                const newSemitone = intervals[newPitchIdx];
+                fill.style.height = `${Math.max(10, Math.min(100, ((newPitchIdx + 1) / intervals.length) * 100))}%`;
+                textLabel.textContent = `${newSemitone >= 0 ? '+' : ''}${newSemitone}`;
+                triggerAutoPlay();
+            }
+        };
+
+        wrapper.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            updatePitchFromEvent(e);
+        });
+
+        wrapper.addEventListener('mousemove', (e) => {
+            if (isDragging) updatePitchFromEvent(e);
+        });
+
+        col.appendChild(wrapper);
+        wrapper.appendChild(fill);
+        col.appendChild(textLabel);
+        col.appendChild(numLabel);
+        signalBarsEl.appendChild(col);
+    }
+}
+
+window.addEventListener('mouseup', () => { isDragging = false; });
+
+function buildGrid(filter = '') {
+    gridEl.innerHTML = '';
+    const items = pkmn.filter(p => p.n.toLowerCase().includes(filter.toLowerCase()) || p.id.toString() === filter);
+    items.forEach(p => {
+        const card = document.createElement('div');
+        card.className = `card ${activePokemon.id === p.id ? 'active' : ''}`;
+        card.innerHTML = `<div class="num">#${String(p.id).padStart(3, '0')}</div><div class="name">${p.n}</div>`;
+        card.onclick = () => {
+            activePokemon = p;
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            playCrySequence(p);
+        };
+        gridEl.appendChild(card);
+    });
+}
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.connect(audioCtx.destination);
+        
+        const size = audioCtx.sampleRate * 2;
+        noiseBuffer = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for(let i=0; i<size; i++) data[i] = Math.random() * 2 - 1;
+
+        drawViz();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    statusEl.style.display = 'none';
+}
+
+function playCrySequence(p) {
+    initAudio();
+
+    const intervals = Scales[currentScaleKey].intervals;
+    const t = BaseTemplates[p.b];
+    const baseHz = 150 + (p.p * 2.5);
+    const duration = Math.max(0.08, (p.l * 0.012));
+    const startTime = audioCtx.currentTime + 0.01;
+
+    for (let stepIdx = 0; stepIdx < noteCount; stepIdx++) {
+        const pitchIdx = notePitches[stepIdx] % intervals.length;
+        const semitones = intervals[pitchIdx] || 0;
+        const stepTime = startTime + (stepIdx * (duration * 0.80));
+        const pitchRatio = Math.pow(2, semitones / 12);
+        const noteHz = baseHz * pitchRatio;
+
+        const currentStep = stepIdx;
+        setTimeout(() => {
+            const colEl = document.getElementById(`signal-col-${currentStep}`);
+            if (colEl) {
+                colEl.classList.add('playing');
+                setTimeout(() => colEl.classList.remove('playing'), duration * 800);
+            }
+        }, currentStep * (duration * 800));
+
+        const master = audioCtx.createGain();
+        master.gain.setValueAtTime(0.2, stepTime);
+        master.gain.exponentialRampToValueAtTime(0.0001, stepTime + duration);
+        master.connect(analyser);
+
+        const osc = audioCtx.createOscillator();
+        osc.type = t.wave;
+        osc.frequency.setValueAtTime(noteHz, stepTime);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(20, noteHz + t.sweep), stepTime + duration);
+
+        if(t.vibDepth > 0) {
+            const lfo = audioCtx.createOscillator();
+            const lfoGain = audioCtx.createGain();
+            lfo.frequency.setValueAtTime(t.vibRate, stepTime);
+            lfoGain.gain.setValueAtTime(t.vibDepth, stepTime);
+            lfo.connect(osc.frequency);
+            lfo.start(stepTime);
+            lfo.stop(stepTime + duration);
+        }
+
+        osc.connect(master);
+        osc.start(stepTime);
+        osc.stop(stepTime + duration);
+
+        if(t.noise && noiseBuffer) {
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = noiseBuffer;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(noteHz * 1.8, stepTime);
+            filter.Q.setValueAtTime(1.5, stepTime);
+
+            const nGain = audioCtx.createGain();
+            nGain.gain.setValueAtTime(0.1, stepTime);
+            nGain.gain.exponentialRampToValueAtTime(0.0001, stepTime + duration);
+
+            noise.connect(filter);
+            filter.connect(nGain);
+            nGain.connect(master);
+
+            noise.start(stepTime);
+            noise.stop(stepTime + duration);
+        }
+    }
+}
+
+function drawViz() {
+    requestAnimationFrame(drawViz);
+    if (!analyser) return;
+    const bufLen = analyser.frequencyBinCount;
+    const arr = new Uint8Array(bufLen);
+    analyser.getByteTimeDomainData(arr);
+
+    ctx.fillStyle = '#0f380f';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#9bbc0f';
+    ctx.beginPath();
+
+    const slice = canvas.width / bufLen;
+    let x = 0;
+    for(let i=0; i<bufLen; i++) {
+        const v = arr[i] / 128.0;
+        const y = v * (canvas.height / 2);
+        if(i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        x += slice;
+    }
+    ctx.stroke();
+}
+
+scaleSelectEl.onchange = (e) => {
+    currentScaleKey = e.target.value;
+    renderSignalBars();
+    triggerAutoPlay();
+};
+
+countSliderEl.oninput = (e) => {
+    noteCount = parseInt(e.target.value, 10);
+    countValEl.textContent = noteCount;
+    renderSignalBars();
+    triggerAutoPlay();
+};
+
+resetBtn.onclick = () => {
+    notePitches = [3, 4, 6, 7, 8, 7, 6, 4];
+    renderSignalBars();
+    triggerAutoPlay();
+};
+
+searchEl.oninput = (e) => buildGrid(e.target.value);
+playBtn.onclick = () => playCrySequence(activePokemon);
+randBtn.onclick = () => {
+    activePokemon = pkmn[Math.floor(Math.random() * pkmn.length)];
+    buildGrid(searchEl.value);
+    playCrySequence(activePokemon);
+};
+
+populateScaleDropdown();
+renderSignalBars();
+buildGrid();
+</script>
+</body>
+</html>

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard RS</title>
+  <style>
+    /* --- Global Reset & Base Styles --- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f0f1a;
+      color: #eaeaea;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    /* --- Grid Layout --- */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      max-width: 1800px;
+      margin: 0 auto;
+    }
+
+    /* --- Clock Panel (Full Width) --- */
+    .clock-panel {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 16px 0;
+    }
+    .time {
+      font-size: 6rem;
+      font-weight: 300;
+      letter-spacing: 4px;
+      line-height: 1;
+      color: #fff;
+    }
+    .date {
+      font-size: 1.4rem;
+      color: #9aa0b5;
+      margin-top: 8px;
+    }
+
+    /* --- Generic Card Style --- */
+    .card {
+      background: #1a1a2e;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 250px; /* Ensures cards have consistent height */
+    }
+    .card-title {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #6c7293;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+
+    /* --- Weather Card --- */
+    .weather-main { display: flex; align-items: center; gap: 16px; }
+    .weather-temp { font-size: 4rem; font-weight: 200; }
+    .weather-desc { font-size: 1.1rem; color: #b0b5c9; }
+    .weather-details {
+      margin-top: auto;
+      display: flex;
+      gap: 20px;
+      font-size: 0.9rem;
+      color: #8a90a8;
+    }
+
+    /* --- News & Schedule List Styles --- */
+    .news-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+    .news-item {
+      display: flex;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #2a2a40;
+    }
+    .news-item:last-child { border-bottom: none; }
+    .news-time {
+      color: #6c7293;
+      font-size: 0.85rem;
+      min-width: 48px;
+      flex-shrink: 0;
+    }
+    .news-text {
+      font-size: 1rem;
+      color: #eaeaea;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .news-text:hover { color: #8ab4f8; }
+    .loading-text { color: #6c7293; font-style: italic; }
+
+    /* --- Status Indicator (Metro) --- */
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .status-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: #555; /* Default gray */
+      box-shadow: 0 0 8px rgba(0,0,0,0.5);
+    }
+    .status-dot.normal { background-color: #2ecc71; box-shadow: 0 0 12px #2ecc71; }
+    .status-dot.partial { background-color: #f39c12; box-shadow: 0 0 12px #f39c12; }
+    .status-dot.stopped { background-color: #e74c3c; box-shadow: 0 0 12px #e74c3c; }
+    .status-label { font-size: 1.2rem; font-weight: 500; }
+
+    /* --- Footer --- */
+    .footer-bar {
+      grid-column: 1 / -1;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #4a4e69;
+      padding: 12px 0;
+    }
+
+    /* --- Responsive Tweaks --- */
+    @media (max-width: 600px) {
+      .time { font-size: 3.5rem; }
+      .dashboard-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="dashboard-grid">
+
+    <!-- 1. Clock & Date -->
+    <div class="clock-panel">
+      <div class="time" id="clock">--:--:--</div>
+      <div class="date" id="date">Carregando...</div>
+    </div>
+
+    <!-- 2. Weather (Static Placeholder) -->
+    <div class="card">
+      <div class="card-title">Clima (Placeholder)</div>
+      <div class="weather-main">
+        <div class="weather-temp" id="weather-temp">--°</div>
+        <div class="weather-desc" id="weather-desc">--</div>
+      </div>
+      <div class="weather-details">
+        <span>Umidade --%</span>
+        <span>Vento -- km/h</span>
+      </div>
+    </div>
+
+    <!-- 3. Traffic (TomTom Placeholder) -->
+    <div class="card">
+      <div class="card-title">Trânsito (TomTom)</div>
+      <div id="traffic-container">
+        <p class="loading-text">Insira sua chave da API TomTom para carregar.</p>
+        <!-- Incidents will be injected here -->
+      </div>
+    </div>
+
+    <!-- 4. Metro Status (Trensurb Proxy Placeholder) -->
+    <div class="card">
+      <div class="card-title">Status Trensurb</div>
+      <div class="status-indicator">
+        <div class="status-dot" id="metro-dot"></div>
+        <span class="status-label" id="metro-status">Verificando...</span>
+      </div>
+      <p style="margin-top: 12px; font-size: 0.85rem; color: #6c7293;">
+        Requer um proxy local para contornar o CORS. Veja as instruções no código.
+      </p>
+    </div>
+
+    <!-- 5. Global News (BBC World) -->
+    <div class="card">
+      <div class="card-title">Notícias Globais (BBC)</div>
+      <ul class="news-list" id="news-global">
+        <li class="loading-text">Carregando...</li>
+      </ul>
+    </div>
+
+    <!-- 6. Brazil / RS News (G1) -->
+    <div class="card">
+      <div class="card-title">Notícias Brasil/RS (G1)</div>
+      <ul class="news-list" id="news-brazil">
+        <li class="loading-text">Carregando...</li>
+      </ul>
+    </div>
+
+    <!-- 7. Nature / Environment (Guardian) -->
+    <div class="card">
+      <div class="card-title">Natureza & Clima</div>
+      <ul class="news-list" id="news-nature">
+        <li class="loading-text">Carregando...</li>
+      </ul>
+    </div>
+
+    <!-- 8. Games (G1 Tecnologia) -->
+    <div class="card">
+      <div class="card-title">Games & Tecnologia</div>
+      <ul class="news-list" id="news-games">
+        <li class="loading-text">Carregando...</li>
+      </ul>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-bar">
+      <span>Dashboard RS · Fontes: BBC, G1, The Guardian · Status: Protótipo</span>
+    </div>
+
+  </div>
+
+  <script>
+    // ============================================================
+    // CONFIGURAÇÃO - INSIRA SUAS CHAVES E URLS AQUI
+    // ============================================================
+    const CONFIG = {
+      // 1. TomTom API Key (Obtenha em https://developer.tomtom.com/)
+      tomtomKey: 'SUA_CHAVE_TOMTOM_AQUI',
+
+      // 2. URL do seu proxy para o status da Trensurb
+      //    (Ex: 'https://seu-proxy.workers.dev/trensurb')
+      //    Se deixar vazio, o status será "Indisponível".
+      trensurbProxyUrl: '',
+
+      // 3. Proxy RSS para JSON (rss2json.com é gratuito para testes)
+      rssProxy: 'https://api.rss2json.com/v1/api.json?rss_url=',
+    };
+
+    // ============================================================
+    // 1. CLOCK & DATE
+    // ============================================================
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const s = String(now.getSeconds()).padStart(2, '0');
+      document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+
+      const days = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+      const dateStr = `${now.getDate()} de ${now.toLocaleString('pt-BR', { month: 'long' })} de ${now.getFullYear()} · ${days[now.getDay()]}`;
+      document.getElementById('date').textContent = dateStr;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // ============================================================
+    // 2. WEATHER (Placeholder - Substitua pela sua API preferida)
+    // ============================================================
+    // Exemplo com Open-Meteo (gratuito, sem chave):
+    // async function fetchWeather() { ... }
+    // fetchWeather();
+
+    // ============================================================
+    // 3. TRAFFIC (TomTom Incidents API)
+    // ============================================================
+    async function fetchTraffic() {
+      const container = document.getElementById('traffic-container');
+      if (!CONFIG.tomtomKey || CONFIG.tomtomKey === 'SUA_CHAVE_TOMTOM_AQUI') {
+        container.innerHTML = '<p class="loading-text">Chave da API TomTom não configurada.</p>';
+        return;
+      }
+
+      // Bounding box para Porto Alegre (ajuste conforme necessário)
+      const bbox = '-30.30,-51.30,-29.90,-51.00';
+      const url = `https://api.tomtom.com/traffic/services/5/incidentDetails?key=${CONFIG.tomtomKey}&bbox=${bbox}&fields={incidents{type,geometry{type,coordinates},properties{iconCategory,description,delay,length}}}`;
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.incidents && data.incidents.length > 0) {
+          const incidentsHtml = data.incidents.slice(0, 5).map(inc => {
+            const delayMin = Math.round(inc.properties.delay / 60);
+            return `
+              <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #2a2a40;">
+                <strong>${inc.properties.description || 'Incidente'}</strong><br>
+                <small style="color: #8a90a8;">Atraso: ~${delayMin} min · Extensão: ${inc.properties.length}m</small>
+              </div>
+            `;
+          }).join('');
+          container.innerHTML = incidentsHtml;
+        } else {
+          container.innerHTML = '<p style="color: #2ecc71;">Nenhum incidente grave reportado.</p>';
+        }
+      } catch (error) {
+        console.error('Erro na API TomTom:', error);
+        container.innerHTML = '<p style="color: #e74c3c;">Falha ao carregar dados de trânsito.</p>';
+      }
+    }
+    // Descomente a linha abaixo após inserir sua chave TomTom:
+    // fetchTraffic();
+
+    // ============================================================
+    // 4. METRO STATUS (Trensurb via Proxy)
+    // ============================================================
+    async function fetchMetroStatus() {
+      const dot = document.getElementById('metro-dot');
+      const statusLabel = document.getElementById('metro-status');
+
+      if (!CONFIG.trensurbProxyUrl) {
+        dot.className = 'status-dot';
+        statusLabel.textContent = 'Indisponível (proxy não configurado)';
+        return;
+      }
+
+      try {
+        const response = await fetch(CONFIG.trensurbProxyUrl);
+        const text = await response.text();
+        const lowerText = text.toLowerCase();
+
+        if (lowerText.includes('operação normal') || lowerText.includes('operacao normal')) {
+          dot.className = 'status-dot normal';
+          statusLabel.textContent = 'Operação Normal';
+        } else if (lowerText.includes('operação parcial') || lowerText.includes('operacao parcial')) {
+          dot.className = 'status-dot partial';
+          statusLabel.textContent = 'Operação Parcial';
+        } else if (lowerText.includes('paralisada') || lowerText.includes('paralisado')) {
+          dot.className = 'status-dot stopped';
+          statusLabel.textContent = 'Paralisada';
+        } else {
+          dot.className = 'status-dot';
+          statusLabel.textContent = 'Status Desconhecido';
+        }
+      } catch (error) {
+        console.error('Erro ao buscar status Trensurb:', error);
+        dot.className = 'status-dot';
+        statusLabel.textContent = 'Erro de conexão';
+      }
+    }
+    // Descomente a linha abaixo após configurar seu proxy:
+    // fetchMetroStatus();
+
+    // ============================================================
+    // 5. RSS NEWS FEEDS (via rss2json)
+    // ============================================================
+    async function fetchNews(feedUrl, containerId, limit = 4) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      try {
+        const response = await fetch(CONFIG.rssProxy + encodeURIComponent(feedUrl));
+        const data = await response.json();
+
+        if (data.status !== 'ok' || !data.items || data.items.length === 0) {
+          container.innerHTML = '<li class="loading-text">Nenhuma notícia encontrada.</li>';
+          return;
+        }
+
+        container.innerHTML = '';
+        data.items.slice(0, limit).forEach(item => {
+          const li = document.createElement('li');
+          li.className = 'news-item';
+          const pubDate = new Date(item.pubDate);
+          const timeStr = pubDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+          li.innerHTML = `
+            <span class="news-time">${timeStr}</span>
+            <a href="${item.link}" target="_blank" class="news-text">${item.title}</a>
+          `;
+          container.appendChild(li);
+        });
+      } catch (error) {
+        console.error(`Erro ao carregar feed ${feedUrl}:`, error);
+        container.innerHTML = '<li class="loading-text">Falha ao carregar notícias.</li>';
+      }
+    }
+
+    // --- Inicialização dos Feeds ---
+    // BBC World News
+    fetchNews('https://feeds.bbci.co.uk/news/world/rss.xml', 'news-global');
+
+    // G1 Brasil (Feed geral - pode ser ajustado para uma seção específica do RS se necessário)
+    fetchNews('https://g1.globo.com/dynamo/rss2.xml', 'news-brazil');
+
+    // The Guardian - Climate Crisis / Nature
+    fetchNews('https://www.theguardian.com/environment/climate-crisis/rss', 'news-nature');
+
+    // G1 Tecnologia e Games (Games)
+    fetchNews('https://g1.globo.com/dynamo/tecnologia/rss2.xml', 'news-games');
+
+  </script>
+</body>
+</html>

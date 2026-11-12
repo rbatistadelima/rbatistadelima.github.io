@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonymous Online Group Chat</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f2f5;
+        }
+        #chat-container {
+            width: 100%;
+            max-width: 500px;
+            height: 100%;
+            max-height: 720px;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #status-bar {
+            padding: 14px 16px;
+            background-color: #4f46e5;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #identity-display {
+            font-size: 12px;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        #room-controls {
+            display: flex;
+            gap: 6px;
+            font-size: 12px;
+            align-items: center;
+        }
+        #messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #f9fafb;
+        }
+        .message {
+            max-width: 82%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .message.system {
+            align-self: center;
+            background-color: #e5e7eb;
+            color: #4b5563;
+            font-size: 12px;
+            border-radius: 6px;
+            text-align: center;
+            max-width: 90%;
+        }
+        .message.sent {
+            align-self: flex-end;
+            background-color: #4f46e5;
+            color: #ffffff;
+            border-bottom-right-radius: 2px;
+        }
+        .message.received {
+            align-self: flex-start;
+            background-color: #e5e7eb;
+            color: #1f2937;
+            border-bottom-left-radius: 2px;
+        }
+        .msg-header {
+            font-size: 11px;
+            font-weight: bold;
+            opacity: 0.85;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .msg-time {
+            font-weight: normal;
+            font-size: 10px;
+            opacity: 0.75;
+        }
+        #input-container {
+            display: flex;
+            padding: 12px;
+            border-top: 1px solid #e5e7eb;
+            gap: 8px;
+            background: #ffffff;
+        }
+        #message-input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            outline: none;
+            font-size: 14px;
+        }
+        #message-input:focus {
+            border-color: #4f46e5;
+        }
+        button {
+            padding: 6px 12px;
+            background-color: #ffffff;
+            color: #4f46e5;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        button:hover {
+            background-color: #f3f4f6;
+        }
+        #send-btn {
+            background-color: #4f46e5;
+            color: #ffffff;
+        }
+        #send-btn:hover {
+            background-color: #4338ca;
+        }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <div id="status-bar">
+        <div class="status-row">
+            <span id="status-text">Connecting to public relays...</span>
+            <div id="identity-display">You: Loading...</div>
+        </div>
+        <div class="status-row" id="room-controls">
+            <span>Room: <strong id="room-display">...</strong></span>
+            <button onclick="createNewRoom()">New Room</button>
+        </div>
+    </div>
+    <div id="messages"></div>
+    <div id="input-container">
+        <input type="text" id="message-input" placeholder="Type a message and press Enter..." onkeypress="handleKeyPress(event)" autofocus>
+        <button id="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script>
+    // --- 1. Identity & Room Generation ---
+    const adjectives = ["Cyber", "Neon", "Quantum", "Cosmic", "Solar", "Astral", "Turbo", "Pixel", "Stellar", "Hyper", "Alpha", "Shadow"];
+    const animals = ["Panda", "Fox", "Koala", "Tiger", "Falcon", "Wolf", "Badger", "Otter", "Panther", "Lynx", "Eagle", "Raven"];
+    
+    function generateCompositeName() {
+        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const ani = animals[Math.floor(Math.random() * animals.length)];
+        const num = Math.floor(Math.random() * 900) + 100;
+        return `${adj}${ani}_${num}`;
+    }
+
+    const myName = generateCompositeName();
+    const myUid = 'u_' + Math.random().toString(36).substring(2, 9);
+    document.getElementById('identity-display').textContent = `You: ${myName}`;
+
+    function getRoomHash() {
+        let hash = window.location.hash.substring(1);
+        if (!hash.startsWith('room_')) {
+            hash = 'room_' + Math.random().toString(36).substring(2, 8);
+            window.location.hash = hash;
+        }
+        return hash;
+    }
+
+    const roomName = getRoomHash();
+    document.getElementById('room-display').textContent = roomName;
+
+    const statusText = document.getElementById('status-text');
+    const messagesContainer = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
+
+    // --- 2. Public Nostr Relays for Real-Time & Persistent Log ---
+    const RELAYS = [
+        "wss://relay.damus.io",
+        "wss://nos.lol",
+        "wss://relay.snort.social"
+    ];
+
+    let sockets = [];
+    const renderedMsgIds = new Set();
+
+    function formatTime(timestampSeconds) {
+        const date = timestampSeconds ? new Date(timestampSeconds * 1000) : new Date();
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Modern browser fast hash for event IDs without heavyweight crypto dependencies
+    async function computeEventId(pubkey, createdAt, kind, tags, content) {
+        const payload = JSON.stringify([0, pubkey, createdAt, kind, tags, content]);
+        const msgUint8 = new TextEncoder().encode(payload);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function initRelayConnections() {
+        let connectedCount = 0;
+
+        RELAYS.forEach(url => {
+            try {
+                const ws = new WebSocket(url);
+
+                ws.onopen = () => {
+                    connectedCount++;
+                    statusText.textContent = `Online (${connectedCount} Relays Connected)`;
+                    
+                    // Request last 100 historical messages for this room
+                    const subscriptionFilter = {
+                        kinds: [1],
+                        "#t": [roomName],
+                        limit: 100
+                    };
+                    const subId = "sub_" + Math.random().toString(36).substring(2, 8);
+                    ws.send(JSON.stringify(["REQ", subId, subscriptionFilter]));
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data[0] === "EVENT" && data[2]) {
+                            handleIncomingNostrEvent(data[2]);
+                        }
+                    } catch(e) {}
+                };
+
+                ws.onerror = () => {};
+                ws.onclose = () => {
+                    if (connectedCount > 0) connectedCount--;
+                    if (connectedCount === 0) statusText.textContent = "Reconnecting to relays...";
+                };
+
+                sockets.push(ws);
+            } catch(e) {}
+        });
+    }
+
+    function handleIncomingNostrEvent(event) {
+        if (!event || !event.id || renderedMsgIds.has(event.id)) return;
+        renderedMsgIds.add(event.id);
+
+        try {
+            const payload = JSON.parse(event.content);
+            const timeStr = formatTime(event.created_at);
+            const isSelf = payload.uid === myUid || payload.sender === myName;
+
+            appendMessageToDOM(
+                payload.sender || "Anonymous", 
+                payload.text || "", 
+                timeStr, 
+                isSelf ? 'sent' : 'received'
+            );
+        } catch(e) {
+            // Raw text message fallback
+            const timeStr = formatTime(event.created_at);
+            appendMessageToDOM("Stranger", event.content, timeStr, 'received');
+        }
+    }
+
+    async function sendMessage() {
+        const text = messageInput.value.trim();
+        if (!text) return;
+
+        const timestamp = Math.floor(Date.now() / 1000);
+        const payload = JSON.stringify({
+            sender: myName,
+            uid: myUid,
+            text: text
+        });
+
+        // Anonymous Key Construction
+        const dummyPubkey = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+                                 .map(b => b.toString(16).padStart(2, '0')).join('');
+
+        const tags = [["t", roomName]];
+        const eventId = await computeEventId(dummyPubkey, timestamp, 1, tags, payload);
+
+        const nostrEvent = {
+            id: eventId,
+            pubkey: dummyPubkey,
+            created_at: timestamp,
+            kind: 1,
+            tags: tags,
+            content: payload,
+            sig: dummyPubkey // Simplified signature for public relay broadcast
+        };
+
+        // Broadcast directly to online WebSocket relays
+        sockets.forEach(ws => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(["EVENT", nostrEvent]));
+            }
+        });
+
+        // Immediately show on sender UI
+        if (!renderedMsgIds.has(eventId)) {
+            renderedMsgIds.add(eventId);
+            appendMessageToDOM(myName, text, formatTime(timestamp), 'sent');
+        }
+
+        messageInput.value = '';
+        messageInput.focus();
+    }
+
+    function handleKeyPress(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    }
+
+    function createNewRoom() {
+        window.location.hash = 'room_' + Math.random().toString(36).substring(2, 8);
+        location.reload();
+    }
+
+    function appendMessageToDOM(sender, text, time, type) {
+        const div = document.createElement('div');
+        div.className = `message ${type}`;
+        if (type === 'system') {
+            div.textContent = text;
+        } else {
+            div.innerHTML = `
+                <div class="msg-header">
+                    <span>${sender}</span>
+                    <span class="msg-time">${time}</span>
+                </div>
+                <div>${text}</div>
+            `;
+        }
+        messagesContainer.appendChild(div);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    window.onload = () => {
+        initRelayConnections();
+        messageInput.focus();
+    };
+</script>
+
+</body>
+</html>

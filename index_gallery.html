@@ -104,8 +104,9 @@ h1 {
 }
 
 .status {
-    color: #888;
+    color: #c0392b;
     font-size: 14px;
+    grid-column: 1 / -1;
 }
 
 @media(max-width: 600px) {
@@ -125,7 +126,7 @@ h1 {
 <h1>project index</h1>
 
 <ul id="fileList">
-    <li class="status">loading projects...</li>
+    <li class="status" style="color: #888;">loading projects...</li>
 </ul>
 
 <script>
@@ -139,51 +140,39 @@ function formatFileName(fileName) {
         .toLowerCase();
 }
 
-// Fetch all HTML files from GitHub repository.
 async function getHtmlFiles() {
-    const apiUrl =
-        `https://api.github.com/repos/${USERNAME}/${REPO}/contents/`;
+    const apiUrl = `https://api.github.com/repos/${USERNAME}/${REPO}/contents/`;
 
-    try {
-        const response = await fetch(apiUrl);
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch repository contents');
-        }
-
-        const contents = await response.json();
-
-        return contents
-            .filter(item =>
-                item.type === 'file' &&
-                item.name.toLowerCase().endsWith('.html') &&
-                item.name.toLowerCase() !== 'index.html'
-            )
-            .sort((a, b) => a.name.localeCompare(b.name));
-
-    } catch (error) {
-        console.error(error);
-        return [];
+    const response = await fetch(apiUrl);
+    
+    if (response.status === 403) {
+        throw new Error('GitHub API rate limit exceeded. Please wait a few minutes or view live on GitHub Pages.');
     }
+    
+    if (!response.ok) {
+        throw new Error(`Failed to fetch repository contents (HTTP ${response.status})`);
+    }
+
+    const contents = await response.json();
+
+    return contents
+        .filter(item =>
+            item.type === 'file' &&
+            item.name.toLowerCase().endsWith('.html') &&
+            item.name.toLowerCase() !== 'index.html'
+        )
+        .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// Read metadata from each HTML page.
 async function getDescription(file) {
     const fallback = formatFileName(file.name);
 
     try {
         const response = await fetch(file.name);
-
-        if (!response.ok) {
-            throw new Error('Page unavailable');
-        }
+        if (!response.ok) return fallback;
 
         const html = await response.text();
-
-        const doc = new DOMParser().parseFromString(
-            html,
-            'text/html'
-        );
+        const doc = new DOMParser().parseFromString(html, 'text/html');
 
         const description =
             doc.querySelector('meta[name="description"]')?.content ||
@@ -191,24 +180,18 @@ async function getDescription(file) {
             doc.querySelector('meta[name="twitter:description"]')?.content ||
             doc.querySelector('title')?.textContent;
 
-        return (description || fallback)
-            .trim()
-            .toLowerCase();
-
+        return (description || fallback).trim().toLowerCase();
     } catch (error) {
-        console.warn('Could not read metadata:', file.name);
         return fallback;
     }
 }
 
-// Intersection Observer to dynamically mount/unmount iframes based on viewport visibility
-const iframeObserver = new IntersectionObserver((entries, observer) => {
+const iframeObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
         const preview = entry.target;
         const fileSrc = preview.dataset.src;
 
         if (entry.isIntersecting) {
-            // Mount iframe when visible in viewport
             if (!preview.querySelector('iframe')) {
                 const iframe = document.createElement('iframe');
                 iframe.src = fileSrc;
@@ -216,29 +199,25 @@ const iframeObserver = new IntersectionObserver((entries, observer) => {
                 preview.appendChild(iframe);
             }
         } else {
-            // Unload / destroy iframe when scrolled out of view to free memory
             const iframe = preview.querySelector('iframe');
             if (iframe) {
                 iframe.remove();
             }
         }
     });
-}, { rootMargin: '200px 0px' }); // Pre-load slightly before scrolling into view
+}, { rootMargin: '200px 0px' });
 
-// Create individual project card.
 async function createProjectCard(file) {
     const title = formatFileName(file.name);
 
     const li = document.createElement('li');
     li.className = 'project';
 
-    // Preview container
     const preview = document.createElement('div');
     preview.className = 'preview';
     preview.dataset.src = file.name;
     preview.dataset.title = title;
 
-    // Information
     const info = document.createElement('div');
     info.className = 'project-info';
 
@@ -261,10 +240,8 @@ async function createProjectCard(file) {
     li.appendChild(preview);
     li.appendChild(info);
 
-    // Observe preview element for viewport changes
     iframeObserver.observe(preview);
 
-    // Load description independently.
     getDescription(file).then(text => {
         description.textContent = text;
     });
@@ -272,35 +249,40 @@ async function createProjectCard(file) {
     return li;
 }
 
-// Display project index.
 async function displayFileList() {
     const fileList = document.getElementById('fileList');
 
-    const files = await getHtmlFiles();
+    try {
+        const files = await getHtmlFiles();
+        fileList.innerHTML = '';
 
-    fileList.innerHTML = '';
+        if (files.length === 0) {
+            const message = document.createElement('li');
+            message.className = 'status';
+            message.style.color = '#888';
+            message.textContent = 'no html files found.';
+            fileList.appendChild(message);
+            return;
+        }
 
-    if (files.length === 0) {
+        const cards = await Promise.all(
+            files.map(file => createProjectCard(file))
+        );
+
+        cards.forEach(card => {
+            fileList.appendChild(card);
+        });
+
+    } catch (error) {
+        fileList.innerHTML = '';
         const message = document.createElement('li');
         message.className = 'status';
-        message.textContent = 'no html files found.';
+        message.textContent = error.message;
         fileList.appendChild(message);
-        return;
     }
-
-    const cards = await Promise.all(
-        files.map(file => createProjectCard(file))
-    );
-
-    cards.forEach(card => {
-        fileList.appendChild(card);
-    });
 }
 
-document.addEventListener(
-    'DOMContentLoaded',
-    displayFileList
-);
+document.addEventListener('DOMContentLoaded', displayFileList);
 </script>
 
 </body>

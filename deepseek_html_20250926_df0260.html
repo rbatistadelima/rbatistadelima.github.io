@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>First-Person Dungeon Crawler</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #111;
+            color: #e6e6e6;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .game-container {
+            width: 800px;
+            height: 500px;
+            position: relative;
+            overflow: hidden;
+            border: 4px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
+        }
+
+        /* First-person view */
+        .first-person-view {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Sky/ceiling */
+        .ceiling {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 40%;
+            background: linear-gradient(to bottom, #0a0a1a, #1a1a2a);
+            z-index: 1;
+        }
+
+        /* Floor */
+        .floor {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            background: 
+                radial-gradient(circle at 20% 80%, #2a1c12, #1a100a 70%),
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 20px,
+                    rgba(80, 50, 20, 0.3) 20px,
+                    rgba(80, 50, 20, 0.3) 40px
+                );
+            z-index: 2;
+        }
+
+        /* Walls - using CSS for pseudo-3D effect */
+        .wall {
+            position: absolute;
+            bottom: 30%;
+            height: 200px;
+            background: 
+                linear-gradient(to bottom, #3a2a1a, #2a1a0a 20%, #4a3a2a 80%, #3a2a1a),
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 9px,
+                    rgba(100, 80, 60, 0.4) 9px,
+                    rgba(100, 80, 60, 0.4) 10px
+                );
+            background-blend-mode: overlay;
+            transform-origin: bottom;
+            border-left: 2px solid #1a0a00;
+            border-right: 2px solid #1a0a00;
+            z-index: 3;
+        }
+
+        /* Wall positioning to create perspective */
+        .wall.left {
+            left: 0;
+            width: 40%;
+            transform: perspective(500px) rotateY(30deg);
+            transform-origin: left bottom;
+        }
+
+        .wall.right {
+            right: 0;
+            width: 40%;
+            transform: perspective(500px) rotateY(-30deg);
+            transform-origin: right bottom;
+        }
+
+        .wall.front {
+            left: 40%;
+            width: 20%;
+            height: 220px;
+            z-index: 4;
+            background: 
+                linear-gradient(to bottom, #4a3a2a, #3a2a1a 20%, #5a4a3a 80%, #4a3a2a),
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 14px,
+                    rgba(120, 100, 80, 0.4) 14px,
+                    rgba(120, 100, 80, 0.4) 15px
+                );
+            border: 2px solid #2a1a0a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Door on front wall */
+        .door {
+            width: 60%;
+            height: 70%;
+            background: linear-gradient(to right, #2a1a0a, #4a2a1a, #2a1a0a);
+            border: 4px solid #1a0a00;
+            position: relative;
+        }
+
+        .door::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 10%;
+            width: 8px;
+            height: 8px;
+            background: #8a7a6a;
+            border-radius: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* Torch effect */
+        .torch {
+            position: absolute;
+            top: 35%;
+            width: 10px;
+            height: 40px;
+            background: linear-gradient(to bottom, #8a5a2a, #5a3a1a);
+            z-index: 5;
+        }
+
+        .torch::after {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: -10px;
+            width: 30px;
+            height: 40px;
+            background: radial-gradient(ellipse at center, #ffaa00, #ff5500 30%, transparent 70%);
+            border-radius: 50%;
+            animation: flicker 1.5s infinite alternate;
+        }
+
+        .torch.left {
+            left: 38%;
+        }
+
+        .torch.right {
+            right: 38%;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.7; transform: scale(1); }
+            25% { opacity: 0.8; transform: scale(1.05); }
+            50% { opacity: 0.9; transform: scale(0.95); }
+            75% { opacity: 0.8; transform: scale(1.1); }
+            100% { opacity: 0.7; transform: scale(1); }
+        }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px;
+            width: 200px;
+            margin-top: 20px;
+        }
+
+        .control-btn {
+            background: linear-gradient(to bottom, #333, #222);
+            border: none;
+            color: #e6e6e6;
+            font-size: 24px;
+            padding: 15px;
+            cursor: pointer;
+            text-align: center;
+            user-select: none;
+            border-radius: 5px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 0 #111;
+        }
+
+        .control-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #111;
+        }
+
+        .forward { grid-column: 2; grid-row: 1; }
+        .left { grid-column: 1; grid-row: 2; }
+        .right { grid-column: 3; grid-row: 2; }
+        .back { grid-column: 2; grid-row: 3; }
+
+        /* Status display */
+        .status {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 18px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 5px;
+            width: 800px;
+        }
+
+        /* Instructions */
+        .instructions {
+            margin-top: 10px;
+            text-align: center;
+            font-size: 14px;
+            color: #8a8a8a;
+            width: 800px;
+        }
+
+        /* Game title */
+        h1 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: #e6e6e6;
+            text-shadow: 0 0 10px #00aaff;
+            font-size: 36px;
+        }
+
+        /* Animation for moving forward */
+        @keyframes moveForward {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+
+        .moving-forward .wall.front {
+            animation: wallMove 0.5s forwards;
+        }
+
+        @keyframes wallMove {
+            to { height: 250px; width: 25%; left: 37.5%; }
+        }
+    </style>
+</head>
+<body>
+    <h1>First-Person Dungeon Crawler</h1>
+    
+    <div class="game-container">
+        <div class="first-person-view">
+            <div class="ceiling"></div>
+            <div class="floor"></div>
+            
+            <!-- Side walls -->
+            <div class="wall left"></div>
+            <div class="wall right"></div>
+            
+            <!-- Front wall with door -->
+            <div class="wall front">
+                <div class="door"></div>
+            </div>
+            
+            <!-- Torches -->
+            <div class="torch left"></div>
+            <div class="torch right"></div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="control-btn forward">↑</div>
+        <div class="control-btn left">←</div>
+        <div class="control-btn right">→</div>
+        <div class="control-btn back">↓</div>
+    </div>
+    
+    <div class="status">
+        Position: Chamber 1 | Health: 100% | Torches: 2
+    </div>
+    
+    <div class="instructions">
+        Use arrow buttons or keyboard arrows to navigate the dungeon
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const firstPersonView = document.querySelector('.first-person-view');
+            const frontWall = document.querySelector('.wall.front');
+            const leftWall = document.querySelector('.wall.left');
+            const rightWall = document.querySelector('.wall.right');
+            const status = document.querySelector('.status');
+            const controlButtons = document.querySelectorAll('.control-btn');
+            
+            // Game state
+            let position = 1;
+            let health = 100;
+            let torches = 2;
+            
+            // Update status display
+            function updateStatus() {
+                status.textContent = `Position: Chamber ${position} | Health: ${health}% | Torches: ${torches}`;
+            }
+            
+            // Movement functions
+            function moveForward() {
+                if (position < 5) {
+                    position++;
+                    
+                    // Animate the walls to simulate movement
+                    firstPersonView.classList.add('moving-forward');
+                    setTimeout(() => {
+                        firstPersonView.classList.remove('moving-forward');
+                    }, 500);
+                    
+                    // Update wall positions to create perspective change
+                    updateWalls();
+                }
+                updateStatus();
+            }
+            
+            function moveBackward() {
+                if (position > 1) {
+                    position--;
+                    updateWalls();
+                }
+                updateStatus();
+            }
+            
+            function turnLeft() {
+                // Adjust wall perspectives to simulate turning
+                leftWall.style.transform = 'perspective(500px) rotateY(40deg)';
+                rightWall.style.transform = 'perspective(500px) rotateY(-20deg)';
+                setTimeout(() => {
+                    leftWall.style.transform = 'perspective(500px) rotateY(30deg)';
+                    rightWall.style.transform = 'perspective(500px) rotateY(-30deg)';
+                }, 200);
+            }
+            
+            function turnRight() {
+                // Adjust wall perspectives to simulate turning
+                leftWall.style.transform = 'perspective(500px) rotateY(20deg)';
+                rightWall.style.transform = 'perspective(500px) rotateY(-40deg)';
+                setTimeout(() => {
+                    leftWall.style.transform = 'perspective(500px) rotateY(30deg)';
+                    rightWall.style.transform = 'perspective(500px) rotateY(-30deg)';
+                }, 200);
+            }
+            
+            // Update wall sizes and positions based on player position
+            function updateWalls() {
+                const wallHeight = 200 + (position * 10);
+                const wallWidth = 20 - (position * 1);
+                const wallLeft = 40 - (position * 2.5);
+                
+                frontWall.style.height = `${wallHeight}px`;
+                frontWall.style.width = `${wallWidth}%`;
+                frontWall.style.left = `${wallLeft}%`;
+            }
+            
+            // Button event handlers
+            controlButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    if (this.classList.contains('forward')) moveForward();
+                    if (this.classList.contains('back')) moveBackward();
+                    if (this.classList.contains('left')) turnLeft();
+                    if (this.classList.contains('right')) turnRight();
+                });
+            });
+            
+            // Keyboard controls
+            document.addEventListener('keydown', function(e) {
+                switch(e.key) {
+                    case 'ArrowUp':
+                        moveForward();
+                        break;
+                    case 'ArrowDown':
+                        moveBackward();
+                        break;
+                    case 'ArrowLeft':
+                        turnLeft();
+                        break;
+                    case 'ArrowRight':
+                        turnRight();
+                        break;
+                }
+            });
+            
+            // Initialize
+            updateStatus();
+            updateWalls();
+        });
+    </script>
+</body>
+</html>

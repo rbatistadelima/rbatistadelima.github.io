@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Coloring Book Paint Animation (Pixel Art)</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+    }
+    canvas {
+      image-rendering: pixelated;
+      border: 2px solid #444;
+      background: #000;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <h2>🖍️ Coloring Book Painting Animation</h2>
+
+  <input type="file" id="upload" accept="image/*" />
+
+  <canvas id="canvas"></canvas>
+
+  <div class="controls">
+    <label>Speed <input type="range" id="speed" min="1" max="200" value="20" /></label>
+    <button id="play">Play</button>
+    <button id="reset">Reset</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    const upload = document.getElementById('upload');
+    const playBtn = document.getElementById('play');
+    const resetBtn = document.getElementById('reset');
+    const speedInput = document.getElementById('speed');
+
+    let originalData;
+    let regions = [];
+    let regionIndex = 0;
+    let animId;
+
+    upload.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        originalData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        regions = extractRegions(originalData);
+        regionIndex = 0;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.putImageData(originalData, 0, 0);
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    playBtn.onclick = () => {
+      if (!regions.length) return;
+      cancelAnimationFrame(animId);
+      animate();
+    };
+
+    resetBtn.onclick = () => {
+      cancelAnimationFrame(animId);
+      ctx.putImageData(originalData, 0, 0);
+      regionIndex = 0;
+    };
+
+    function animate() {
+      const batch = Number(speedInput.value);
+      let painted = 0;
+
+      while (painted < batch && regionIndex < regions.length) {
+        paintRegion(regions[regionIndex]);
+        regionIndex++;
+        painted++;
+      }
+
+      if (regionIndex < regions.length) {
+        animId = requestAnimationFrame(animate);
+      }
+    }
+
+    function paintRegion(region) {
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = img.data;
+      const color = region.color;
+
+      for (const p of region.pixels) {
+        const i = (p.y * canvas.width + p.x) * 4;
+        data[i] = color[0];
+        data[i + 1] = color[1];
+        data[i + 2] = color[2];
+        data[i + 3] = 255;
+      }
+
+      ctx.putImageData(img, 0, 0);
+    }
+
+    function extractRegions(imgData) {
+      const w = imgData.width;
+      const h = imgData.height;
+      const data = imgData.data;
+      const visited = new Uint8Array(w * h);
+      const regions = [];
+
+      function isOutline(i) {
+        return data[i] < 50 && data[i + 1] < 50 && data[i + 2] < 50 && data[i + 3] > 0;
+      }
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = y * w + x;
+          const i = idx * 4;
+
+          if (visited[idx]) continue;
+          if (data[i + 3] === 0) continue;
+          if (isOutline(i)) continue;
+
+          const stack = [[x, y]];
+          const pixels = [];
+          visited[idx] = 1;
+          const color = [data[i], data[i + 1], data[i + 2]];
+
+          while (stack.length) {
+            const [cx, cy] = stack.pop();
+            pixels.push({ x: cx, y: cy });
+
+            const neighbors = [
+              [cx + 1, cy], [cx - 1, cy],
+              [cx, cy + 1], [cx, cy - 1]
+            ];
+
+            for (const [nx, ny] of neighbors) {
+              if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+              const nIdx = ny * w + nx;
+              const ni = nIdx * 4;
+              if (visited[nIdx]) continue;
+              if (data[ni + 3] === 0) continue;
+              if (isOutline(ni)) continue;
+
+              visited[nIdx] = 1;
+              stack.push([nx, ny]);
+            }
+          }
+
+          regions.push({ pixels, color });
+        }
+      }
+
+      return regions;
+    }
+  </script>
+</body>
+</html>

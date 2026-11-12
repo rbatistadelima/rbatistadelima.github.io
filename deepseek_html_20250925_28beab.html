@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Grid</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+        }
+        
+        #moodboard {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            gap: 1px;
+        }
+        
+        .image-container {
+            position: relative;
+            overflow: hidden;
+            background: #111;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .image-container:hover {
+            transform: scale(1.02);
+            z-index: 10;
+        }
+        
+        .image-container.focused {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90vw;
+            height: 90vh;
+            max-width: 1200px;
+            max-height: 800px;
+            z-index: 1000;
+            cursor: pointer;
+            box-shadow: 0 0 100px rgba(0, 0, 0, 0.9);
+            border-radius: 10px;
+            animation: focusIn 0.3s ease-out;
+        }
+        
+        @keyframes focusIn {
+            from {
+                transform: translate(-50%, -50%) scale(0.9);
+                opacity: 0;
+            }
+            to {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .image-container.focused img {
+            border-radius: 10px;
+        }
+        
+        .image-container.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+            z-index: 100;
+        }
+        
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+        
+        .image-controls {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: auto;
+            z-index: 10;
+        }
+        
+        .image-container:hover .image-controls {
+            opacity: 1;
+        }
+        
+        .image-controls button {
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            margin-left: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .image-controls button:hover {
+            background: rgba(200, 0, 0, 0.9);
+            transform: scale(1.1);
+        }
+        
+        #focus-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 999;
+            display: none;
+            cursor: pointer;
+        }
+        
+        body.focused #focus-overlay {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="moodboard"></div>
+    <div id="focus-overlay"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const moodboard = document.getElementById('moodboard');
+            const focusOverlay = document.getElementById('focus-overlay');
+            
+            let images = [];
+            let draggedIndex = null;
+            let dragStartX = 0;
+            let dragStartY = 0;
+            let focusedIndex = -1;
+            const DRAG_THRESHOLD = 5;
+            
+            // Perfect grid calculation
+            function calculatePerfectLayout(count) {
+                if (count === 0) return { cols: 1, rows: 1, areas: [] };
+                if (count === 1) return { cols: 1, rows: 1, areas: ['1 / 1 / 2 / 2'] };
+                
+                const screenWidth = window.innerWidth;
+                const screenHeight = window.innerHeight;
+                
+                let bestCols = 1;
+                let bestRows = 1;
+                let bestScore = Infinity;
+                let bestAreas = [];
+                
+                for (let cols = 1; cols <= count; cols++) {
+                    const rows = Math.ceil(count / cols);
+                    const totalCells = cols * rows;
+                    
+                    if (totalCells >= count) {
+                        const emptyCells = totalCells - count;
+                        const cellWidth = screenWidth / cols;
+                        const cellHeight = screenHeight / rows;
+                        const cellAspect = cellWidth / cellHeight;
+                        
+                        const aspectScore = Math.abs(cellAspect - 1);
+                        const emptyScore = emptyCells * 10;
+                        const totalScore = aspectScore + emptyScore;
+                        
+                        if (totalScore < bestScore) {
+                            bestScore = totalScore;
+                            bestCols = cols;
+                            bestRows = rows;
+                            bestAreas = createOptimalAreas(count, cols, rows);
+                        }
+                    }
+                }
+                
+                return { cols: bestCols, rows: bestRows, areas: bestAreas };
+            }
+            
+            function createOptimalAreas(count, cols, rows) {
+                const areas = [];
+                const totalCells = cols * rows;
+                const emptyCells = totalCells - count;
+                
+                if (emptyCells === 0) {
+                    for (let i = 0; i < count; i++) {
+                        const col = (i % cols) + 1;
+                        const row = Math.floor(i / cols) + 1;
+                        areas.push(`${row} / ${col} / ${row + 1} / ${col + 1}`);
+                    }
+                } else {
+                    let imageIndex = 0;
+                    for (let row = 1; row <= rows; row++) {
+                        for (let col = 1; col <= cols; col++) {
+                            if (imageIndex < count) {
+                                const remainingImages = count - imageIndex;
+                                const remainingCells = (rows - row) * cols + (cols - col + 1);
+                                
+                                if (remainingImages < remainingCells) {
+                                    const spanCols = Math.min(cols - col + 1, Math.ceil(remainingCells / remainingImages));
+                                    const spanRows = row === rows ? 1 : Math.min(rows - row + 1, Math.ceil(remainingCells / remainingImages / spanCols));
+                                    
+                                    areas.push(`${row} / ${col} / ${row + spanRows} / ${col + spanCols}`);
+                                    imageIndex++;
+                                    col += spanCols - 1;
+                                } else {
+                                    areas.push(`${row} / ${col} / ${row + 1} / ${col + 1}`);
+                                    imageIndex++;
+                                }
+                            }
+                        }
+                    }
+                }
+                return areas;
+            }
+            
+            // Focus image - NO BUTTONS, NO DARKENING
+            function focusImage(index) {
+                if (focusedIndex === index) {
+                    closeFocus();
+                    return;
+                }
+                
+                focusedIndex = index;
+                document.body.classList.add('focused');
+                
+                const containers = document.querySelectorAll('.image-container');
+                containers.forEach((container, i) => {
+                    if (i === index) {
+                        container.classList.add('focused');
+                    }
+                });
+            }
+            
+            function closeFocus() {
+                focusedIndex = -1;
+                document.body.classList.remove('focused');
+                
+                const containers = document.querySelectorAll('.image-container');
+                containers.forEach(container => {
+                    container.classList.remove('focused');
+                });
+            }
+            
+            function navigateFocus(direction) {
+                if (focusedIndex === -1) return;
+                
+                let newIndex = focusedIndex + direction;
+                if (newIndex < 0) newIndex = images.length - 1;
+                if (newIndex >= images.length) newIndex = 0;
+                
+                const currentContainer = document.querySelector('.image-container.focused');
+                if (currentContainer) {
+                    currentContainer.classList.remove('focused');
+                }
+                
+                focusImage(newIndex);
+            }
+            
+            // Event listeners
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeFocus();
+                } else if (focusedIndex !== -1) {
+                    if (e.key === 'ArrowLeft') navigateFocus(-1);
+                    else if (e.key === 'ArrowRight') navigateFocus(1);
+                }
+            });
+            
+            focusOverlay.addEventListener('click', closeFocus);
+            
+            // Paste handling
+            document.addEventListener('paste', async function(e) {
+                const items = e.clipboardData.items;
+                for (let item of items) {
+                    if (item.type.indexOf('image') !== -1) {
+                        const file = item.getAsFile();
+                        await processImageFile(file);
+                    }
+                }
+            });
+            
+            // Drag and drop
+            document.addEventListener('dragover', (e) => e.preventDefault());
+            document.addEventListener('dragenter', (e) => e.preventDefault());
+            
+            document.addEventListener('drop', async function(e) {
+                e.preventDefault();
+                if (e.dataTransfer.files) {
+                    for (let file of e.dataTransfer.files) {
+                        if (file.type.indexOf('image') !== -1) {
+                            await processImageFile(file);
+                        }
+                    }
+                }
+            });
+            
+            // Process image file
+            async function processImageFile(file) {
+                if (file.size > 2000000) return;
+                
+                const reader = new FileReader();
+                return new Promise((resolve) => {
+                    reader.onload = function(e) {
+                        const imageData = e.target.result;
+                        const img = new Image();
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = Math.min(img.width, 1200);
+                            canvas.height = Math.min(img.height, 1200);
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            
+                            let compressedData;
+                            try {
+                                compressedData = canvas.toDataURL('image/webp', 0.8);
+                            } catch (e) {
+                                compressedData = canvas.toDataURL('image/jpeg', 0.8);
+                            }
+                            
+                            addImageToMoodboard(compressedData);
+                            resolve();
+                        };
+                        img.src = imageData;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            function addImageToMoodboard(imageData) {
+                images.push(imageData);
+                renderMoodboard();
+            }
+            
+            // Render moodboard
+            function renderMoodboard() {
+                if (images.length === 0) {
+                    moodboard.innerHTML = '';
+                    moodboard.style.backgroundColor = '#000';
+                    return;
+                }
+                
+                moodboard.innerHTML = '';
+                closeFocus();
+                
+                const layout = calculatePerfectLayout(images.length);
+                moodboard.style.gridTemplateColumns = `repeat(${layout.cols}, 1fr)`;
+                moodboard.style.gridTemplateRows = `repeat(${layout.rows}, 1fr)`;
+                
+                images.forEach((imageData, index) => {
+                    const imageContainer = document.createElement('div');
+                    imageContainer.className = 'image-container';
+                    imageContainer.setAttribute('data-index', index);
+                    
+                    if (layout.areas[index]) {
+                        imageContainer.style.gridArea = layout.areas[index];
+                    }
+                    
+                    const img = document.createElement('img');
+                    img.src = imageData;
+                    img.alt = `Image ${index + 1}`;
+                    img.draggable = false;
+                    
+                    const imageControls = document.createElement('div');
+                    imageControls.className = 'image-controls';
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.innerHTML = '×';
+                    deleteBtn.title = 'Delete image';
+                    deleteBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        images.splice(index, 1);
+                        renderMoodboard();
+                    });
+                    
+                    // Click to focus - NO FOCUS BUTTON
+                    imageContainer.addEventListener('click', function(e) {
+                        if (!e.target.closest('.image-controls')) {
+                            focusImage(index);
+                        }
+                    });
+                    
+                    // Drag functionality
+                    imageContainer.addEventListener('mousedown', startDrag);
+                    
+                    imageControls.appendChild(deleteBtn);
+                    imageContainer.appendChild(img);
+                    imageContainer.appendChild(imageControls);
+                    moodboard.appendChild(imageContainer);
+                });
+            }
+            
+            // Drag and drop for reordering
+            function startDrag(e) {
+                if (focusedIndex !== -1) return;
+                
+                e.preventDefault();
+                const index = parseInt(e.currentTarget.getAttribute('data-index'));
+                draggedIndex = index;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                
+                document.addEventListener('mousemove', handleDrag);
+                document.addEventListener('mouseup', stopDrag);
+            }
+            
+            function handleDrag(e) {
+                const dx = Math.abs(e.clientX - dragStartX);
+                const dy = Math.abs(e.clientY - dragStartY);
+                
+                if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+                    e.currentTarget.classList.add('dragging');
+                }
+            }
+            
+            function stopDrag(e) {
+                document.removeEventListener('mousemove', handleDrag);
+                document.removeEventListener('mouseup', stopDrag);
+                
+                const containers = document.querySelectorAll('.image-container');
+                containers.forEach(container => container.classList.remove('dragging'));
+                
+                if (draggedIndex !== null) {
+                    const finalX = e.clientX;
+                    const finalY = e.clientY;
+                    
+                    if (finalX && finalY) {
+                        const element = document.elementFromPoint(finalX, finalY);
+                        if (element && element.closest('.image-container')) {
+                            const targetContainer = element.closest('.image-container');
+                            const targetIndex = parseInt(targetContainer.getAttribute('data-index'));
+                            
+                            if (draggedIndex !== targetIndex && targetIndex < images.length) {
+                                const movedImage = images.splice(draggedIndex, 1)[0];
+                                images.splice(targetIndex, 0, movedImage);
+                                renderMoodboard();
+                            }
+                        }
+                    }
+                }
+                draggedIndex = null;
+            }
+            
+            // Clear all images
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'Delete') {
+                    if (images.length > 0 && confirm('Clear all images?')) {
+                        images = [];
+                        renderMoodboard();
+                    }
+                }
+            });
+            
+            // Window resize
+            window.addEventListener('resize', function() {
+                if (images.length > 0) renderMoodboard();
+            });
+            
+            document.addEventListener('dragstart', (e) => e.preventDefault());
+            
+            // Initial render
+            renderMoodboard();
+        });
+    </script>
+</body>
+</html>

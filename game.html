@@ -1,332 +1,158 @@
-
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Emoji Battle</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimized 3D Raycasting</title>
 <style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    height: 100%;
-    background: #b3e0ff;
-    font-family: Comic Sans MS, sans-serif;
-    user-select: none;
-    touch-action: none;
-  }
-  #game {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-  }
-  .entity {
-    position: absolute;
-    font-size: 48px;
-    text-align: center;
-    filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.6));
-    transform-origin: center center;
-  }
-
-  /* Barra de vida */
-  .health-container {
-    position: absolute;
-    width: 70px;
-    height: 22px;
-    text-align: center;
-    pointer-events: none;
-  }
-  .health-bar {
-    position: relative;
-    height: 8px;
-    background: black;
-    border: 2px solid black;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  .health-fill, .health-damage {
-    height: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
-  }
-  .health-fill {
-    background: limegreen;
-    z-index: 2;
-  }
-  .health-damage {
-    background: red;
-    z-index: 1;
-  }
-  .health-text {
-    color: white;
-    font-weight: bold;
-    font-size: 13px;
-    margin-top: 2px;
-    text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;
-  }
-
-  @keyframes shake {
-    0%, 100% { transform: translate(0, 0); }
-    25% { transform: translate(-5px, 5px); }
-    50% { transform: translate(5px, -5px); }
-    75% { transform: translate(-5px, -5px); }
-  }
-  .shake { animation: shake 0.3s; }
-
-  @keyframes fadeout { from { opacity: 1; } to { opacity: 0; } }
-  .fade { animation: fadeout 3s forwards; }
-
-  #score {
-    position: absolute;
-    top: 10px;
-    left: 15px;
-    color: white;
-    font-size: 22px;
-    font-weight: bold;
-    text-shadow: -2px -2px 0 black, 2px -2px 0 black, -2px 2px 0 black, 2px 2px 0 black;
+  html, body { margin:0; padding:0; overflow:hidden; background:black; }
+  canvas { display:block; width:100vw; height:100vh; background:#222; }
+  #fovContainer {
+    position:absolute; top:10px; left:10px;
+    color:white; font-family:sans-serif; z-index:10;
   }
 </style>
 </head>
 <body>
-<div id="game"></div>
-<div id="score">💀 0</div>
+<div id="fovContainer">
+  FOV: <input type="range" id="fovSlider" min="30" max="120" value="60">
+  <span id="fovValue">60</span>°
+</div>
+<canvas id="game"></canvas>
 <script>
-const game = document.getElementById('game');
-const scoreDisplay = document.getElementById('score');
-const player = document.createElement('div');
-player.className = 'entity';
-player.textContent = '😀';
-game.appendChild(player);
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
 
-let playerX = window.innerWidth / 2;
-let playerY = window.innerHeight / 2;
-let playerHP = 100;
-let playerHPDisplay = 100;
-let playerAlive = true;
-let canShoot = true;
-let fireRate = 400;
-let score = 0;
-let isMobile = /Mobi|Android/i.test(navigator.userAgent);
+function resize(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
 
-// Barra de vida
-const healthContainer = document.createElement('div');
-healthContainer.className = 'health-container';
-const healthText = document.createElement('div');
-healthText.className = 'health-text';
-const healthBar = document.createElement('div');
-healthBar.className = 'health-bar';
-const healthFill = document.createElement('div');
-healthFill.className = 'health-fill';
-const healthDamage = document.createElement('div');
-healthDamage.className = 'health-damage';
-healthBar.appendChild(healthDamage);
-healthBar.appendChild(healthFill);
-healthContainer.appendChild(healthBar);
-healthContainer.appendChild(healthText);
-game.appendChild(healthContainer);
+// --- Map ---
+const map = [
+  1,1,1,1,1,1,1,1,1,1,
+  1,0,0,0,0,0,0,0,0,1,
+  1,0,1,1,0,1,1,0,0,1,
+  1,0,1,0,0,0,1,0,0,1,
+  1,0,1,0,1,0,1,0,0,1,
+  1,0,0,0,1,0,0,0,0,1,
+  1,0,1,1,1,1,1,0,0,1,
+  1,0,0,0,0,0,0,0,0,1,
+  1,0,0,0,0,1,0,0,0,1,
+  1,1,1,1,1,1,1,1,1,1
+];
+const mapWidth = 10, mapHeight = 10;
 
-// Controles
+// --- Player ---
+let player = {
+  x:2.5, y:2.5, angle:0,
+  targetX:2.5, targetY:2.5, targetAngle:0,
+  moving:false, turning:false,
+  height:0.5  // camera height in tiles
+};
+const moveSpeed = 0.05;
+const turnSpeed = Math.PI/20;
+
 const keys = {};
-document.addEventListener('keydown', e => keys[e.key] = true);
-document.addEventListener('keyup', e => keys[e.key] = false);
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()]=true);
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()]=false);
 
-// Movimento touch (somente celular)
-if (isMobile) {
-  let touchStart = null;
-  game.addEventListener('touchstart', e => touchStart = e.touches[0]);
-  game.addEventListener('touchmove', e => {
-    if (!touchStart) return;
-    const t = e.touches[0];
-    playerX += (t.clientX - touchStart.clientX) * 0.1;
-    playerY += (t.clientY - touchStart.clientY) * 0.1;
-    touchStart = t;
-  });
+function canMove(x,y){
+  let mx=Math.floor(x), my=Math.floor(y);
+  if(mx<0||mx>=mapWidth||my<0||my>=mapHeight) return false;
+  return map[my*mapWidth + mx] === 0;
 }
 
-// Atirar com mouse
-game.addEventListener('mousedown', e => {
-  if (!playerAlive) return;
-  shoot(e.clientX, e.clientY);
+// --- FOV ---
+let fov = 60*Math.PI/180;
+const fovSlider = document.getElementById('fovSlider');
+const fovValue = document.getElementById('fovValue');
+fovSlider.addEventListener('input', ()=>{
+  fov = fovSlider.value * Math.PI/180;
+  fovValue.textContent = fovSlider.value;
 });
 
-let lastEnemySpawn = 0;
-const enemies = [];
-const bullets = [];
-
-function updateHealth() {
-  playerHPDisplay += (playerHP - playerHPDisplay) * 0.05;
-  healthFill.style.width = playerHP + '%';
-  healthDamage.style.width = playerHPDisplay + '%';
-  healthText.textContent = Math.round(playerHP);
-
-  const offsetY = 60;
-  const offsetX = 35;
-  healthContainer.style.left = (playerX - offsetX) + 'px';
-  healthContainer.style.top = (playerY - offsetY) + 'px';
-}
-
-function shoot(targetX, targetY) {
-  if (!canShoot) return;
-  canShoot = false;
-  player.textContent = '🤫';
-  setTimeout(() => { if (playerAlive) player.textContent = '😀'; }, 1000);
-
-  const bullet = document.createElement('div');
-  bullet.className = 'entity';
-  bullet.textContent = '🔥';
-  game.appendChild(bullet);
-  const dx = targetX - playerX;
-  const dy = targetY - playerY;
-  const dist = Math.hypot(dx, dy);
-  bullet.dirX = dx / dist;
-  bullet.dirY = dy / dist;
-  bullet.x = playerX;
-  bullet.y = playerY;
-  bullet.rot = Math.atan2(dy, dx) * 180 / Math.PI + 90; // 🔥 90°
-  bullet.style.transform = `rotate(${bullet.rot}deg)`;
-
-  bullet.flip = true;
-  const flipInterval = setInterval(() => {
-    bullet.style.transform = `rotate(${bullet.rot}deg) scaleX(${bullet.flip ? -1 : 1})`;
-    bullet.flip = !bullet.flip;
-  }, 150);
-
-  setTimeout(() => {
-    bullet.classList.add('fade');
-    setTimeout(() => {
-      clearInterval(flipInterval);
-      bullet.remove();
-      const idx = bullets.indexOf(bullet);
-      if (idx >= 0) bullets.splice(idx, 1);
-    }, 3000);
-  }, 0);
-
-  bullets.push(bullet);
-  setTimeout(() => canShoot = true, fireRate);
-}
-
-function spawnEnemy() {
-  if (!playerAlive) return;
-  const e = document.createElement('div');
-  e.className = 'entity';
-  e.textContent = '🕷️';
-  e.style.opacity = '0';
-  game.appendChild(e);
-
-  const margin = 50;
-  const side = Math.floor(Math.random() * 4);
-  if (side === 0) { e.x = -margin; e.y = Math.random() * window.innerHeight; }
-  else if (side === 1) { e.x = window.innerWidth + margin; e.y = Math.random() * window.innerHeight; }
-  else if (side === 2) { e.x = Math.random() * window.innerWidth; e.y = -margin; }
-  else { e.x = Math.random() * window.innerWidth; e.y = window.innerHeight + margin; }
-
-  e.hp = 30;
-  enemies.push(e);
-  setTimeout(() => e.style.opacity = '1', 20);
-}
-
-function explosion(x, y) {
-  const ex = document.createElement('div');
-  ex.className = 'entity fade';
-  ex.textContent = '💥';
-  ex.style.left = x + 'px';
-  ex.style.top = y + 'px';
-  game.appendChild(ex);
-  setTimeout(() => ex.remove(), 3000);
-}
-
-function takeDamage(amount) {
-  if (!playerAlive) return;
-  playerHP -= amount;
-  player.classList.add('shake');
-  player.textContent = '😖';
-  setTimeout(() => player.classList.remove('shake'), 300);
-  setTimeout(() => {
-    if (playerAlive && playerHP > 0) player.textContent = '😀';
-  }, 2000);
-  if (playerHP <= 0) {
-    playerHP = 0;
-    playerAlive = false;
-    player.textContent = '😭';
-    // Remover todos inimigos
-    enemies.forEach(e => e.remove());
-    enemies.length = 0;
-  }
-}
-
-function update() {
-  if (playerAlive) {
-    const speed = 4;
-    if (keys['w'] || keys['ArrowUp']) playerY -= speed;
-    if (keys['s'] || keys['ArrowDown']) playerY += speed;
-    if (keys['a'] || keys['ArrowLeft']) playerX -= speed;
-    if (keys['d'] || keys['ArrowRight']) playerX += speed;
-  }
-
-  playerX = Math.max(20, Math.min(window.innerWidth - 20, playerX));
-  playerY = Math.max(20, Math.min(window.innerHeight - 20, playerY));
-
-  player.style.left = playerX + 'px';
-  player.style.top = playerY + 'px';
-  player.style.zIndex = 10;
-  updateHealth();
-
-  bullets.forEach(b => {
-    b.x += b.dirX * 10;
-    b.y += b.dirY * 10;
-    b.style.left = b.x + 'px';
-    b.style.top = b.y + 'px';
-  });
-
-  enemies.forEach(e => {
-    const dx = playerX - e.x;
-    const dy = playerY - e.y;
-    const dist = Math.hypot(dx, dy);
-    const speed = 2;
-    e.x += dx / dist * speed;
-    e.y += dy / dist * speed;
-    e.style.left = e.x + 'px';
-    e.style.top = e.y + 'px';
-    const rot = Math.atan2(dy, dx) * 180 / Math.PI + 90;
-    e.style.transform = `rotate(${rot}deg)`;
-    if (playerAlive && dist < 40) {
-      takeDamage(10);
-      e.hp = 0;
+// --- Update ---
+function update(){
+  if(!player.moving && !player.turning){
+    if(keys['arrowleft']||keys['a']) { player.turning=true; player.targetAngle-=Math.PI/2; }
+    else if(keys['arrowright']||keys['d']) { player.turning=true; player.targetAngle+=Math.PI/2; }
+    else if(keys['arrowup']||keys['w']){
+      let nx=player.targetX+Math.cos(player.targetAngle);
+      let ny=player.targetY+Math.sin(player.targetAngle);
+      if(canMove(nx,ny)){ player.moving=true; player.x=player.targetX; player.y=player.targetY; player.targetX=nx; player.targetY=ny; }
     }
-  });
-
-  bullets.forEach(b => {
-    enemies.forEach(e => {
-      const dx = b.x - e.x;
-      const dy = b.y - e.y;
-      if (Math.hypot(dx, dy) < 40) {
-        e.hp = 0;
-        score++;
-        scoreDisplay.textContent = `💀 ${score}`;
-        explosion(e.x, e.y);
-        b.classList.add('fade');
-        setTimeout(() => b.remove(), 3000);
-      }
-    });
-  });
-
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    if (enemies[i].hp <= 0) {
-      enemies[i].remove();
-      enemies.splice(i, 1);
+    else if(keys['arrowdown']||keys['s']){
+      let nx=player.targetX-Math.cos(player.targetAngle);
+      let ny=player.targetY-Math.sin(player.targetAngle);
+      if(canMove(nx,ny)){ player.moving=true; player.x=player.targetX; player.y=player.targetY; player.targetX=nx; player.targetY=ny; }
     }
   }
 
-  if (playerAlive && Date.now() - lastEnemySpawn > 2000) {
-    spawnEnemy();
-    lastEnemySpawn = Date.now();
+  if(player.moving){
+    let dx=player.targetX-player.x, dy=player.targetY-player.y;
+    let dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<moveSpeed){ player.x=player.targetX; player.y=player.targetY; player.moving=false; }
+    else { player.x+=(dx/dist)*moveSpeed; player.y+=(dy/dist)*moveSpeed; }
   }
 
-  requestAnimationFrame(update);
+  if(player.turning){
+    let diff=player.targetAngle-player.angle;
+    diff=((diff+Math.PI)%(2*Math.PI))-Math.PI;
+    if(Math.abs(diff)<turnSpeed){ player.angle=player.targetAngle; player.turning=false; }
+    else player.angle+=Math.sign(diff)*turnSpeed;
+  }
 }
-update();
+
+// --- Render ---
+function render(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const camOffset = -0.35;
+  const camX = player.x + Math.cos(player.angle)*camOffset;
+  const camY = player.y + Math.sin(player.angle)*camOffset;
+
+  // Draw ceiling and floor once
+  ctx.fillStyle='#555'; ctx.fillRect(0,0,canvas.width,canvas.height/2);
+  ctx.fillStyle='#222'; ctx.fillRect(0,canvas.height/2,canvas.width,canvas.height/2);
+
+  for(let x=0;x<canvas.width;x++){
+    let cameraX = 2*x/canvas.width-1;
+    let rayDirX = Math.cos(player.angle) - Math.sin(player.angle)*cameraX*Math.tan(fov/2);
+    let rayDirY = Math.sin(player.angle) + Math.cos(player.angle)*cameraX*Math.tan(fov/2);
+
+    let mapX=Math.floor(camX), mapY=Math.floor(camY);
+    const deltaDistX=Math.abs(1/rayDirX), deltaDistY=Math.abs(1/rayDirY);
+    let stepX,stepY,sideDistX,sideDistY;
+
+    if(rayDirX<0){ stepX=-1; sideDistX=(camX-mapX)*deltaDistX; } else { stepX=1; sideDistX=(mapX+1-camX)*deltaDistX; }
+    if(rayDirY<0){ stepY=-1; sideDistY=(camY-mapY)*deltaDistY; } else { stepY=1; sideDistY=(mapY+1-camY)*deltaDistY; }
+
+    let hit=0,side;
+    while(hit===0){
+      if(sideDistX<sideDistY){ sideDistX+=deltaDistX; mapX+=stepX; side=0; }
+      else{ sideDistY+=deltaDistY; mapY+=stepY; side=1; }
+      if(mapX<0||mapX>=mapWidth||mapY<0||mapY>=mapHeight) break;
+      if(map[mapY*mapWidth+mapX]===1) hit=1;
+    }
+
+    let perpWallDist = side===0 ? (mapX-camX+(1-stepX)/2)/rayDirX : (mapY-camY+(1-stepY)/2)/rayDirY;
+
+    let lineHeight = canvas.height / perpWallDist;
+
+    // Wall top/bottom based on camera height
+    let wallTop = canvas.height/2 - lineHeight*(0.5+player.height);
+    let wallBottom = canvas.height/2 + lineHeight*(0.5-player.height);
+
+    // Wall shading for depth
+    let shade = Math.min(1, 5/perpWallDist);
+    ctx.fillStyle = side===1
+      ? `rgba(${255*shade},0,0,0.6)`
+      : `rgba(${255*shade},0,0,1)`;
+    ctx.fillRect(x, wallTop, 1, wallBottom-wallTop);
+  }
+}
+
+function gameLoop(){ update(); render(); requestAnimationFrame(gameLoop); }
+gameLoop();
 </script>
 </body>
 </html>

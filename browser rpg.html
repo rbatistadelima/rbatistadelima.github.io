@@ -1,0 +1,500 @@
+<tw-storydata name="browser rpg" startnode="1" creator="Twine" creator-version="2.2.1" ifid="E9521E15-4225-44BE-90A9-3BB7D3D7EE81" zoom="1" format="Harlowe" format-version="3.1.0" options="" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css">html, body {
+	font-family: "Times New Roman", Times, serif;
+	overflow: hidden;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	-webkit-touch-callout: none;
+	/* iOS Safari */
+	-webkit-user-select: none;
+	/* Safari */
+	-khtml-user-select: none;
+	/* Konqueror HTML */
+	-moz-user-select: none;
+	/* Old versions of Firefox */
+	-ms-user-select: none;
+	/* Internet Explorer/Edge */
+	user-select: none;
+	/* Non-prefixed version, currently
+    supported by Chrome, Opera and Firefox */
+}
+
+tw-sidebar tw-icon.redo {
+	display: none;
+}
+
+tw-sidebar tw-icon.undo {
+	display: none;
+}
+
+tw-story {
+	padding: 0;
+	height: 100%;
+    background: #473f33;
+	background: linear-gradient(149deg, #473f33 0%, #302b22 50%);
+	text-rendering: optimizeLegibility;
+	color: #000000;
+    font-size: 16px;
+}
+
+tw-passage {
+	width: 90%;	/* !!! */
+	background-color: none;
+	margin: 0 auto;
+	padding: 10px;
+	position: relative;
+}
+
+#left {
+    position: relative;
+	float: left;
+	width: 25%;
+	padding-top: 20px;
+	color: black;
+	width: 200px;
+	height: 90%;
+	border: 2px ridge #a49664;
+	padding: 6px;
+	background: rgb(237,231,213);
+	background: linear-gradient(150deg, rgba(237,231,213,1) 50%, rgba(199,185,159,1) 100%);
+	text-align: center;
+}
+
+#right {
+    position: relative;
+	float: right;
+	width: 25%;
+	padding-top: 20px;
+	color: black;
+	width: 200px;
+	height: 90%;
+	border: 2px ridge #a49664;
+	padding: 6px;
+	background: rgb(237,231,213);
+	background: linear-gradient(150deg, rgba(237,231,213,1) 50%, rgba(199,185,159,1) 100%);
+	text-align: center;
+}
+
+#center {
+	margin: 0 auto;
+	padding: 0;
+	width: 50%;
+  	height: 90%;
+	background-color: red;
+	padding-top: 20px;
+	color: black;
+	border: 2px ridge #a49664;
+	padding: 6px;
+	background: rgb(237,231,213);
+	background: linear-gradient(150deg, rgba(237,231,213,1) 50%, rgba(199,185,159,1) 100%);
+	text-align: center;
+    margin:0 auto;
+ margin: 0 auto;
+background-color: red;
+}
+
+/* #container {
+	text-align: center;
+} */
+
+#top {
+	width: 100%;
+	background-color: ;
+	margin-bottom: 1vh;
+}
+
+#bottom {
+	border-top: 1vh solid none;
+	position: fixed;
+	left: 0;
+	bottom: 0;
+	width: 100%;
+	background-color: ;
+	text-align: right;
+	float: right;
+	font-size: 90%;
+}
+
+#lower {
+	display: inline-block;
+	background-color: ;
+	position: absolute;
+	width: 500px;
+	height: 200px;
+	bottom: 0px;
+	right: 25%;
+	left: 50%;
+	margin-left: -250px;
+    vertical-align: bottom;
+    background-color:;
+}
+
+.full-height {
+	height: 100vh;
+}
+
+#l {
+	display: table;
+	text-align: center;
+	float: left;
+	width: 50%;
+}
+
+#r {
+	float: right;
+	width: 50%;
+}
+
+/*img {
+	max-height: 100%;
+	max-width: 100%;
+	width: auto;
+	height: auto;
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	margin: auto;
+	display: block;
+}*/
+
+span {
+	display: table-cell;
+	vertical-align: middle;
+}
+
+#bottom span {
+	display: inline-block;
+	vertical-align: middle;
+	margin-right: 25px;
+}
+
+.underline:hover {
+	text-decoration: underline overline;
+}
+
+p {
+	display: inline-block;
+}
+
+.active {
+	text-decoration: underline overline;
+}
+
+.glow {
+	text-align: center;
+	display: block;
+	text-shadow: 0px 0px 5px #000000, 0px 0px 5px #000000, 0px 0px 5px #000000, 0px 0px 5px #000000, 0px 0px 5px #000000, 0px 0px 10px, 0px 0px 10px #000000, 0px 0px 2px #000000, 0px 0px 2px #000000, 0px 0px 2px #000000, 0px 0px 2px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000;
+}
+
+.new {
+	width: 400px;
+	height: 400px;
+	display: block;
+	margin: auto;
+	margin: auto;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+}
+
+.shadow {
+	text-align: center;
+	text-shadow: 0px 0px 5px #000000, 0px 0px 5px #000000, 0px 0px 5px #000000, 0px 0px 5px #000000, 0px 0px 5px #000000, 0px 0px 10px, 0px 0px 10px #000000, 0px 0px 2px #000000, 0px 0px 2px #000000, 0px 0px 2px #000000, 0px 0px 2px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000, 0px 0px 15px #000000;
+}
+
+.imgcenter {
+	mix-blend-mode: lighten;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 500px;
+	height: 500px;
+	margin-top: -250px;
+	/* Half the height */
+	margin-left: -250px;
+	/* Half the width */
+}
+
+.txtcenter {
+	color: white;
+	text-align: center;
+	position: absolute;
+	width: 300px;
+	height: 50px;
+	top: 50%;
+	left: 50%;
+	margin-left: -150px;
+	/* margin is -0.5 * dimension */
+	margin-top: -25px;
+}
+
+.dark {
+	background-color: black;
+}
+
+a.tooltip{
+	position:relative; 
+	text-decoration:none;
+	font-style: italic;
+	cursor:help; 
+}
+ 
+a.tooltip:hover{
+	z-index:25; 
+}
+
+a.tooltip span{
+	display: none;
+}
+ 
+a.tooltip:hover span{ 
+	display:block;
+	position:absolute;
+	width:210px; 
+	height:297px; 
+	top:20px;
+	left:0;
+	font-size: 12px;
+	padding:5px;
+	border:1px solid #999;
+	background:#ffffff; 
+	color:#000;
+    font-style: normal;
+  }
+
+a:link {
+	color: white;
+}
+
+/* visited link */
+a:visited {
+	color: white;
+}
+
+/* mouse over link */
+a:hover {
+	color: white;
+}
+
+/* selected link */
+a:active {
+	color: white;
+}
+
+#text {
+    background-color:rgba(0, 0, 0, 0);
+    color:white;
+    border: none;
+    outline:none;
+    height:600px;
+    resize: none;
+    overflow-y:scroll;
+ /* transition:height 1s;
+    -webkit-transition:height 1s;*/
+}
+
+#text::-webkit-scrollbar {
+	width: 2px;
+}
+
+#text::-webkit-scrollbar-track-piece {
+	border-right: 1px solid gray;
+	border-left: 1px solid gray;
+}
+#text::-webkit-scrollbar-thumb {
+	background: white;
+	border-radius: 10px;
+}
+
+/* */
+
+button {
+	border: 2px ridge #a49664;
+	height: 30px;	
+  	width: 30px;
+	text-align: center;
+	margin: 4px;
+	color: #a49664;
+	background-color: #a49664;
+	text-shadow: 0px -1px black, 0px 1px white;
+	font-weight: bold;
+	box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.2);
+  ;-moz-box-shadow:    inset 0 0 10px #000000; -webkit-box-shadow: inset 0 0 10px #000000; box-shadow:         inset 0 0 10px #000000;
+}
+/* 998c5d */
+button:hover {
+	color: white;
+	text-shadow: 0px 0px 4px gold, 0px 0px 4px gold, 0px 0px 4px gold;
+	background-color: #a49664;
+  
+	box-shadow:  inset 0 0 10px #000000, 0px 0px 2px gold;
+}
+
+#name {
+	font-weight: bold;
+	text-shadow: 0px 0px 1px white;
+	font-size: 150%;
+  	display: block;
+}
+
+#title {
+	text-decoration: overline underline;
+	font-style: italic;
+	font-size: 90%;
+    display: block;
+}
+
+#guild {
+	text-decoration: none;
+	font-size: 90%;
+  	display: block;
+}
+
+.meter, .meter2 {
+	height: 6px; /* Can be anything */
+	position: relative;
+	background: #555;
+	/*
+	-moz-border-radius: 25px;
+	-webkit-border-radius: 25px;
+	border-radius: 25px;
+	*/
+	padding: 1px;
+	box-shadow: inset 0 -1px 1px rgba(255, 255, 255, 0.3);
+	margin: 10px;
+    display: block;
+}
+
+.meter > span {
+	display: block;
+	height: 100%;
+	/* 
+	border-top-right-radius: 8px;
+	border-bottom-right-radius: 8px;
+	border-top-left-radius: 20px;
+	border-bottom-left-radius: 20px;
+	*/
+	background-color: rgb(43, 194, 83);
+	background-image: linear-gradient(
+    center bottom,
+    rgb(43, 143, 194) 37%,
+    rgb(84, 175, 240) 69%
+ 	 );
+	box-shadow: inset 0 2px 9px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.4);
+	position: relative;
+	overflow: hidden;
+}
+
+.meter2 > span {
+	display: block;
+	height: 100%;
+	/* 
+	border-top-right-radius: 8px;
+	border-bottom-right-radius: 8px;
+	border-top-left-radius: 20px;
+	border-bottom-left-radius: 20px;
+	*/
+	background-color: rgb(43, 143, 194);
+	background-image: linear-gradient(
+    center bottom,
+    rgb(43, 194, 83) 37%,
+    rgb(84, 240, 84) 69%
+	);
+	box-shadow: inset 0 2px 9px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.4);
+	position: relative;
+	overflow: hidden;
+}
+
+hr {
+	border: 0;
+	height: 1px;
+	background: #333;
+	background-image: linear-gradient(to right, #ccc, #333, #ccc);
+}
+
+.circle {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	border: 2px ridge #a49664;
+	background: rgb(221,83,45);
+	background: radial-gradient(circle, rgba(221,83,45,1) 20%, rgba(80,26,26,1) 100%);
+}
+
+ul {
+  margin: 0;
+  padding-left: 21px;
+}
+/* */
+    h1 {
+        position: relative;
+        font-size: 70px;
+        margin-top: 0;
+        font-family: 'Lobster', helvetica, arial;
+    }
+     
+    h1 a {
+        text-decoration: none;
+        color: #666;
+        position: absolute;
+         
+        -webkit-mask-image: -webkit-gradient(linear, left top, left bottom, from(rgba(0,0,0,1)), color-stop(50%, rgba(0,0,0,.5)), to(rgba(0,0,0,1)));
+    }
+     
+    h1:after {
+        content : '𝐓𝐡𝐞 𝐄𝐥𝐝𝐞𝐫 𝐒𝐜𝐫𝐨𝐥𝐥𝐬';
+        color: #d6d6d6;
+        text-shadow: 0 1px 0 white;
+    }
+
+li {
+     line-height: 18px;
+     height: auto;
+}
+
+
+.border {
+border: 1px solid black;text-align: center;
+}
+
+a {
+color:#7d6741;
+animation: fadein 1s ease 0s 1 normal forwards;
+  animation-iteration-count: 1;
+  opacity: 0;
+}
+
+@keyframes fadein {
+  0% {opacity: 0;}
+  100% {opacity: 1;}
+}
+
+
+</style><script role="script" id="twine-user-script" type="text/twine-javascript">
+</script><tw-passagedata pid="1" name="3" tags="" position="486,237" size="100,100">&lt;script&gt;document.title = &quot;Arthur {Knight} Lv7 - Browser RPG&quot;&lt;/script&gt;&lt;link href=&quot;&quot; rel=&quot;icon&quot; type=&quot;image/x-icon&quot; /&gt;&lt;div id=&quot;container&quot; class=&quot;full-height&quot;&gt;&lt;div id=&quot;left&quot; class=&quot;full-height&quot;&gt;&lt;div style=&quot;border: 1px solid black;text-align: center;&quot;&gt;
+&lt;span id=&quot;name&quot;&gt;☙ 𝔄𝔯𝔱𝔥𝔲𝔯 ❧&lt;/span&gt;&lt;span id=&quot;guild&quot;&gt;━ ʜᴏᴜsᴇ ᴏғ ʟᴇᴀᴠᴇs ━&lt;/span&gt;
+&lt;span id=&quot;title&quot;&gt; 𝙺𝚗𝚒𝚐𝚑𝚝 Lv7&lt;/span&gt;
+&lt;div class=&quot;meter&quot;&gt;&lt;span style=&quot;width: 75%&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;meter2&quot;&gt;&lt;span style=&quot;width: 25%&quot;&gt;&lt;/span&gt;
+&lt;/div&gt;&lt;/div&gt;&lt;hr&gt;&lt;b&gt;Attributes&lt;/b&gt;&lt;div style=&quot;text-align: right&quot;&gt;Physique &amp;nbsp &lt;b&gt;8&lt;/b&gt; &amp;nbsp&amp;nbsp&amp;nbsp&lt;button&gt;-&lt;/button&gt;&lt;button&gt;+&lt;/button&gt;
+Motorics &amp;nbsp &lt;b&gt;9&lt;/b&gt; &amp;nbsp&amp;nbsp&amp;nbsp&lt;button&gt;-&lt;/button&gt;&lt;button&gt;+&lt;/button&gt;
+Intellect &amp;nbsp &lt;b&gt;4&lt;/b&gt; &amp;nbsp&amp;nbsp&amp;nbsp&lt;button&gt;-&lt;/button&gt;&lt;button&gt;+&lt;/button&gt;
+&lt;/div&gt;&lt;hr&gt;&lt;div&gt;800 gold&lt;/div&gt;&lt;hr&gt;&lt;div&gt;Encumbrance&lt;/div&gt;&lt;hr&gt;&lt;div class=&quot;circle&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;!---------------------------------------------------------------&gt;&lt;div id=&quot;right&quot; class=&quot;full-height&quot;&gt;&lt;div style=&quot;border: 1px solid black;height:150px;&quot;&gt;&lt;/div&gt;Falkirk
+&lt;hr&gt;Quests&lt;div style=&quot;padding:0;text-align: left;border:0; margin:0;&quot;&gt;
+&lt;b&gt;Help the lady&lt;/b&gt;&lt;ul&gt;&lt;li style=&quot;  text-decoration: line-through;
+&quot;&gt;Coffee&lt;/li&gt;  &lt;li&gt;Tea&lt;/li&gt;  &lt;li&gt;Milk&lt;/li&gt;&lt;/ul&gt;
+&lt;b&gt;Fight the orcs&lt;/b&gt;&lt;ul&gt;&lt;li&gt;20 remaining&lt;/li&gt;&lt;/ul&gt;
+&lt;/div&gt;&lt;/div&gt;&lt;!------------------------------------------------------------------&gt;&lt;div id=&quot;center&quot; class=&quot;    display: inline-block;
+full-height&quot; style=&quot;font-size:200%;&quot;&gt;&lt;div style=&quot;height:100px;letter-spacing: 10px;color: #F5F5F5; text-shadow: 0px 1px 0px #999, 0px 2px 0px #888, 0px 3px 0px #777, 0px 4px 0px #666, 0px 5px 0px #555, 0px 6px 0px #444, 0px 7px 0px #333, 0px 8px 7px #001135; margin: auto;background-color:#82735a;-moz-box-shadow:    inset 0 0 10px #000000; -webkit-box-shadow: inset 0 0 10px #000000; box-shadow:         inset 0 0 10px #000000;&quot;&gt;
+𝐓𝐡𝐞 𝐄𝐥𝐝𝐞𝐫 𝐒𝐜𝐫𝐨𝐥𝐥𝐬
+sᴋʏʀɪᴍ&lt;/div&gt;&lt;hr&gt;
+&lt;div style=&quot;padding-left:60px;width:90%; height:60px;line-height:60px;border: 1px solid black;margin: auto;background: #dbd4bd;text-align: left;display:block;font-size:18px;color:#574d3c&quot;&gt;&lt;img src=&quot;https://darksouls.wikidot.com/local--files/straightswords/straight-sword-hilt.png&quot; style=&quot;position: absolute; height:60px;left: 0px;top: 0; bottom: 0;margin: auto;&quot;&gt;Straight Sword Hilt &lt;/div&gt;
+&lt;span style=&quot;font-size:14px;line-height:100%;&quot;&gt;In the original “Roadwarden’s” Design Document, there were no game-overs. You could get significantly hurt during your journeys, but never to the point where you’d face a brick wall that would make the further progress impossible. You need to rest and heal your wounds to participate in some events, but you can always move forward.
+
+&lt;a&gt;I’ve finally decided to change it.&lt;/a&gt;
+&lt;/div&gt;
+
+hover #a49664</tw-passagedata></tw-storydata>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCII RPG Demo</title>
+<style>
+  body {
+    margin: 0;
+    font-family: "Courier New", monospace;
+    background-color: #111;
+    color: #eee;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .column {
+    padding: 10px;
+    overflow-y: auto;
+  }
+  #left { width: 20%; background-color: #222; }
+  #middle { width: 60%; background-color: #111; }
+  #right { width: 20%; background-color: #222; }
+  button {
+    background: #333;
+    color: #eee;
+    border: 1px solid #555;
+    cursor: pointer;
+    font-family: monospace;
+  }
+  button:hover { background: #444; }
+</style>
+</head>
+<body>
+
+<div id="left" class="column">
+  <div id="statsPanel">Loading Player Stats...</div>
+  <div id="inventoryPanel">Loading Inventory...</div>
+</div>
+
+<div id="middle" class="column">
+  <div id="messageLog">Initializing Log...</div>
+</div>
+
+<div id="right" class="column">
+  <div id="optionsPanel">Loading Options...</div>
+</div>
+
+<script>
+// ======= Utils Module =======
+const utils = {
+  rng: (min,max)=>Math.floor(Math.random()*(max-min+1))+min,
+  chance: (p)=>Math.random()<p,
+  deepClone: (obj)=>JSON.parse(JSON.stringify(obj))
+};
+
+// ======= Player Module =======
+const playerModule = {
+  player: {},
+  inventory: [],
+  equipped: {weapon:null, armor:null, accessory:null},
+  location:null,
+  skills:[],
+  createPlayer: function(name,classType){
+    this.player={name:name,level:1,hp:100,maxHp:100,mp:50,maxMp:50,exp:0,expToNextLevel:100,attack:10,defense:5,gold:0};
+  },
+  heal: function(amount){
+    this.player.hp=Math.min(this.player.hp+amount,this.player.maxHp);
+  }
+};
+
+// ======= Inventory Module =======
+const inventoryModule = {
+  items: [],
+  addItem: function(item){ this.items.push(item); },
+  getNames: function(){ return this.items.map(i=>i.name); }
+};
+
+// ======= UI Module =======
+const uiModule = {
+  statsPanel: document.getElementById("statsPanel"),
+  inventoryPanel: document.getElementById("inventoryPanel"),
+  messageLog: document.getElementById("messageLog"),
+  optionsPanel: document.getElementById("optionsPanel"),
+  refreshAll: function(player){
+    this.statsPanel.innerHTML = `<b>${player.name}</b><br>HP: ${player.hp}/${player.maxHp}<br>MP: ${player.mp}/${player.maxMp}<br>Level: ${player.level}`;
+    this.inventoryPanel.innerHTML = "<b>Inventory:</b><br>"+inventoryModule.getNames().join("<br>");
+  },
+  addMessage: function(msg){
+    this.messageLog.innerHTML+=msg+"<br>";
+    this.messageLog.scrollTop=this.messageLog.scrollHeight;
+  },
+  showMenu: function(title,options){
+    this.optionsPanel.innerHTML=`<b>${title}</b><br>`;
+    options.forEach(opt=>{
+      const btn=document.createElement("button");
+      btn.textContent=opt.label;
+      btn.onclick=opt.action;
+      this.optionsPanel.appendChild(btn);
+      this.optionsPanel.appendChild(document.createElement("br"));
+    });
+  },
+  clearMessageLog: function(){ this.messageLog.innerHTML=""; }
+};
+
+// ======= Items Module =======
+const itemsModule = {
+  createItem: function(id){
+    const db = {sword_iron:{name:"Iron Sword"},potion_hp:{name:"Healing Potion"}};
+    return db[id] ? {id:id, name:db[id].name} : {id:id,name:"Unknown Item"};
+  }
+};
+
+// ======= Voice Module =======
+const voiceModule = {
+  animateText: function(element,text,speed=50){
+    let i=0;
+    const interval=setInterval(()=>{
+      element.textContent+=text[i];
+      i++;
+      if(i>=text.length) clearInterval(interval);
+    },speed);
+  }
+};
+
+// ======= Demo Initialization =======
+playerModule.createPlayer("Rafael","Warrior");
+uiModule.refreshAll(playerModule.player);
+
+uiModule.clearMessageLog();
+uiModule.addMessage("Welcome to ASCII RPG Demo!");
+
+// Add example item
+const sword=itemsModule.createItem("sword_iron");
+inventoryModule.addItem(sword);
+uiModule.addMessage(`You received: ${sword.name}`);
+uiModule.refreshAll(playerModule.player);
+
+// Show options
+uiModule.showMenu("Actions",[
+  {label:"Attack",action:()=>uiModule.addMessage("You swing your sword!")},
+  {label:"Heal",action:()=>{
+    playerModule.heal(10);
+    uiModule.refreshAll(playerModule.player);
+    uiModule.addMessage("You healed 10 HP");
+  }},
+  {label:"View Inventory",action:()=>uiModule.addMessage("Inventory: "+inventoryModule.getNames().join(", "))}
+]);
+
+// Animate welcome text
+voiceModule.animateText(uiModule.messageLog,"\nPrepare for your ASCII adventure...\n",30);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Text Web Application</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(to right, #ff8a00, #da1b60);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .scene-container {
+            flex: 1;
+            min-width: 500px;
+            height: 500px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #scene {
+            width: 100%;
+            height: 100%;
+            perspective: 1200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .text-3d {
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.5s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .letter-container {
+            position: relative;
+            display: inline-block;
+            margin: 0 15px;
+            transform-style: preserve-3d;
+        }
+
+        .letter-face {
+            position: absolute;
+            backface-visibility: hidden;
+            font-weight: bold;
+            text-align: center;
+            color: #ff8a00;
+            font-size: 80px;
+            transform: translateZ(15px);
+        }
+
+        .letter-side {
+            position: absolute;
+            background: linear-gradient(to right, #ff8a00, #da1b60);
+            font-weight: bold;
+            text-align: center;
+            font-size: 80px;
+            transform-origin: 0 0;
+        }
+
+        .controls {
+            flex: 1;
+            min-width: 400px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #ff8a00;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 15px;
+            -webkit-appearance: none;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ff8a00;
+            cursor: pointer;
+        }
+
+        .value-display {
+            display: inline-block;
+            width: 50px;
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 5px;
+            border-radius: 5px;
+            margin-left: 10px;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .color-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            transition: transform 0.2s;
+        }
+
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+
+        .color-option.active {
+            transform: scale(1.2);
+            box-shadow: 0 0 10px white;
+        }
+
+        button {
+            background: linear-gradient(to right, #ff8a00, #da1b60);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .preset-buttons button {
+            margin-top: 0;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+            margin-right: 10px;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background: linear-gradient(to right, #ff8a00, #da1b60);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(30px);
+        }
+
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+
+        .gimbal-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 20;
+        }
+
+        .gimbal-axis {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+        }
+
+        .axis-label {
+            width: 30px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .axis-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .axis-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .axis-btn:hover {
+            background: rgba(255, 138, 0, 0.3);
+            transform: scale(1.1);
+        }
+
+        .axis-value {
+            width: 50px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px;
+            border-radius: 5px;
+        }
+
+        .rotation-mode {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 20;
+        }
+
+        .mode-btn {
+            padding: 8px 15px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+
+        .mode-btn:hover {
+            background: rgba(255, 138, 0, 0.3);
+        }
+
+        .mode-btn.active {
+            background: rgba(255, 138, 0, 0.7);
+            border-color: #ff8a00;
+        }
+
+        @media (max-width: 1100px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .scene-container, .controls {
+                width: 100%;
+            }
+            
+            .scene-container {
+                min-width: unset;
+                height: 400px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .scene-container {
+                height: 300px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .gimbal-controls, .rotation-mode {
+                position: relative;
+                bottom: unset;
+                left: unset;
+                right: unset;
+                margin-top: 15px;
+            }
+            
+            .letter-container {
+                margin: 0 10px;
+            }
+            
+            .letter-face, .letter-side {
+                font-size: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>3D Text Web Application</h1>
+        <p class="subtitle">Create stunning 3D text with proper letter spacing and intuitive controls</p>
+    </header>
+
+    <div class="container">
+        <div class="scene-container">
+            <div id="scene">
+                <div class="text-3d" id="text3d">
+                    <!-- 3D text will be generated here -->
+                </div>
+            </div>
+            
+            <!-- On-screen gimbal controls -->
+            <div class="gimbal-controls">
+                <div class="gimbal-axis">
+                    <div class="axis-label">X</div>
+                    <div class="axis-controls">
+                        <button class="axis-btn" id="xMinus">-</button>
+                        <div class="axis-value" id="xValue">15°</div>
+                        <button class="axis-btn" id="xPlus">+</button>
+                    </div>
+                </div>
+                <div class="gimbal-axis">
+                    <div class="axis-label">Y</div>
+                    <div class="axis-controls">
+                        <button class="axis-btn" id="yMinus">-</button>
+                        <div class="axis-value" id="yValue">-15°</div>
+                        <button class="axis-btn" id="yPlus">+</button>
+                    </div>
+                </div>
+                <div class="gimbal-axis">
+                    <div class="axis-label">Z</div>
+                    <div class="axis-controls">
+                        <button class="axis-btn" id="zMinus">-</button>
+                        <div class="axis-value" id="zValue">0°</div>
+                        <button class="axis-btn" id="zPlus">+</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Rotation mode selector -->
+            <div class="rotation-mode">
+                <div>Rotation Mode:</div>
+                <div>
+                    <button class="mode-btn active" id="modeLocal">Local</button>
+                    <button class="mode-btn" id="modeGlobal">Global</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <h2>Text Content</h2>
+                <input type="text" id="textInput" value="3D TEXT" placeholder="Enter your text here">
+            </div>
+
+            <div class="control-group">
+                <h2>3D Properties</h2>
+                <label for="depthSlider">Depth: <span id="depthValue" class="value-display">30</span>px</label>
+                <input type="range" id="depthSlider" min="10" max="100" value="30">
+
+                <label for="letterSpacing">Letter Spacing: <span id="spacingValue" class="value-display">15</span>px</label>
+                <input type="range" id="letterSpacing" min="5" max="30" value="15">
+            </div>
+
+            <div class="control-group">
+                <h2>Color & Lighting</h2>
+                <div class="color-picker">
+                    <div class="color-option active" style="background: linear-gradient(135deg, #ff8a00, #da1b60);" data-front="#ff8a00" data-side="#da1b60"></div>
+                    <div class="color-option" style="background: linear-gradient(135deg, #00c6ff, #0072ff);" data-front="#00c6ff" data-side="#0072ff"></div>
+                    <div class="color-option" style="background: linear-gradient(135deg, #00ff88, #00c850);" data-front="#00ff88" data-side="#00c850"></div>
+                    <div class="color-option" style="background: linear-gradient(135deg, #ff0080, #b3005e);" data-front="#ff0080" data-side="#b3005e"></div>
+                    <div class="color-option" style="background: linear-gradient(135deg, #8a2be2, #5a1bb0);" data-front="#8a2be2" data-side="#5a1bb0"></div>
+                </div>
+                
+                <div class="toggle-container">
+                    <label class="toggle">
+                        <input type="checkbox" id="lightingToggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                    <label for="lightingToggle">Enable Lighting Effect</label>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h2>Animation</h2>
+                <div class="toggle-container">
+                    <label class="toggle">
+                        <input type="checkbox" id="autoRotateToggle">
+                        <span class="slider"></span>
+                    </label>
+                    <label for="autoRotateToggle">Auto Rotate</label>
+                </div>
+                
+                <label for="animationSpeed">Animation Speed: <span id="speedValue" class="value-display">1</span>x</label>
+                <input type="range" id="animationSpeed" min="0.1" max="3" step="0.1" value="1">
+            </div>
+
+            <div class="control-group">
+                <h2>Preset Styles</h2>
+                <div class="preset-buttons">
+                    <button id="preset1">Wide Spacing</button>
+                    <button id="preset2">Compact</button>
+                    <button id="preset3">Reset All</button>
+                </div>
+            </div>
+
+            <button id="animateBtn">Pulse Animation</button>
+        </div>
+    </div>
+
+    <footer>
+        <p>Created with CSS 3D Transformations & JavaScript | 3D Text Web App</p>
+    </footer>
+
+    <script>
+        // DOM Elements
+        const textInput = document.getElementById('textInput');
+        const text3d = document.getElementById('text3d');
+        const depthSlider = document.getElementById('depthSlider');
+        const depthValue = document.getElementById('depthValue');
+        const letterSpacing = document.getElementById('letterSpacing');
+        const spacingValue = document.getElementById('spacingValue');
+        const colorOptions = document.querySelectorAll('.color-option');
+        const lightingToggle = document.getElementById('lightingToggle');
+        const autoRotateToggle = document.getElementById('autoRotateToggle');
+        const animationSpeed = document.getElementById('animationSpeed');
+        const speedValue = document.getElementById('speedValue');
+        const preset1 = document.getElementById('preset1');
+        const preset2 = document.getElementById('preset2');
+        const preset3 = document.getElementById('preset3');
+        const animateBtn = document.getElementById('animateBtn');
+        
+        // Gimbal controls
+        const xMinus = document.getElementById('xMinus');
+        const xPlus = document.getElementById('xPlus');
+        const xValue = document.getElementById('xValue');
+        const yMinus = document.getElementById('yMinus');
+        const yPlus = document.getElementById('yPlus');
+        const yValue = document.getElementById('yValue');
+        const zMinus = document.getElementById('zMinus');
+        const zPlus = document.getElementById('zPlus');
+        const zValue = document.getElementById('zValue');
+        const modeLocal = document.getElementById('modeLocal');
+        const modeGlobal = document.getElementById('modeGlobal');
+
+        // State variables
+        let rotation = { x: 15, y: -15, z: 0 };
+        let rotationMode = 'local';
+        let autoRotateInterval = null;
+
+        // Initialize 3D text
+        function init3DText() {
+            update3DText();
+            updateTextTransform();
+        }
+
+        // Update text content
+        textInput.addEventListener('input', function() {
+            update3DText();
+        });
+
+        // Update depth
+        depthSlider.addEventListener('input', function() {
+            const depth = this.value;
+            depthValue.textContent = depth;
+            update3DText();
+        });
+
+        // Update letter spacing
+        letterSpacing.addEventListener('input', function() {
+            const spacing = this.value;
+            spacingValue.textContent = spacing;
+            update3DText();
+        });
+
+        // Color selection
+        colorOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                colorOptions.forEach(opt => opt.classList.remove('active'));
+                this.classList.add('active');
+                update3DText();
+            });
+        });
+
+        // Animation speed
+        animationSpeed.addEventListener('input', function() {
+            const speed = this.value;
+            speedValue.textContent = speed;
+            
+            if (autoRotateToggle.checked) {
+                stopAutoRotation();
+                startAutoRotation();
+            }
+        });
+
+        // Update 3D text geometry
+        function update3DText() {
+            const text = textInput.value || '3D TEXT';
+            const depth = depthSlider.value;
+            const spacing = letterSpacing.value;
+            const activeColorOption = document.querySelector('.color-option.active');
+            const frontColor = activeColorOption.getAttribute('data-front');
+            const sideColor = activeColorOption.getAttribute('data-side');
+            const lighting = lightingToggle.checked;
+            
+            // Clear existing text
+            text3d.innerHTML = '';
+            
+            // Create letters with proper spacing
+            for (let i = 0; i < text.length; i++) {
+                const letter = text[i];
+                
+                // Skip spaces
+                if (letter === ' ') {
+                    const space = document.createElement('div');
+                    space.style.display = 'inline-block';
+                    space.style.width = `${spacing * 2}px`;
+                    text3d.appendChild(space);
+                    continue;
+                }
+                
+                const letterContainer = document.createElement('div');
+                letterContainer.classList.add('letter-container');
+                letterContainer.style.margin = `0 ${spacing}px`;
+                
+                // Create front face
+                const frontFace = document.createElement('div');
+                frontFace.classList.add('letter-face');
+                frontFace.textContent = letter;
+                frontFace.style.color = frontColor;
+                
+                if (lighting) {
+                    frontFace.style.background = `linear-gradient(135deg, ${frontColor}, ${adjustColor(frontColor, -20)})`;
+                    frontFace.style.backgroundClip = 'text';
+                    frontFace.style.webkitBackgroundClip = 'text';
+                    frontFace.style.webkitTextFillColor = 'transparent';
+                }
+                
+                letterContainer.appendChild(frontFace);
+                
+                // Create side faces
+                for (let j = 0; j < depth; j++) {
+                    const sideFace = document.createElement('div');
+                    sideFace.classList.add('letter-side');
+                    sideFace.textContent = letter;
+                    sideFace.style.color = adjustColor(sideColor, -j * 0.5);
+                    sideFace.style.transform = `translateZ(${j - depth/2}px)`;
+                    
+                    if (lighting) {
+                        sideFace.style.background = `linear-gradient(135deg, ${adjustColor(sideColor, -j * 0.5)}, ${adjustColor(sideColor, -j * 0.5 - 10)})`;
+                        sideFace.style.backgroundClip = 'text';
+                        sideFace.style.webkitBackgroundClip = 'text';
+                        sideFace.style.webkitTextFillColor = 'transparent';
+                    }
+                    
+                    letterContainer.appendChild(sideFace);
+                }
+                
+                text3d.appendChild(letterContainer);
+            }
+            
+            updateTextTransform();
+        }
+
+        // Update text transform based on rotation state
+        function updateTextTransform() {
+            if (rotationMode === 'local') {
+                text3d.style.transform = `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) rotateZ(${rotation.z}deg)`;
+            } else {
+                // Global rotation - apply in fixed order
+                text3d.style.transform = `rotateZ(${rotation.z}deg) rotateY(${rotation.y}deg) rotateX(${rotation.x}deg)`;
+            }
+            
+            // Update gimbal display values
+            xValue.textContent = `${rotation.x}°`;
+            yValue.textContent = `${rotation.y}°`;
+            zValue.textContent = `${rotation.z}°`;
+        }
+
+        // Helper function to adjust color brightness
+        function adjustColor(color, amount) {
+            // If color is in hex format
+            if (color.startsWith('#')) {
+                color = color.replace(/^#/, '');
+                if (color.length === 3) {
+                    color = color[0] + color[0] + color[1] + color[1] + color[2] + color[2];
+                }
+                
+                let r = parseInt(color.substr(0, 2), 16);
+                let g = parseInt(color.substr(2, 2), 16);
+                let b = parseInt(color.substr(4, 2), 16);
+                
+                r = Math.max(0, Math.min(255, r + amount));
+                g = Math.max(0, Math.min(255, g + amount));
+                b = Math.max(0, Math.min(255, b + amount));
+                
+                return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+            }
+            
+            return color;
+        }
+
+        // Gimbal control event handlers
+        xMinus.addEventListener('click', () => { rotation.x -= 5; updateTextTransform(); });
+        xPlus.addEventListener('click', () => { rotation.x += 5; updateTextTransform(); });
+        yMinus.addEventListener('click', () => { rotation.y -= 5; updateTextTransform(); });
+        yPlus.addEventListener('click', () => { rotation.y += 5; updateTextTransform(); });
+        zMinus.addEventListener('click', () => { rotation.z -= 5; updateTextTransform(); });
+        zPlus.addEventListener('click', () => { rotation.z += 5; updateTextTransform(); });
+
+        // Rotation mode handlers
+        modeLocal.addEventListener('click', () => {
+            modeLocal.classList.add('active');
+            modeGlobal.classList.remove('active');
+            rotationMode = 'local';
+            updateTextTransform();
+        });
+
+        modeGlobal.addEventListener('click', () => {
+            modeGlobal.classList.add('active');
+            modeLocal.classList.remove('active');
+            rotationMode = 'global';
+            updateTextTransform();
+        });
+
+        // Preset styles
+        preset1.addEventListener('click', function() {
+            letterSpacing.value = 25;
+            spacingValue.textContent = '25';
+            update3DText();
+        });
+
+        preset2.addEventListener('click', function() {
+            letterSpacing.value = 8;
+            spacingValue.textContent = '8';
+            update3DText();
+        });
+
+        preset3.addEventListener('click', function() {
+            // Reset all values
+            depthSlider.value = 30;
+            depthValue.textContent = '30';
+            letterSpacing.value = 15;
+            spacingValue.textContent = '15';
+            rotation = { x: 15, y: -15, z: 0 };
+            const defaultOption = document.querySelector('.color-option:nth-child(1)');
+            colorOptions.forEach(opt => opt.classList.remove('active'));
+            defaultOption.classList.add('active');
+            lightingToggle.checked = true;
+            update3DText();
+            updateTextTransform();
+        });
+
+        // Animation
+        animateBtn.addEventListener('click', function() {
+            text3d.style.animation = 'none';
+            setTimeout(() => {
+                text3d.style.animation = 'pulse 2s ease-in-out';
+            }, 10);
+        });
+
+        // Add CSS animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0% { transform: rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) rotateZ(${rotation.z}deg) scale(1); }
+                50% { transform: rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) rotateZ(${rotation.z}deg) scale(1.1); }
+                100% { transform: rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) rotateZ(${rotation.z}deg) scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Auto rotation
+        function startAutoRotation() {
+            const speed = animationSpeed.value;
+            autoRotateInterval = setInterval(() => {
+                rotation.y += 1 * speed;
+                updateTextTransform();
+            }, 50);
+        }
+
+        function stopAutoRotation() {
+            if (autoRotateInterval) {
+                clearInterval(autoRotateInterval);
+                autoRotateInterval = null;
+            }
+        }
+
+        autoRotateToggle.addEventListener('change', function() {
+            if (this.checked) {
+                startAutoRotation();
+            } else {
+                stopAutoRotation();
+            }
+        });
+
+        // Initialize
+        init3DText();
+    </script>
+</body>
+</html>

@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG ASCII - Expedição na Floresta</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #000;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 10px;
+            border-bottom: 1px solid #fff;
+            margin-bottom: 10px;
+        }
+        
+        .container {
+            display: flex;
+            flex: 1;
+            gap: 10px;
+            overflow: hidden;
+        }
+        
+        .character-panel {
+            width: 30%;
+            border: 1px solid #fff;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .log-panel {
+            width: 70%;
+            border: 1px solid #fff;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .panel-title {
+            text-align: center;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #fff;
+        }
+        
+        .stats {
+            margin-bottom: 15px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .inventory {
+            margin-bottom: 15px;
+        }
+        
+        .inventory-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .item {
+            border: 1px solid #fff;
+            padding: 3px 6px;
+            font-size: 12px;
+        }
+        
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: auto;
+        }
+        
+        button {
+            background: #000;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #fff;
+            color: #000;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        button:disabled:hover {
+            background: #000;
+            color: #fff;
+        }
+        
+        .log-content {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding-right: 5px;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed #333;
+            font-size: 14px;
+        }
+        
+        .voice-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 5px;
+            border-top: 1px solid #fff;
+        }
+        
+        .voice-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        select {
+            background: #000;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 5px;
+            font-family: 'Courier New', monospace;
+            flex: 1;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 10px;
+            border-top: 1px solid #fff;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #fff;
+        }
+        
+        /* Status indicators */
+        .health-bar, .mana-bar, .explore-bar {
+            height: 10px;
+            border: 1px solid #fff;
+            margin-top: 2px;
+            margin-bottom: 10px;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: #fff;
+            width: 80%;
+        }
+        
+        .mana-fill {
+            height: 100%;
+            background: #fff;
+            width: 60%;
+        }
+        
+        .explore-fill {
+            height: 100%;
+            background: #fff;
+            width: 0%;
+            transition: width 0.5s linear;
+        }
+        
+        .exploration-status {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        .location-display {
+            text-align: center;
+            margin: 10px 0;
+            font-style: italic;
+        }
+        
+        .time-display {
+            text-align: center;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>RPG ASCII - EXPEDIÇÃO NA FLORESTA NEGRA</h1>
+    </div>
+    
+    <div class="container">
+        <div class="character-panel">
+            <div class="panel-title">INFORMAÇÕES DO PERSONAGEM</div>
+            
+            <div class="stats">
+                <div class="stat-row">
+                    <span>Nome:</span>
+                    <span>Eldric</span>
+                </div>
+                <div class="stat-row">
+                    <span>Classe:</span>
+                    <span>Explorador</span>
+                </div>
+                <div class="stat-row">
+                    <span>Nível:</span>
+                    <span>5</span>
+                </div>
+                <div class="stat-row">
+                    <span>Saúde:</span>
+                    <span>75/80</span>
+                </div>
+                <div class="health-bar">
+                    <div class="health-fill"></div>
+                </div>
+                <div class="stat-row">
+                    <span>Estamina:</span>
+                    <span>60/100</span>
+                </div>
+                <div class="mana-bar">
+                    <div class="mana-fill" style="width: 60%;"></div>
+                </div>
+                <div class="stat-row">
+                    <span>Ouro:</span>
+                    <span>225</span>
+                </div>
+            </div>
+            
+            <div class="location-display">
+                Localização Atual: <br>Floresta Negra
+            </div>
+            
+            <div class="time-display" id="time-display">
+                Expedição: 0:00 / 3:00
+            </div>
+            
+            <div class="inventory">
+                <div class="panel-title">INVENTÁRIO</div>
+                <div class="inventory-items">
+                    <div class="item">Poção de Cura</div>
+                    <div class="item">Elixir de Estamina</div>
+                    <div class="item">Mapa</div>
+                    <div class="item">Rações (5)</div>
+                    <div class="item">Bússola</div>
+                    <div class="item">Tocha</div>
+                </div>
+            </div>
+            
+            <div class="actions">
+                <button id="explore-btn" onclick="startExpedition()">INICIAR EXPEDIÇÃO</button>
+                <button onclick="performAction('rest')">DESCANSAR</button>
+                <button onclick="performAction('craft')">ARTESANATO</button>
+                <button onclick="performAction('map')">VER MAPA</button>
+            </div>
+        </div>
+        
+        <div class="log-panel">
+            <div class="panel-title">REGISTRO DA EXPEDIÇÃO</div>
+            
+            <div class="exploration-status" id="exploration-status">
+                PRONTO - Inicie quando estiver preparado
+            </div>
+            
+            <div class="explore-bar">
+                <div class="explore-fill" id="explore-fill"></div>
+            </div>
+            
+            <div class="log-content" id="log-content">
+                <div class="log-entry">[Sistema]: Expedição inicializada. A Floresta Negra aguarda.</div>
+                <div class="log-entry">[Eldric]: Esta floresta é mais densa do que qualquer uma que já explorei. Devo me preparar completamente.</div>
+                <div class="log-entry">[Sistema]: A expedição levará aproximadamente 3 minutos. Você pode encontrar vários eventos.</div>
+                <div class="log-entry">[Eldric]: Meus suprimentos parecem adequados. Começarei quando estiver pronto.</div>
+            </div>
+            
+            <div class="voice-controls">
+                <div class="voice-selector">
+                    <label for="voice-select">Voz:</label>
+                    <select id="voice-select"></select>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="toggleVoice()">LIGAR/DESLIGAR VOZ</button>
+                    <button onclick="speakLatest()">LER ÚLTIMO EVENTO</button>
+                    <button onclick="stopSpeech()">PARAR VOZ</button>
+                    <button onclick="testVoice()">TESTAR VOZ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        RPG ASCII Expedition | Voz: <span id="voice-status">ATIVADA</span> | Status: <span id="status">INATIVO</span>
+    </div>
+
+    <script>
+        // Configuração de síntese de voz
+        let speech = new SpeechSynthesisUtterance();
+        speech.rate = 0.9;
+        speech.pitch = 1.0;
+        speech.volume = 1.0;
+        let selectedVoice = null;
+        
+        let voiceEnabled = true;
+        let isExploring = false;
+        let explorationInterval;
+        let expeditionStartTime;
+        let expeditionDuration = 180000; // 3 minutos em milissegundos
+        let speechQueue = [];
+        let isSpeaking = false;
+        
+        // Verificar se o navegador suporta síntese de voz
+        const speechSupported = 'speechSynthesis' in window;
+        if (!speechSupported) {
+            voiceEnabled = false;
+            document.getElementById('voice-status').textContent = 'NÃO SUPORTADO';
+            alert("Seu navegador não suporta síntese de voz. Os recursos de voz serão desativados.");
+        }
+        
+        // Eventos da expedição em português
+        const expeditionEvents = [
+            // Fase 1: Exploração inicial (0-60 segundos)
+            "Você começa sua expedição na densa Floresta Negra. O dossel acima bloqueia a maior parte da luz solar.",
+            "O caminho se estreita à medida que você avança. Você percebe marcas estranhas nas árvores antigas.",
+            "Um riacho murmurante cruza seu caminho. A água parece limpa e potável.",
+            "Você encontra pegadas de animais - grandes demais para qualquer criatura florestal comum. Você prossegue com cautela.",
+            "A floresta fica mais quieta, como se estivesse segurando a respiração. Você se sente observado, mas não vê nada.",
+            
+            // Fase 2: Floresta profunda (60-120 segundos)
+            "As árvores aqui são enormes, seus troncos mais largos que casas. Você se sente muito pequeno em comparação.",
+            "Você descobre um círculo de cogumelos com um brilho mágico fraco. Você se atreve a entrar?",
+            "Uma estrutura de pedra arruinada sugere que esta floresta já foi habitada. Quem construiu isto e por que foi abandonada?",
+            "Você ouve uivos distantes. Lobos, ou algo mais sinistro? Você segura sua arma com mais força.",
+            "O ar esfria subitamente. Sua respiração forma vapor apesar de ser meio-dia. Algo não está certo aqui.",
+            
+            // Fase 3: Descobertas misteriosas (120-150 segundos)
+            "Você encontra uma formação de cristal pulsando com luz suave. Ela parece responder à sua presença.",
+            "Runas antigas estão gravadas em um monólito de pedra. Elas falam de um 'Guardião' da floresta.",
+            "Uma entrada de caverna escondida fica atrás de uma cachoeira. Ecos estranhos emergem de dentro.",
+            "Você descobre o esqueleto de um explorador anterior. Seu diário menciona 'sussurros nas árvores'.",
+            "Uma névoa repentina envolve a área, reduzindo a visibilidade. Você confia em sua bússola para manter a direção.",
+            
+            // Fase 4: O coração da floresta (150-180 segundos)
+            "A floresta se abre em uma clareira com uma árvore antiga massiva em seu centro. Este deve ser o Coração da Floresta.",
+            "Você sente uma presença poderosa. O Guardião está próximo. Sua expedição está chegando ao clímax.",
+            "Os sussurros ficam mais altos, quase formando palavras. Eles parecem estar avisando você sobre algo.",
+            "Luzes estranhas dançam entre as árvores. Serão fogo-fátuo ou algo mais misterioso?",
+            "Você alcançou a parte mais profunda da Floresta Negra. O ar vibra com magia antiga."
+        ];
+        
+        // Carregar vozes disponíveis
+        function loadVoices() {
+            if (!speechSupported) return;
+            
+            // Obter vozes disponíveis
+            const voices = speechSynthesis.getVoices();
+            const voiceSelect = document.getElementById('voice-select');
+            
+            // Limpar seleção atual
+            voiceSelect.innerHTML = '';
+            
+            // Adicionar opções de voz
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.name;
+                option.textContent = `${voice.name} (${voice.lang})`;
+                option.selected = voice.default;
+                voiceSelect.appendChild(option);
+            });
+            
+            // Definir voz selecionada
+            if (voices.length > 0) {
+                selectedVoice = voices[0];
+            }
+            
+            // Adicionar listener para mudança de voz
+            voiceSelect.addEventListener('change', () => {
+                const selectedName = voiceSelect.value;
+                selectedVoice = voices.find(voice => voice.name === selectedName);
+            });
+        }
+        
+        // Carregar vozes quando estiverem disponíveis
+        if (speechSupported) {
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+        }
+        
+        // Limpar texto para leitura de voz (remover prefixos de metadados)
+        function cleanTextForSpeech(text) {
+            // Remover prefixos comuns que não devem ser lidos em voz alta
+            return text
+                .replace(/^\[[^\]]+\]:\s*/i, '')  // Remover [Sistema]:, [Eldric]:, etc.
+                .replace(/^Evento:\s*/i, '')       // Remover "Evento:"
+                .replace(/^[\w\s]+:\s*/i, '');    // Remover qualquer outra palavra seguida por dois pontos
+        }
+        
+        // Testar funcionalidade de voz
+        function testVoice() {
+            if (!speechSupported) {
+                addLogEntry("Síntese de voz não é suportada em seu navegador.");
+                return;
+            }
+            
+            if (!voiceEnabled) {
+                addLogEntry("A voz está atualmente desativada. Ative-a primeiro.");
+                return;
+            }
+            
+            const testText = "Sistema de voz funcionando corretamente. Você ouvirá descrições de eventos durante sua expedição.";
+            speakText(testText);
+            addLogEntry("[Sistema]: Teste de voz iniciado.");
+        }
+        
+        // Alternar funcionalidade de voz
+        function toggleVoice() {
+            if (!speechSupported) {
+                addLogEntry("Síntese de voz não é suportada em seu navegador.");
+                return;
+            }
+            
+            voiceEnabled = !voiceEnabled;
+            document.getElementById('voice-status').textContent = voiceEnabled ? 'ATIVADA' : 'DESATIVADA';
+            addLogEntry(voiceEnabled ? 'Narração por voz ativada' : 'Narração por voz desativada');
+            
+            if (voiceEnabled) {
+                // Falar a mudança de status
+                speakText(voiceEnabled ? 'Narração por voz ativada' : 'Narração por voz desativada');
+            } else {
+                // Parar qualquer fala em andamento se desativando
+                stopSpeech();
+            }
+        }
+        
+        // Falar texto usando sistema de fila
+        function speakText(text) {
+            if (!voiceEnabled || !speechSupported) return;
+            
+            const cleanText = cleanTextForSpeech(text);
+            if (!cleanText) return;
+            
+            speechQueue.push(cleanText);
+            
+            if (!isSpeaking) {
+                processSpeechQueue();
+            }
+        }
+        
+        // Processar a fila de fala
+        function processSpeechQueue() {
+            if (speechQueue.length === 0) {
+                isSpeaking = false;
+                return;
+            }
+            
+            isSpeaking = true;
+            const text = speechQueue.shift();
+            
+            // Cancelar qualquer fala em andamento
+            window.speechSynthesis.cancel();
+            
+            // Criar uma nova utterance cada vez para evitar problemas
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            
+            // Usar a voz selecionada se disponível
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
+            }
+            
+            window.speechSynthesis.speak(utterance);
+            
+            // Quando terminar de falar, processar o próximo na fila
+            utterance.onend = function() {
+                isSpeaking = false;
+                setTimeout(processSpeechQueue, 300);
+            };
+            
+            utterance.onerror = function(event) {
+                console.error('Erro de síntese de voz:', event);
+                isSpeaking = false;
+                setTimeout(processSpeechQueue, 300);
+            };
+        }
+        
+        // Parar toda a fala
+        function stopSpeech() {
+            if (!speechSupported) return;
+            
+            window.speechSynthesis.cancel();
+            speechQueue = [];
+            isSpeaking = false;
+            addLogEntry("Narração por voz parada");
+        }
+        
+        // Falar a última entrada do registro
+        function speakLatest() {
+            if (!voiceEnabled || !speechSupported) {
+                addLogEntry("A voz não está ativada ou não é suportada.");
+                return;
+            }
+            
+            const logEntries = document.querySelectorAll('.log-entry');
+            if (logEntries.length > 0) {
+                const latestEntry = logEntries[logEntries.length - 1].textContent;
+                speakText(latestEntry);
+            }
+        }
+        
+        // Adicionar uma nova entrada ao registro
+        function addLogEntry(message, speakIt = true) {
+            const logContent = document.getElementById('log-content');
+            const newEntry = document.createElement('div');
+            
+            if (!message) {
+                // Calcular o progresso da expedição para determinar quais eventos mostrar
+                const elapsed = Date.now() - expeditionStartTime;
+                const progress = Math.min(elapsed / expeditionDuration, 1);
+                const eventIndex = Math.min(
+                    Math.floor(progress * expeditionEvents.length),
+                    expeditionEvents.length - 1
+                );
+                
+                message = expeditionEvents[eventIndex];
+            }
+            
+            newEntry.className = 'log-entry';
+            newEntry.textContent = message;
+            logContent.appendChild(newEntry);
+            
+            // Rolar para o final
+            logContent.scrollTop = logContent.scrollHeight;
+            
+            // Adicionar à fila de fala se solicitado
+            if (speakIt && voiceEnabled) {
+                speakText(message);
+            }
+            
+            return message;
+        }
+        
+        // Limpar o registro
+        function clearLog() {
+            const logContent = document.getElementById('log-content');
+            logContent.innerHTML = '';
+            addLogEntry('[Sistema]: Registro limpo. Expedição continua.', false);
+        }
+        
+        // Executar uma ação
+        function performAction(action) {
+            if (isExploring) return;
+            
+            const actions = {
+                rest: [
+                    'Você tira um momento para descansar e recuperar estamina.',
+                    'Você encontra um local confortável para sentar e consumir algumas rações.',
+                    'Você medita brevemente, recuperando seu foco.',
+                    'Você bebe de sua cantil e aproveita uma pausa curta.',
+                    'Você aperta os cadarços de suas botas e se prepara para continuar.'
+                ],
+                craft: [
+                    'Você faz uma bengala de um galho caído.',
+                    'Usando materiais da floresta, você cria uma armadilha simples para caça pequena.',
+                    'Você repara um rasgo em sua mochila com um pouco de corda.',
+                    'Você afia sua lâmina em uma pedra lisa.',
+                    'Você organiza seus suprimentos para acesso mais fácil.'
+                ],
+                map: [
+                    'Você consulta seu mapa, anotando pontos de referência interessantes.',
+                    'Você atualiza seu mapa com descobertas recentes.',
+                    'O mapa mostra um atalho em potencial através de um desfiladeiro.',
+                    'Você compara sua posição com pontos de referência conhecidos.',
+                    'Seu mapa sugere uma área misteriosa à frente marcada como "Aqui há monstros".'
+                ]
+            };
+            
+            const message = actions[action][Math.floor(Math.random() * actions[action].length)];
+            addLogEntry(message);
+        }
+        
+        // Iniciar a expedição de 3 minutos
+        function startExpedition() {
+            if (isExploring) return;
+            
+            const exploreBtn = document.getElementById('explore-btn');
+            const exploreFill = document.getElementById('explore-fill');
+            const explorationStatus = document.getElementById('exploration-status');
+            const statusDisplay = document.getElementById('status');
+            
+            isExploring = true;
+            exploreBtn.disabled = true;
+            explorationStatus.textContent = "EXPEDIÇÃO EM ANDAMENTO - Explorando a Floresta Negra";
+            statusDisplay.textContent = "EM ANDAMENTO";
+            
+            // Reiniciar barra de progresso
+            exploreFill.style.width = '0%';
+            
+            // Definir hora de início
+            expeditionStartTime = Date.now();
+            const expeditionEndTime = expeditionStartTime + expeditionDuration;
+            
+            // Iniciar progresso da expedição
+            explorationInterval = setInterval(() => {
+                const currentTime = Date.now();
+                const elapsed = currentTime - expeditionStartTime;
+                const remaining = Math.max(expeditionEndTime - currentTime, 0);
+                
+                // Atualizar barra de progresso
+                const progress = (elapsed / expeditionDuration) * 100;
+                exploreFill.style.width = progress + '%';
+                
+                // Atualizar display de tempo
+                const elapsedMinutes = Math.floor(elapsed / 60000);
+                const elapsedSeconds = Math.floor((elapsed % 60000) / 1000);
+                const totalMinutes = Math.floor(expeditionDuration / 60000);
+                const totalSeconds = Math.floor((expeditionDuration % 60000) / 1000);
+                
+                document.getElementById('time-display').textContent = 
+                    `Expedição: ${elapsedMinutes}:${elapsedSeconds.toString().padStart(2, '0')} / ${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+                
+                // Adicionar eventos em intervalos (mais frequentes no início, menos depois)
+                let eventInterval = 10000; // 10 segundos por padrão
+                
+                if (elapsed < 60000) { // Primeiro minuto: mais eventos
+                    eventInterval = 8000;
+                } else if (elapsed < 120000) { // Segundo minuto: médio
+                    eventInterval = 12000;
+                } else { // Minuto final: menos frequente
+                    eventInterval = 15000;
+                }
+                
+                if (elapsed % eventInterval < 500) { // Aproximadamente a cada eventInterval ms
+                    addLogEntry();
+                }
+                
+                // Expedição concluída
+                if (currentTime >= expeditionEndTime) {
+                    clearInterval(explorationInterval);
+                    finishExpedition();
+                }
+            }, 500);
+        }
+        
+        // Finalizar expedição
+        function finishExpedition() {
+            const exploreBtn = document.getElementById('explore-btn');
+            const explorationStatus = document.getElementById('exploration-status');
+            const statusDisplay = document.getElementById('status');
+            
+            isExploring = false;
+            exploreBtn.disabled = false;
+            explorationStatus.textContent = "EXPEDIÇÃO CONCLUÍDA - Floresta Negra explorada";
+            statusDisplay.textContent = "CONCLUÍDO";
+            
+            // Adicionar mensagem de conclusão
+            addLogEntry("[Sistema]: Expedição concluída! Você descobriu os segredos da Floresta Negra.");
+            addLogEntry("[Eldric]: Esta floresta guarda mais mistérios do que eu imaginava. Devo voltar depois de descansar.");
+            
+            // Mensagem de voz final após um atraso
+            setTimeout(() => {
+                speakText("Expedição concluída. Você descobriu o coração da Floresta Negra.");
+            }, 3000);
+        }
+        
+        // Inicializar com uma mensagem de boas-vindas
+        window.onload = function() {
+            // Carregar vozes se suportado
+            if (speechSupported) {
+                loadVoices();
+                
+                setTimeout(() => {
+                    if (voiceEnabled) {
+                        speakText("Bem-vindo à Expedição da Floresta Negra. Prepare-se para uma jornada de três minutos no desconhecido.");
+                    }
+                }, 1000);
+            } else {
+                addLogEntry("[Sistema]: Síntese de voz não suportada em seu navegador. Recursos de voz desativados.");
+                voiceEnabled = false;
+                document.getElementById('voice-status').textContent = 'NÃO SUPORTADO';
+            }
+        };
+    </script>
+</body>
+</html>

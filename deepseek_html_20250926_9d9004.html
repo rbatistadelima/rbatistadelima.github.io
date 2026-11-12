@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Pattern Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e6e6e6;
+            overflow: hidden;
+        }
+        
+        header {
+            padding: 15px 20px;
+            background-color: rgba(0, 0, 0, 0.4);
+            border-bottom: 1px solid #333;
+            backdrop-filter: blur(5px);
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 15px;
+            color: #ff6b6b;
+            text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: rgba(40, 40, 60, 0.7);
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        
+        button {
+            background: linear-gradient(to bottom, #4a4a6a, #3a3a5a);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        button:hover {
+            background: linear-gradient(to bottom, #5a5a7a, #4a4a6a);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.active {
+            background: linear-gradient(to bottom, #ff6b6b, #e05555);
+            box-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+        }
+        
+        label {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        input[type="range"] {
+            width: 100px;
+            height: 6px;
+            background: #444;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #ff6b6b;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #ff6b6b;
+            cursor: pointer;
+        }
+        
+        .value-display {
+            min-width: 30px;
+            text-align: center;
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        
+        main {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            cursor: pointer;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            background-color: #0f0f1a;
+            border: 1px solid #333;
+        }
+        
+        #patternCanvas {
+            background-color: #0f0f1a;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        
+        .zoom-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            border: 1px solid #444;
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            border: 1px solid #444;
+            max-width: 300px;
+        }
+        
+        .color-preview {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid #444;
+        }
+        
+        .red { background-color: #ff0000; }
+        .black { background-color: #000000; }
+        
+        footer {
+            text-align: center;
+            padding: 10px;
+            font-size: 0.8rem;
+            color: #777;
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Pixel Pattern Generator</h1>
+        <div class="controls">
+            <div class="control-group">
+                <label>Pattern:</label>
+                <button id="straightPattern" class="active">Straight</button>
+                <button id="offsetPattern">Offset Rows</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Mirror:</label>
+                <button id="mirrorH">H</button>
+                <button id="mirrorV">V</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Shape Color:</label>
+                <div class="color-preview">
+                    <div class="color-box red" id="redColor"></div>
+                    <div class="color-box black" id="blackColor"></div>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>Pattern Distance:</label>
+                <input type="range" id="patternDistance" min="10" max="100" value="40">
+                <span class="value-display" id="distanceValue">40</span>
+            </div>
+            
+            <div class="control-group">
+                <label>Shape Size:</label>
+                <input type="range" id="shapeSize" min="5" max="50" value="15">
+                <span class="value-display" id="sizeValue">15</span>
+            </div>
+            
+            <div class="control-group">
+                <input type="checkbox" id="gradientFill">
+                <label for="gradientFill">Gradient Fill</label>
+            </div>
+            
+            <button id="randomize">Randomize</button>
+            <button id="resetZoom">Reset Zoom (100%)</button>
+        </div>
+    </header>
+    
+    <main>
+        <div id="canvas-container">
+            <canvas id="patternCanvas"></canvas>
+        </div>
+        <div class="zoom-info">
+            Zoom: <span id="zoomLevel">200%</span> | Click canvas to copy pattern
+        </div>
+        <div class="instructions">
+            Scroll to zoom | Shapes are always pixel-perfect circles in red or black
+        </div>
+    </main>
+
+    <footer>
+        Pixel Pattern Generator | All shapes are crisp and pixelated
+    </footer>
+
+    <script>
+        // Canvas and context references
+        const canvas = document.getElementById('patternCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+        
+        // Offscreen canvas for pixel-perfect copying
+        const offscreenCanvas = document.createElement('canvas');
+        const offscreenCtx = offscreenCanvas.getContext('2d');
+        
+        // Pattern settings
+        let settings = {
+            patternType: 'straight',
+            mirrorH: false,
+            mirrorV: false,
+            shapeColor: 'red', // 'red' or 'black'
+            patternDistance: 40,
+            shapeSize: 15,
+            gradientFill: false,
+            zoom: 2.0,
+            randomSeed: 0
+        };
+        
+        // Initialize canvas size
+        function initCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            const width = Math.max(800, window.innerWidth);
+            const height = Math.max(600, window.innerHeight - 150);
+            
+            // Set display canvas size
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+            
+            // Set offscreen canvas size (for pixel-perfect copying)
+            offscreenCanvas.width = width;
+            offscreenCanvas.height = height;
+            
+            ctx.scale(dpr, dpr);
+            ctx.imageSmoothingEnabled = false;
+            offscreenCtx.imageSmoothingEnabled = false;
+            
+            generatePattern();
+        }
+        
+        // Generate the pattern
+        function generatePattern() {
+            // Clear both canvases
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+            
+            const width = offscreenCanvas.width;
+            const height = offscreenCanvas.height;
+            
+            const distance = settings.patternDistance;
+            const size = settings.shapeSize;
+            
+            // Set random seed for consistent randomization
+            if (window.Math.seedrandom) {
+                Math.seedrandom(settings.randomSeed);
+            }
+            
+            // Calculate pattern bounds
+            const patternWidth = settings.mirrorH ? width / 2 : width;
+            const patternHeight = settings.mirrorV ? height / 2 : height;
+            
+            // Generate pattern on offscreen canvas first (for pixel-perfect copying)
+            offscreenCtx.fillStyle = '#0f0f1a';
+            offscreenCtx.fillRect(0, 0, width, height);
+            
+            // Set color based on selection
+            const mainColor = settings.shapeColor === 'red' ? '#ff0000' : '#000000';
+            const darkColor = settings.shapeColor === 'red' ? '#cc0000' : '#333333';
+            
+            // Draw pattern
+            for (let y = 0; y < patternHeight + distance; y += distance) {
+                for (let x = 0; x < patternWidth + distance; x += distance) {
+                    // Add slight randomization to position
+                    const randX = (Math.random() - 0.5) * distance * 0.3;
+                    const randY = (Math.random() - 0.5) * distance * 0.3;
+                    
+                    const actualY = settings.patternType === 'offset' && Math.floor(y / distance) % 2 === 1 ? 
+                                   y + distance/2 : y;
+                    
+                    const posX = Math.round(x + randX);
+                    const posY = Math.round(actualY + randY);
+                    
+                    drawPixelCircle(offscreenCtx, posX, posY, size, mainColor, darkColor);
+                    
+                    // Mirror horizontally if enabled
+                    if (settings.mirrorH) {
+                        const mirrorX = Math.round(width - posX);
+                        drawPixelCircle(offscreenCtx, mirrorX, posY, size, mainColor, darkColor);
+                    }
+                    
+                    // Mirror vertically if enabled
+                    if (settings.mirrorV) {
+                        const mirrorY = Math.round(height - posY);
+                        drawPixelCircle(offscreenCtx, posX, mirrorY, size, mainColor, darkColor);
+                    }
+                    
+                    // Mirror both if both are enabled
+                    if (settings.mirrorH && settings.mirrorV) {
+                        const mirrorX = Math.round(width - posX);
+                        const mirrorY = Math.round(height - posY);
+                        drawPixelCircle(offscreenCtx, mirrorX, mirrorY, size, mainColor, darkColor);
+                    }
+                }
+            }
+            
+            // Draw the offscreen canvas to the display canvas with zoom
+            const displayWidth = canvas.width / (window.devicePixelRatio || 1);
+            const displayHeight = canvas.height / (window.devicePixelRatio || 1);
+            
+            ctx.save();
+            ctx.scale(settings.zoom, settings.zoom);
+            ctx.translate((displayWidth/2) * (1/settings.zoom - 1), (displayHeight/2) * (1/settings.zoom - 1));
+            ctx.drawImage(offscreenCanvas, 0, 0, displayWidth, displayHeight);
+            ctx.restore();
+        }
+        
+        // Draw a pixel-perfect circle
+        function drawPixelCircle(context, x, y, size, mainColor, darkColor) {
+            const radius = Math.floor(size / 2);
+            const intX = Math.round(x);
+            const intY = Math.round(y);
+            
+            // Create gradient if enabled
+            if (settings.gradientFill) {
+                const gradient = context.createRadialGradient(intX, intY, 0, intX, intY, radius);
+                gradient.addColorStop(0, mainColor);
+                gradient.addColorStop(1, darkColor);
+                context.fillStyle = gradient;
+            } else {
+                context.fillStyle = mainColor;
+            }
+            
+            // Draw a crisp circle using arc
+            context.beginPath();
+            context.arc(intX, intY, radius, 0, Math.PI * 2);
+            context.fill();
+            
+            // Alternative: Draw a pixelated circle using rectangles
+            // This ensures absolute pixelation but is more computationally expensive
+            /*
+            for (let dx = -radius; dx <= radius; dx++) {
+                for (let dy = -radius; dy <= radius; dy++) {
+                    if (dx*dx + dy*dy <= radius*radius) {
+                        context.fillRect(intX + dx, intY + dy, 1, 1);
+                    }
+                }
+            }
+            */
+        }
+        
+        // Copy pattern to clipboard
+        function copyPatternToClipboard() {
+            offscreenCanvas.toBlob(blob => {
+                const item = new ClipboardItem({ "image/png": blob });
+                navigator.clipboard.write([item]).then(() => {
+                    // Success - no alert as requested
+                }).catch(err => {
+                    console.error('Failed to copy image: ', err);
+                });
+            });
+        }
+        
+        // Update zoom level
+        function updateZoom(delta) {
+            settings.zoom += delta;
+            settings.zoom = Math.max(0.1, Math.min(10, settings.zoom));
+            document.getElementById('zoomLevel').textContent = Math.round(settings.zoom * 100) + '%';
+            generatePattern();
+        }
+        
+        // Reset zoom to 100%
+        function resetZoom() {
+            settings.zoom = 1.0;
+            document.getElementById('zoomLevel').textContent = '100%';
+            generatePattern();
+        }
+        
+        // Randomize pattern
+        function randomizePattern() {
+            settings.randomSeed = Math.random();
+            generatePattern();
+        }
+        
+        // Initialize event listeners
+        function initEventListeners() {
+            // Pattern type buttons
+            document.getElementById('straightPattern').addEventListener('click', () => {
+                settings.patternType = 'straight';
+                document.getElementById('straightPattern').classList.add('active');
+                document.getElementById('offsetPattern').classList.remove('active');
+                generatePattern();
+            });
+            
+            document.getElementById('offsetPattern').addEventListener('click', () => {
+                settings.patternType = 'offset';
+                document.getElementById('offsetPattern').classList.add('active');
+                document.getElementById('straightPattern').classList.remove('active');
+                generatePattern();
+            });
+            
+            // Mirror buttons
+            document.getElementById('mirrorH').addEventListener('click', () => {
+                settings.mirrorH = !settings.mirrorH;
+                document.getElementById('mirrorH').classList.toggle('active', settings.mirrorH);
+                generatePattern();
+            });
+            
+            document.getElementById('mirrorV').addEventListener('click', () => {
+                settings.mirrorV = !settings.mirrorV;
+                document.getElementById('mirrorV').classList.toggle('active', settings.mirrorV);
+                generatePattern();
+            });
+            
+            // Color selection
+            document.getElementById('redColor').addEventListener('click', () => {
+                settings.shapeColor = 'red';
+                document.getElementById('redColor').style.borderColor = '#ff6b6b';
+                document.getElementById('blackColor').style.borderColor = '#444';
+                generatePattern();
+            });
+            
+            document.getElementById('blackColor').addEventListener('click', () => {
+                settings.shapeColor = 'black';
+                document.getElementById('blackColor').style.borderColor = '#ff6b6b';
+                document.getElementById('redColor').style.borderColor = '#444';
+                generatePattern();
+            });
+            
+            // Control sliders
+            document.getElementById('patternDistance').addEventListener('input', (e) => {
+                settings.patternDistance = parseInt(e.target.value);
+                document.getElementById('distanceValue').textContent = settings.patternDistance;
+                generatePattern();
+            });
+            
+            document.getElementById('shapeSize').addEventListener('input', (e) => {
+                settings.shapeSize = parseInt(e.target.value);
+                document.getElementById('sizeValue').textContent = settings.shapeSize;
+                generatePattern();
+            });
+            
+            document.getElementById('gradientFill').addEventListener('change', (e) => {
+                settings.gradientFill = e.target.checked;
+                generatePattern();
+            });
+            
+            // Action buttons
+            document.getElementById('randomize').addEventListener('click', randomizePattern);
+            document.getElementById('resetZoom').addEventListener('click', resetZoom);
+            
+            // Canvas click to copy
+            canvas.addEventListener('click', copyPatternToClipboard);
+            
+            // Mouse wheel zoom
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                updateZoom(delta);
+            });
+            
+            // Window resize
+            window.addEventListener('resize', initCanvas);
+        }
+        
+        // Simple seedable random number generator
+        function createSeededRandom(seed) {
+            return function() {
+                seed = (seed * 9301 + 49297) % 233280;
+                return seed / 233280;
+            };
+        }
+        
+        // Initialize the application
+        function init() {
+            // Use our own seeded random if seedrandom is not available
+            if (!window.Math.seedrandom) {
+                const originalRandom = Math.random;
+                Math.seedrandom = function(seed) {
+                    Math.random = createSeededRandom(seed * 233280);
+                };
+                Math.random = originalRandom;
+            }
+            
+            initCanvas();
+            initEventListeners();
+            
+            // Set initial color selection
+            document.getElementById('redColor').style.borderColor = '#ff6b6b';
+        }
+        
+        // Start the application
+        init();
+    </script>
+</body>
+</html>

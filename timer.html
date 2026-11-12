@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timer com Capítulos, Notificação e Estimativa</title>
+<style>
+  body {
+    font-family: "Segoe UI", sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  h1 { margin: 0; }
+  input, button {
+    padding: 0.5rem;
+    border-radius: 6px;
+    border: none;
+    font-size: 1rem;
+  }
+  button {
+    background: #00e0ff;
+    color: #000;
+    cursor: pointer;
+  }
+  button:hover { background: #33f0ff; }
+  #chapterList {
+    background: #161b22;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    width: 340px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .timer {
+    display: flex;
+    gap: 2rem;
+    font-size: 1.5rem;
+  }
+  .chapter {
+    font-size: 1.2rem;
+    color: #00e0ff;
+  }
+  .bar {
+    position: relative;
+    width: 340px;
+    height: 30px;
+    background: #1a1f29;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 0 10px #000 inset;
+  }
+  .segment {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    font-size: 0.7rem;
+    color: #fff;
+    text-align: center;
+    line-height: 30px;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  .fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #00e0ff, #00ffaa);
+    box-shadow: 0 0 8px #00e0ff;
+    transition: width 0.3s linear;
+    z-index: 2;
+  }
+  #chapterProgressContainer {
+    width: 300px;
+    height: 10px;
+    background: #333;
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  #chapterProgress {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ffaa00, #ff5500);
+    transition: width 1s linear;
+  }
+  #totalTime, #remainingTime, #endTime {
+    color: #00e0ff;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+  <h1>⏳ Timer com Capítulos, Notificação e Estimativa</h1>
+
+  <div>
+    <input type="text" id="chapterNameInput" placeholder="Nome do capítulo">
+    <input type="number" id="chapterDurationInput" placeholder="Duração (min)" min="0.1" step="0.1">
+    <button id="addChapterBtn">➕ Adicionar</button>
+  </div>
+
+  <div id="chapterList"></div>
+  <div id="totalTime">Tempo total: 0 min</div>
+  <div id="remainingTime">Tempo restante: 0 min</div>
+  <div id="endTime">Fim estimado: --:--</div>
+
+  <div>
+    <button id="startBtn">▶️ Iniciar</button>
+    <button id="pauseBtn">⏸️ Pausar</button>
+    <button id="resetBtn">♻️ Resetar</button>
+  </div>
+
+  <div class="chapter" id="chapterName">Aguardando início...</div>
+
+  <div class="timer">
+    <div>↑ <span id="countUp">00:00</span></div>
+    <div>↓ <span id="countDown">00:00</span></div>
+  </div>
+
+  <div class="bar" id="progressBar">
+    <div class="fill" id="progress"></div>
+  </div>
+
+  <div id="chapterProgressContainer">
+    <div id="chapterProgress"></div>
+  </div>
+
+  <audio id="bellStart" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+  <audio id="bellEnd" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"></audio>
+
+<script>
+const COLORS = ["#00e0ff", "#ff0077", "#00ff77", "#ffaa00", "#aa00ff", "#ff4444", "#44ff44"];
+const chapterList = document.getElementById('chapterList');
+const totalTimeDisplay = document.getElementById('totalTime');
+const remainingTimeDisplay = document.getElementById('remainingTime');
+const endTimeDisplay = document.getElementById('endTime');
+const progressBar = document.getElementById('progressBar');
+const bellStart = document.getElementById('bellStart');
+const bellEnd = document.getElementById('bellEnd');
+const progress = document.getElementById('progress');
+const chapterProgress = document.getElementById('chapterProgress');
+
+let chapters = JSON.parse(localStorage.getItem("chapters") || "[]");
+let timerState = JSON.parse(localStorage.getItem("timerState") || "null");
+let interval;
+
+if (Notification.permission !== "granted") {
+  Notification.requestPermission();
+}
+
+function notifyChapter(title, body) {
+  if (Notification.permission === "granted") {
+    new Notification(title, {
+      body,
+      icon: "https://cdn-icons-png.flaticon.com/512/786/786453.png"
+    });
+  }
+}
+
+document.getElementById('addChapterBtn').onclick = () => {
+  const name = document.getElementById('chapterNameInput').value.trim() || "Capítulo " + (chapters.length + 1);
+  const durationMin = parseFloat(document.getElementById('chapterDurationInput').value);
+  if (!durationMin || durationMin <= 0) return alert("Informe duração válida!");
+
+  const durationSec = Math.round(durationMin * 60);
+  chapters.push({ name, durationMin, durationSec });
+  localStorage.setItem("chapters", JSON.stringify(chapters));
+  renderChapters();
+};
+
+function renderChapters() {
+  chapterList.innerHTML = "";
+  progressBar.innerHTML = "";
+  let totalSec = chapters.reduce((a, c) => a + c.durationSec, 0);
+  let cumulative = 0;
+
+  chapters.forEach((c, i) => {
+    const div = document.createElement("div");
+    div.textContent = `${i + 1}. ${c.name} — ${c.durationMin.toFixed(1)} min`;
+    chapterList.appendChild(div);
+
+    const seg = document.createElement("div");
+    const width = (c.durationSec / totalSec) * 100;
+    seg.className = "segment";
+    seg.style.left = (cumulative / totalSec) * 100 + "%";
+    seg.style.width = width + "%";
+    seg.style.background = COLORS[i % COLORS.length];
+    seg.textContent = c.name;
+    progressBar.appendChild(seg);
+
+    cumulative += c.durationSec;
+  });
+
+  const fill = document.createElement("div");
+  fill.id = "progress";
+  fill.className = "fill";
+  progressBar.appendChild(fill);
+
+  totalTimeDisplay.textContent = `Tempo total: ${(totalSec / 60).toFixed(1)} min`;
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function getCurrentChapterIndex(totalElapsed) {
+  let sum = 0;
+  for (let i = 0; i < chapters.length; i++) {
+    sum += chapters[i].durationSec;
+    if (totalElapsed < sum) return i;
+  }
+  return chapters.length - 1;
+}
+
+function getChapterElapsed(totalElapsed, index) {
+  let prev = 0;
+  for (let i = 0; i < index; i++) prev += chapters[i].durationSec;
+  return totalElapsed - prev;
+}
+
+function startTimer() {
+  if (chapters.length === 0) return alert("Adicione capítulos!");
+  clearInterval(interval);
+
+  const totalDuration = chapters.reduce((a, c) => a + c.durationSec, 0);
+
+  let startTime = timerState?.startTime || Date.now();
+  let pausedElapsed = timerState?.totalElapsed || 0;
+
+  localStorage.setItem("timerState", JSON.stringify({
+    running: true,
+    startTime,
+    totalElapsed: pausedElapsed
+  }));
+
+  interval = setInterval(() => {
+    const now = Date.now();
+    const elapsed = Math.floor((now - startTime) / 1000) + pausedElapsed;
+    const totalElapsed = Math.min(elapsed, totalDuration);
+
+    const currentChapterIndex = getCurrentChapterIndex(totalElapsed);
+    const current = chapters[currentChapterIndex];
+    const chapterElapsed = getChapterElapsed(totalElapsed, currentChapterIndex);
+    const remaining = current.durationSec - chapterElapsed;
+    const remainingTotal = totalDuration - totalElapsed;
+
+    document.getElementById('countUp').textContent = formatTime(chapterElapsed);
+    document.getElementById('countDown').textContent = formatTime(remaining);
+    document.getElementById('chapterName').textContent = current.name;
+    progress.style.width = ((totalElapsed / totalDuration) * 100) + "%";
+    chapterProgress.style.width = ((chapterElapsed / current.durationSec) * 100) + "%";
+
+    progressBar.querySelectorAll(".segment").forEach((seg, i) => {
+      seg.style.opacity = (i === currentChapterIndex ? "1" : "0.3");
+      seg.style.transform = (i === currentChapterIndex ? "scale(1.05)" : "scale(1)");
+    });
+
+    remainingTimeDisplay.textContent = `Tempo restante: ${(remainingTotal/60).toFixed(1)} min`;
+    const endTime = new Date(now + remainingTotal*1000);
+    endTimeDisplay.textContent = `Fim estimado: ${String(endTime.getHours()).padStart(2,'0')}:${String(endTime.getMinutes()).padStart(2,'0')}`;
+
+    localStorage.setItem("timerState", JSON.stringify({
+      running: true,
+      startTime,
+      totalElapsed
+    }));
+
+    if (remaining === 0 && totalElapsed < totalDuration) {
+      bellStart.play();
+      notifyChapter("Capítulo concluído", `"${current.name}" terminou. Próximo iniciando.`);
+    }
+
+    if (totalElapsed >= totalDuration) {
+      clearInterval(interval);
+      bellEnd.play();
+      document.getElementById('chapterName').textContent = "✅ Fim";
+      notifyChapter("Timer concluído", "Todos os capítulos foram finalizados!");
+      localStorage.removeItem("timerState");
+      remainingTimeDisplay.textContent = "Tempo restante: 0 min";
+      endTimeDisplay.textContent = "Fim estimado: --:--";
+    }
+  }, 1000);
+}
+
+function pauseTimer() {
+  if (!timerState || !timerState.running) return;
+  const now = Date.now();
+  const elapsed = Math.floor((now - timerState.startTime) / 1000) + timerState.totalElapsed;
+  localStorage.setItem("timerState", JSON.stringify({
+    running: false,
+    totalElapsed: elapsed
+  }));
+  clearInterval(interval);
+}
+
+function resetTimer() {
+  clearInterval(interval);
+  localStorage.removeItem("timerState");
+  document.getElementById('chapterName').textContent = "Aguardando início...";
+  document.getElementById('countUp').textContent = "00:00";
+  document.getElementById('countDown').textContent = "00:00";
+  progress.style.width = "0%";
+  chapterProgress.style.width = "0%";
+  remainingTimeDisplay.textContent = "Tempo restante: 0 min";
+  endTimeDisplay.textContent = "Fim estimado: --:--";
+  progressBar.querySelectorAll(".segment").forEach(seg => {
+    seg.style.opacity = "1";
+    seg.style.transform = "scale(1)";
+  });
+}
+
+document.getElementById('startBtn').onclick = startTimer;
+document.getElementById('pauseBtn').onclick = pauseTimer;
+document.getElementById('resetBtn').onclick = resetTimer;
+
+window.onload = () => {
+  if (chapters.length > 0) renderChapters();
+  if (timerState && timerState.running) startTimer();
+};
+</script>
+</body>
+</html>

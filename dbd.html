@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DBD - Mapa Estimado</title>
+<style>
+  body { background:#0a0a0a; color:#fff; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; gap:16px; padding:16px; }
+  h1 { color:#f33; }
+  #dropZone { border:2px dashed #444; border-radius:12px; width:80%; max-width:600px; height:200px; display:flex; align-items:center; justify-content:center; color:#888; }
+  canvas { background:#111; border:1px solid #333; border-radius:8px; max-width:90vw; }
+  #map2d { background:#000; }
+</style>
+</head>
+<body>
+<h1>DBD - Mapa Estimado dos Geradores</h1>
+<div id="dropZone">Cole ou arraste uma imagem aqui</div>
+<canvas id="original"></canvas>
+<canvas id="map2d" width="600" height="600"></canvas>
+
+<script>
+const dropZone = document.getElementById('dropZone');
+const canvasOriginal = document.getElementById('original');
+const ctxOriginal = canvasOriginal.getContext('2d');
+const canvasMap = document.getElementById('map2d');
+const ctxMap = canvasMap.getContext('2d');
+
+function handleImage(file) {
+  const img = new Image();
+  img.onload = () => {
+    canvasOriginal.width = img.width;
+    canvasOriginal.height = img.height;
+    ctxOriginal.drawImage(img, 0, 0);
+
+    const imageData = ctxOriginal.getImageData(0, 0, img.width, img.height);
+    const pixels = imageData.data;
+    const redPoints = [];
+    for (let y=0; y<img.height; y+=2){
+      for(let x=0; x<img.width; x+=2){
+        const i=(y*img.width + x)*4;
+        const r=pixels[i], g=pixels[i+1], b=pixels[i+2];
+        const brightness=(r+g+b)/3;
+        if(r>150 && r>g*1.8 && r>b*1.8 && brightness>40){
+          redPoints.push({x,y});
+        }
+      }
+    }
+
+    // Agrupar pixels em geradores
+    const clusters = [];
+    const threshold = 40;
+    redPoints.forEach(p=>{
+      let found=false;
+      for(let c of clusters){
+        if(Math.hypot(c.x-p.x,c.y-p.y)<threshold){
+          c.x=(c.x+p.x)/2;
+          c.y=(c.y+p.y)/2;
+          c.points.push(p);
+          found=true; break;
+        }
+      }
+      if(!found) clusters.push({x:p.x, y:p.y, points:[p]});
+    });
+
+    const generators = clusters.filter(c=>c.points.length>5);
+
+    // Medir largura/altura de cada gerador (bounding box)
+    generators.forEach(g=>{
+      const xs=g.points.map(p=>p.x);
+      const ys=g.points.map(p=>p.y);
+      g.width=Math.max(...xs)-Math.min(...xs);
+      g.height=Math.max(...ys)-Math.min(...ys);
+    });
+
+    // Desenhar marcadores no print original
+    ctxOriginal.strokeStyle='white';
+    ctxOriginal.lineWidth=1;
+    generators.forEach((g,i)=>{
+      ctxOriginal.beginPath();
+      ctxOriginal.arc(g.x,g.y,10,0,Math.PI*2);
+      ctxOriginal.stroke();
+      ctxOriginal.fillStyle='#f33';
+      ctxOriginal.fillText(`G${i+1}`, g.x+12,g.y);
+    });
+
+    // Projeção para mapa 2D usando tamanho para estimar profundidade
+    const referenceSize = Math.max(...generators.map(g=>g.height)); // assume o maior gerador = perto
+    const projected = generators.map(g=>{
+      const depth = referenceSize / g.height; // menor altura = mais longe
+      return {x:(g.x-img.width/2)/depth, z:depth*1000};
+    });
+
+    // Normalizar para mapa 600x600 centralizado
+    const xs = projected.map(p=>p.x);
+    const zs = projected.map(p=>p.z);
+    const minX=Math.min(...xs), maxX=Math.max(...xs);
+    const minZ=Math.min(...zs), maxZ=Math.max(...zs);
+    const rangeX=maxX-minX, rangeZ=maxZ-minZ;
+    const scaleMap=500/Math.max(rangeX,rangeZ||1);
+    const offsetX=(600-rangeX*scaleMap)/2;
+    const offsetZ=(600-rangeZ*scaleMap)/2;
+
+    ctxMap.clearRect(0,0,600,600);
+    ctxMap.fillStyle='#000';
+    ctxMap.fillRect(0,0,600,600);
+    ctxMap.strokeStyle='#fff';
+    ctxMap.lineWidth=1;
+
+    // Linhas e distâncias
+    for(let i=0;i<projected.length;i++){
+      for(let j=i+1;j<projected.length;j++){
+        const p1=projected[i], p2=projected[j];
+        const x1=(p1.x-minX)*scaleMap+offsetX;
+        const y1=(p1.z-minZ)*scaleMap+offsetZ;
+        const x2=(p2.x-minX)*scaleMap+offsetX;
+        const y2=(p2.z-minZ)*scaleMap+offsetZ;
+        const dist=Math.hypot(x1-x2,y1-y2);
+        ctxMap.strokeStyle='rgba(255,255,255,0.3)';
+        ctxMap.beginPath();
+        ctxMap.moveTo(x1,y1);
+        ctxMap.lineTo(x2,y2);
+        ctxMap.stroke();
+        const midX=(x1+x2)/2, midY=(y1+y2)/2;
+        ctxMap.fillStyle='#ccc';
+        ctxMap.font='12px monospace';
+        ctxMap.fillText(dist.toFixed(0), midX, midY);
+      }
+    }
+
+    projected.forEach((p,i)=>{
+      const x=(p.x-minX)*scaleMap+offsetX;
+      const y=(p.z-minZ)*scaleMap+offsetZ;
+      ctxMap.fillStyle='#f33';
+      ctxMap.beginPath();
+      ctxMap.arc(x,y,8,0,Math.PI*2);
+      ctxMap.fill();
+      ctxMap.fillStyle='#fff';
+      ctxMap.fillText(`G${i+1}`,x+10,y+4);
+    });
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+// Drag & drop e paste
+dropZone.addEventListener('dragover',e=>{ e.preventDefault(); dropZone.style.borderColor='#f33'; });
+dropZone.addEventListener('dragleave',e=>{ e.preventDefault(); dropZone.style.borderColor='#444'; });
+dropZone.addEventListener('drop', e=>{ e.preventDefault(); dropZone.style.borderColor='#444'; handleImage(e.dataTransfer.files[0]); });
+dropZone.addEventListener('paste', e=>{ const item=e.clipboardData.items[0]; if(item.type.indexOf('image')===0) handleImage(item.getAsFile()); });
+</script>
+</body>
+</html>

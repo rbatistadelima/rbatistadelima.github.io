@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GitPlayer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style id="theme-style">
+    /* Default (EVA) theme, will be replaced by JS if user changes theme */
+    :root {
+      --eva-purple: #6c3eb6;
+      --eva-green: #a6ff00;
+      --eva-dark: #181828;
+      --eva-bg: #23233a;
+      --eva-accent: #2e2e4d;
+      --eva-border: #3a3a5a;
+      --eva-fg: #fff;
+      --eva-fg2: #cfcfff;
+      --eva-queue: #2e2e4d;
+      --eva-kept: #1e1e2e;
+      --eva-folder: #23233a;
+      --eva-shadow: 0 4px 24px rgba(60,0,80,0.18);
+      --eva-btn-active: #6c3eb6;
+      --eva-btn-hover: #a6ff00;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: var(--eva-bg);
+      color: var(--eva-fg);
+      font-family: 'Segoe UI', 'Arial', sans-serif;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+    }
+    h1 {
+      margin: 1.2rem 0 0.5rem 0;
+      font-size: 2.2rem;
+      letter-spacing: 2px;
+      color: var(--eva-green);
+      text-shadow: 0 2px 8px #0006;
+      text-align: center;
+      font-family: 'Segoe UI', 'Arial', sans-serif;
+      flex-shrink: 0;
+    }
+    .container {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      width: 100vw;
+      max-width: 100vw;
+      min-height: 0;
+      min-width: 0;
+      overflow: hidden;
+      padding-bottom: 80px; /* Added to prevent content behind player bar */
+    }
+    .input-row {
+      width: 100%;
+      display: flex;
+      gap: 0.5rem;
+      margin: 0 0 0.5rem 0;
+      padding: 0 1.5vw;
+      box-sizing: border-box;
+      flex-shrink: 0;
+      align-items: center;
+    }
+    .theme-select {
+      background: var(--eva-accent);
+      color: var(--eva-fg);
+      border: 1px solid var(--eva-border);
+      border-radius: 8px;
+      font-size: 1.05em;
+      padding: 0.5em 1em;
+      margin-left: 1em;
+      outline: none;
+      cursor: pointer;
+      transition: border 0.2s;
+    }
+    .theme-select:focus {
+      border: 1.5px solid var(--eva-green);
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 0.7em 1em;
+      border-radius: 8px;
+      border: 1px solid var(--eva-border);
+      font-size: 1.1rem;
+      background: #22223a;
+      color: var(--eva-fg);
+      outline: none;
+      transition: border 0.2s;
+      min-width: 0;
+    }
+    input[type="text"]:focus {
+      border: 1.5px solid var(--eva-green);
+    }
+    button {
+      background: var(--eva-green);
+      color: #222;
+      border: none;
+      border-radius: 8px;
+      padding: 0.7em 1.2em;
+      font-size: 1.1rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    button:active {
+      background: var(--eva-btn-active);
+      color: #fff;
+    }
+    .status {
+      min-height: 1.5em;
+      margin: 0 0 0.5em 0;
+      color: #bbb;
+      font-size: 1.05em;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .main-layout {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: row;
+      width: 100vw;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
+      box-sizing: border-box;
+      padding-bottom: 80px; /* Added to prevent content behind player bar */
+    }
+    .resizable-col {
+      display: flex;
+      flex-direction: column;
+      min-width: 120px;
+      max-width: 600px;
+      width: 28vw;
+      background: var(--eva-accent);
+      border-radius: 14px;
+      box-shadow: 0 2px 12px #0002;
+      margin: 0.5em 0.2em 0.5em 0.2em;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+      transition: width 0.2s;
+    }
+    .resizable-col .list-title {
+      font-size: 1.18em;
+      font-weight: 700;
+      color: var(--eva-green);
+      margin: 0.7em 0 0.7em 0;
+      letter-spacing: 1px;
+      text-align: center;
+      flex-shrink: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .folder-header-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      margin: 0.5em 0 0.2em 0;
+      font-size: 1.13em;
+      font-weight: 600;
+      color: var(--eva-purple);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .folder-header-row button {
+      padding: 0.3em 0.7em;
+      font-size: 0.95em;
+      background: var(--eva-purple);
+      color: #fff;
+      border-radius: 6px;
+      font-weight: 500;
+      margin-left: 0.5em;
+      transition: background 0.2s;
+    }
+    .folder-header-row button:active {
+      background: var(--eva-green);
+      color: #222;
+    }
+    .track-list {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 0 0.2em 0.5em 0.2em;
+      min-height: 0;
+      min-width: 0;
+    }
+    .track-item {
+      display: flex;
+      align-items: center;
+      padding: 0.6em 0.7em;
+      border-radius: 7px;
+      margin: 0.1em 0;
+      cursor: pointer;
+      transition: background 0.15s;
+      gap: 0.7em;
+      position: relative;
+      background: none;
+      color: var(--eva-fg2);
+      font-size: 1.13em;
+      min-width: 0;
+      user-select: none;
+    }
+    .track-item.active {
+      background: var(--eva-green);
+      color: #222;
+    }
+    .track-item .track-name {
+      flex: 1 1 0;
+      font-size: 1.13em;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      margin-right: 0.5em;
+    }
+    .track-item .track-folder {
+      font-size: 0.95em;
+      color: #aaa;
+      margin-left: 0.5em;
+      flex: 0 0 auto;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 7em;
+    }
+    .track-item .track-btn {
+      background: none;
+      border: none;
+      color: var(--eva-green);
+      font-size: 1.15em;
+      cursor: pointer;
+      padding: 0 0.3em;
+      border-radius: 50%;
+      transition: background 0.15s, color 0.15s;
+      margin-left: 0.2em;
+      flex-shrink: 0;
+      font-weight: bold;
+    }
+    .track-item .track-btn:active {
+      background: #333;
+    }
+    .track-item.active .track-btn {
+      color: var(--eva-purple);
+      background: rgba(0,0,0,0.04);
+    }
+    .track-item.active .track-btn:hover {
+      color: #fff;
+      background: var(--eva-purple);
+    }
+    .track-item .track-btn:hover {
+      color: #fff;
+      background: var(--eva-green);
+    }
+    .resize-handle {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 7px;
+      height: 100%;
+      cursor: ew-resize;
+      background: linear-gradient(to right, transparent 0%, var(--eva-purple) 100%);
+      z-index: 10;
+      opacity: 0.5;
+      border-radius: 0 14px 14px 0;
+      transition: background 0.2s;
+    }
+    .resize-handle:hover {
+      opacity: 1;
+      background: linear-gradient(to right, transparent 0%, var(--eva-green) 100%);
+    }
+    .player-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 110px;
+      background: var(--eva-dark);
+      border-top: 2px solid var(--eva-purple);
+      box-shadow: 0 -2px 16px #0008;
+      display: flex;
+      align-items: center;
+      z-index: 100;
+      padding: 0 2vw;
+      gap: 2vw;
+      min-width: 0;
+      width: 100vw;
+      max-width: 100vw;
+      box-sizing: border-box;
+    }
+    .player-bar .cover-art {
+      width: 70px;
+      height: 70px;
+      background: #222;
+      border-radius: 10px;
+      margin-right: 1.2em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      box-shadow: 0 2px 12px #0005;
+      flex-shrink: 0;
+    }
+    .player-bar .cover-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .player-bar .cover-art .icon {
+      font-size: 2.5em;
+      color: var(--eva-purple);
+    }
+    .player-bar .track-info {
+      flex: 1 1 0;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .player-bar .track-title {
+      font-size: 1.18em;
+      font-weight: 700;
+      color: var(--eva-green);
+      margin-bottom: 0.1em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .player-bar .track-path {
+      font-size: 0.98em;
+      color: #aaa;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .player-bar .controls {
+      display: flex;
+      align-items: center;
+      gap: 1.2em;
+      margin: 0 1.2em;
+      flex-shrink: 0;
+    }
+    .player-bar .controls button {
+      background: none;
+      color: var(--eva-green);
+      font-size: 1.7em;
+      padding: 0.2em 0.5em;
+      border-radius: 50%;
+      border: none;
+      transition: background 0.2s, color 0.2s;
+    }
+    .player-bar .controls button:active {
+      background: #222;
+    }
+    .player-bar .controls .active {
+      color: var(--eva-purple);
+      background: var(--eva-green);
+    }
+    .player-bar .controls .active:active {
+      background: var(--eva-purple);
+      color: #fff;
+    }
+    .player-bar .progress-bar {
+      flex: 2 1 0;
+      height: 7px;
+      background: #222;
+      border-radius: 3px;
+      margin: 0 1em;
+      cursor: pointer;
+      position: relative;
+      min-width: 60px;
+      max-width: 300px;
+    }
+    .player-bar .progress {
+      height: 100%;
+      background: var(--eva-green);
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.1s;
+    }
+    .player-bar .time-row {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      font-size: 0.98em;
+      color: #aaa;
+      min-width: 55px;
+      margin-left: 0.5em;
+      flex-shrink: 0;
+    }
+    .player-bar .volume-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      min-width: 90px;
+      max-width: 120px;
+      flex-shrink: 0;
+    }
+    .player-bar .fa-volume-up,
+    .player-bar .fa-volume-mute {
+      color: var(--eva-green);
+      font-size: 1.2em;
+    }
+    .player-bar .volume-slider {
+      flex: 1;
+      accent-color: var(--eva-purple);
+      height: 4px;
+      border-radius: 2px;
+      background: var(--eva-green);
+      min-width: 50px;
+      max-width: 80px;
+    }
+    @media (max-width: 900px) {
+      .main-layout { flex-direction: column; }
+      .resizable-col { width: 98vw; max-width: 98vw; min-width: 0; margin: 0.5em auto; }
+      .resize-handle { display: none; }
+    }
+    @media (max-width: 700px) {
+      .player-bar { flex-direction: column; height: auto; padding: 0.7em 1vw; gap: 0.7em; }
+      .player-bar .cover-art { margin: 0 auto 0.5em auto; }
+      .player-bar .controls { margin: 0.5em 0; }
+      .player-bar .progress-bar { margin: 0.5em 0; }
+      .player-bar .time-row { margin: 0.5em 0 0 0; }
+    }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+<body>
+  <h1>GitPlayer</h1>
+  <div class="container">
+    <div class="input-row">
+      <input type="text" id="repoUrl" placeholder="Paste GitHub folder URL here" autocomplete="off" />
+      <button onclick="addFolder()"><i class="fa fa-folder-plus"></i> Add Folder</button>
+      <select id="themeSelect" class="theme-select" title="Theme">
+        <option value="eva">EVA (Purple/Green)</option>
+        <option value="dark">Dark (Blue/Gray)</option>
+        <option value="light">Light (White/Blue)</option>
+        <option value="terminal">Terminal (Black/Green)</option>
+        <option value="sunset">Sunset (Orange/Pink)</option>
+      </select>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="main-layout" id="mainLayout">
+      <div class="resizable-col" id="folderCol" style="background: var(--eva-folder);">
+        <div class="list-title">Loaded Folders</div>
+        <div class="track-list" id="folderList"></div>
+        <div class="resize-handle" data-col="folderCol"></div>
+      </div>
+      <div class="resizable-col" id="keptCol" style="background: var(--eva-kept);">
+        <div class="list-title">Kept</div>
+        <div class="track-list" id="keptList"></div>
+        <div class="resize-handle" data-col="keptCol"></div>
+      </div>
+      <div class="resizable-col" id="queueCol" style="background: var(--eva-queue);">
+        <div class="list-title">Queue</div>
+        <div class="track-list" id="queueList"></div>
+        <div class="resize-handle" data-col="queueCol"></div>
+      </div>
+    </div>
+  </div>
+  <div class="player-bar" id="playerBar">
+    <div class="cover-art" id="coverArt">
+      <span class="icon"><i class="fa fa-music"></i></span>
+    </div>
+    <div class="track-info">
+      <div class="track-title" id="trackTitle">Track Title</div>
+      <div class="track-path" id="trackPath">Track Path</div>
+    </div>
+    <div class="controls">
+      <button onclick="prevTrack()" title="Previous"><i class="fa fa-backward"></i></button>
+      <button onclick="togglePlay()" id="playPauseBtn" title="Play/Pause"><i class="fa fa-play"></i></button>
+      <button onclick="nextTrack()" title="Next"><i class="fa fa-forward"></i></button>
+      <button onclick="toggleShuffle()" id="shuffleBtn" title="Shuffle"><i class="fa fa-random"></i></button>
+      <button onclick="toggleRepeat()" id="repeatBtn" title="Repeat"><i class="fa fa-redo"></i></button>
+    </div>
+    <div class="progress-bar" id="progressBar" onclick="seek(event)">
+      <div class="progress" id="progress"></div>
+    </div>
+    <div class="time-row">
+      <span id="currentTime">0:00</span>
+      <span id="duration">0:00</span>
+    </div>
+    <div class="volume-row">
+      <i class="fa fa-volume-up" id="volumeIcon"></i>
+      <input type="range" min="0" max="1" step="0.01" value="1" class="volume-slider" id="volumeSlider" />
+    </div>
+    <audio id="audioPlayer"></audio>
+  </div>
+  <script>
+    // --- Theme System ---
+    const themes = {
+      eva: {
+        name: "EVA (Purple/Green)",
+        css: `
+        :root {
+          --eva-purple: #6c3eb6;
+          --eva-green: #a6ff00;
+          --eva-dark: #181828;
+          --eva-bg: #23233a;
+          --eva-accent: #2e2e4d;
+          --eva-border: #3a3a5a;
+          --eva-fg: #fff;
+          --eva-fg2: #cfcfff;
+          --eva-queue: #2e2e4d;
+          --eva-kept: #1e1e2e;
+          --eva-folder: #23233a;
+          --eva-shadow: 0 4px 24px rgba(60,0,80,0.18);
+          --eva-btn-active: #6c3eb6;
+          --eva-btn-hover: #a6ff00;
+        }`
+      },
+      dark: {
+        name: "Dark (Blue/Gray)",
+        css: `
+        :root {
+          --eva-purple: #3a6ea5;
+          --eva-green: #00e6d3;
+          --eva-dark: #1a2233;
+          --eva-bg: #202a3a;
+          --eva-accent: #25304a;
+          --eva-border: #2a3a5a;
+          --eva-fg: #eaf6ff;
+          --eva-fg2: #b0c4de;
+          --eva-queue: #25304a;
+          --eva-kept: #1a2233;
+          --eva-folder: #202a3a;
+          --eva-shadow: 0 4px 24px rgba(30,60,120,0.18);
+          --eva-btn-active: #3a6ea5;
+          --eva-btn-hover: #00e6d3;
+        }`
+      },
+      light: {
+        name: "Light (White/Blue)",
+        css: `
+        :root {
+          --eva-purple: #3a6ea5;
+          --eva-green: #00bfff;
+          --eva-dark: #f5faff;
+          --eva-bg: #eaf6ff;
+          --eva-accent: #dbefff;
+          --eva-border: #b0c4de;
+          --eva-fg: #222;
+          --eva-fg2: #3a6ea5;
+          --eva-queue: #dbefff;
+          --eva-kept: #f5faff;
+          --eva-folder: #eaf6ff;
+          --eva-shadow: 0 4px 24px rgba(30,60,120,0.08);
+          --eva-btn-active: #3a6ea5;
+          --eva-btn-hover: #00bfff;
+        }`
+      },
+      terminal: {
+        name: "Terminal (Black/Green)",
+        css: `
+        :root {
+          --eva-purple: #00ff00;
+          --eva-green: #00ff00;
+          --eva-dark: #000;
+          --eva-bg: #111;
+          --eva-accent: #181818;
+          --eva-border: #222;
+          --eva-fg: #00ff00;
+          --eva-fg2: #00ff00;
+          --eva-queue: #181818;
+          --eva-kept: #000;
+          --eva-folder: #111;
+          --eva-shadow: 0 4px 24px rgba(0,255,0,0.08);
+          --eva-btn-active: #00ff00;
+          --eva-btn-hover: #00ff00;
+        }`
+      },
+      sunset: {
+        name: "Sunset (Orange/Pink)",
+        css: `
+        :root {
+          --eva-purple: #ff5e62;
+          --eva-green: #ff9966;
+          --eva-dark: #2d1a2d;
+          --eva-bg: #3a223a;
+          --eva-accent: #4a2e4a;
+          --eva-border: #5a3a5a;
+          --eva-fg: #fff0f0;
+          --eva-fg2: #ffd6d6;
+          --eva-queue: #4a2e4a;
+          --eva-kept: #2d1a2d;
+          --eva-folder: #3a223a;
+          --eva-shadow: 0 4px 24px rgba(255,94,98,0.18);
+          --eva-btn-active: #ff5e62;
+          --eva-btn-hover: #ff9966;
+        }`
+      }
+    };
+    function setTheme(themeKey) {
+      const style = document.getElementById('theme-style');
+      style.innerHTML = themes[themeKey].css + style.innerHTML.replace(/^[\s\S]*?\}/, '');
+      localStorage.setItem('gitplayer_theme', themeKey);
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+      const themeSelect = document.getElementById('themeSelect');
+      Object.entries(themes).forEach(([key, t]) => {
+        if (!themeSelect.querySelector(`option[value="${key}"]`)) {
+          const opt = document.createElement('option');
+          opt.value = key;
+          opt.textContent = t.name;
+          themeSelect.appendChild(opt);
+        }
+      });
+      const savedTheme = localStorage.getItem('gitplayer_theme') || 'eva';
+      themeSelect.value = savedTheme;
+      setTheme(savedTheme);
+      themeSelect.onchange = () => setTheme(themeSelect.value);
+    });
+
+    // --- Data Structures ---
+    const audioExtensions = ['.mp3', '.ogg', '.wav', '.flac', '.aac', '.m4a'];
+    let folders = []; // [{url, info, files: [{name, path, url, folderName}]}]
+    let kept = [];    // [{name, path, url, folderName}]
+    let queue = [];   // [{name, path, url, folderName}]
+    let currentIndex = 0;
+    let isPlaying = false;
+    let shuffle = false;
+    let repeat = false;
+    let shuffleOrder = [];
+    let shufflePointer = 0;
+
+    // --- DOM Elements ---
+    let audioPlayer, progressBar, progress, playPauseBtn, currentTimeEl, durationEl, coverArt, trackTitle, trackPath;
+    let folderListEl, keptListEl, queueListEl, statusEl, volumeSlider, volumeIcon;
+    let shuffleBtn, repeatBtn;
+
+    // --- Persistence ---
+    function saveState() {
+      localStorage.setItem('gitplayer_kept', JSON.stringify(kept));
+      localStorage.setItem('gitplayer_queue', JSON.stringify(queue));
+      localStorage.setItem('gitplayer_folders', JSON.stringify(folders.map(f => f.url)));
+      localStorage.setItem('gitplayer_shuffle', shuffle ? '1' : '0');
+      localStorage.setItem('gitplayer_repeat', repeat ? '1' : '0');
+    }
+    async function restoreState() {
+      // Restore folders
+      const folderUrls = JSON.parse(localStorage.getItem('gitplayer_folders') || '[]');
+      for (const url of folderUrls) {
+        try {
+          const info = parseGitHubUrl(url);
+          if (!info) continue;
+          const folderName = info.path.split('/').filter(Boolean).pop() || info.repo;
+          const files = await fetchFiles(info.owner, info.repo, info.branch, info.path, folderName);
+          if (files.length > 0) {
+            folders.push({ url, info, files, folderName });
+          }
+        } catch (e) {
+          // skip broken folders
+        }
+      }
+      renderFolders();
+      // Restore kept
+      kept = JSON.parse(localStorage.getItem('gitplayer_kept') || '[]');
+      renderKept();
+      // Restore queue
+      queue = JSON.parse(localStorage.getItem('gitplayer_queue') || '[]');
+      renderQueue();
+      // Restore shuffle/repeat
+      shuffle = localStorage.getItem('gitplayer_shuffle') === '1';
+      repeat = localStorage.getItem('gitplayer_repeat') === '1';
+      updateShuffleRepeatUI();
+      if (queue.length > 0) {
+        currentIndex = 0;
+        loadTrack(currentIndex, false);
+      }
+    }
+
+    // --- GitHub API ---
+    function parseGitHubUrl(url) {
+      const match = url.match(/^https:\/\/github\.com\/([^\/]+)\/([^\/]+)\/tree\/([^\/]+)\/?(.*)$/);
+      if (!match) return null;
+      return {
+        owner: match[1],
+        repo: match[2],
+        branch: match[3],
+        path: match[4] || ''
+      };
+    }
+    async function fetchFiles(owner, repo, branch, path, folderName) {
+      let files = [];
+      const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+      const resp = await fetch(apiUrl);
+      if (!resp.ok) throw new Error('Failed to fetch: ' + resp.status);
+      const items = await resp.json();
+      for (const item of items) {
+        if (item.type === 'file' && audioExtensions.some(ext => item.name.toLowerCase().endsWith(ext))) {
+          files.push({
+            name: item.name,
+            path: item.path,
+            url: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${item.path}`,
+            folderName
+          });
+        } else if (item.type === 'dir') {
+          const subFiles = await fetchFiles(owner, repo, branch, item.path, folderName);
+          files = files.concat(subFiles);
+        }
+      }
+      return files;
+    }
+    async function addFolder() {
+      const url = document.getElementById('repoUrl').value.trim();
+      if (!url) return;
+      const info = parseGitHubUrl(url);
+      statusEl.textContent = 'Loading...';
+      if (!info) {
+        statusEl.textContent = 'Invalid GitHub folder URL.';
+        return;
+      }
+      try {
+        const folderName = info.path.split('/').filter(Boolean).pop() || info.repo;
+        const files = await fetchFiles(info.owner, info.repo, info.branch, info.path, folderName);
+        if (files.length === 0) {
+          statusEl.textContent = 'No audio files found in this folder (including subfolders).';
+          return;
+        }
+        folders.push({ url, info, files, folderName });
+        statusEl.textContent = `Loaded ${files.length} audio file(s) from "${folderName}".`;
+        renderFolders();
+        saveState();
+      } catch (e) {
+        statusEl.textContent = 'Error: ' + e.message;
+      }
+    }
+
+    // --- Render Functions ---
+    function renderFolders() {
+      folderListEl.innerHTML = '';
+      folders.forEach((folder, fIdx) => {
+        const folderHeader = document.createElement('div');
+        folderHeader.className = "folder-header-row";
+        folderHeader.innerHTML = `
+          <span>${folder.folderName}</span>
+          <button onclick="addAllFromFolder(${fIdx})" title="Add all to Queue"><i class="fa fa-plus"></i> All</button>
+        `;
+        folderListEl.appendChild(folderHeader);
+        folder.files.forEach((file, idx) => {
+          const item = document.createElement('div');
+          item.className = 'track-item';
+          item.innerHTML = `
+            <span><i class="fa fa-music"></i></span>
+            <span class="track-name" title="${file.name}">${file.name}</span>
+            <span class="track-folder" title="${file.folderName}">${file.folderName}</span>
+            <button class="track-btn" title="Add to Queue"><i class="fa fa-plus"></i></button>
+            <button class="track-btn" title="Keep"><i class="fa fa-star"></i></button>
+          `;
+          item.onclick = (e) => {
+            if (e.target.closest('.track-btn')) return;
+            playFromList(file, queue, true);
+          };
+          item.querySelectorAll('.track-btn')[0].onclick = (e) => {
+            e.stopPropagation();
+            addToQueue(file);
+          };
+          item.querySelectorAll('.track-btn')[1].onclick = (e) => {
+            e.stopPropagation();
+            addToKept(file);
+          };
+          folderListEl.appendChild(item);
+        });
+      });
+    }
+    function addAllFromFolder(fIdx) {
+      const files = folders[fIdx].files;
+      let added = 0;
+      files.forEach(file => {
+        if (!queue.some(f => f.url === file.url)) {
+          queue.push(file);
+          added++;
+        }
+      });
+      renderQueue();
+      saveState();
+      if (queue.length > 0 && added > 0 && queue.length === added) {
+        currentIndex = 0;
+        loadTrack(currentIndex);
+      }
+    }
+    function renderKept() {
+      keptListEl.innerHTML = '';
+      kept.forEach((file, idx) => {
+        const item = document.createElement('div');
+        item.className = 'track-item';
+        item.innerHTML = `
+          <span><i class="fa fa-music"></i></span>
+          <span class="track-name" title="${file.name}">${file.name}</span>
+          <span class="track-folder" title="${file.folderName}">${file.folderName}</span>
+          <button class="track-btn" title="Add to Queue"><i class="fa fa-plus"></i></button>
+          <button class="track-btn" title="Remove from Kept"><i class="fa fa-trash"></i></button>
+        `;
+        item.onclick = (e) => {
+          if (e.target.closest('.track-btn')) return;
+          playFromList(file, kept, true);
+        };
+        item.querySelectorAll('.track-btn')[0].onclick = (e) => {
+          e.stopPropagation();
+          addToQueue(file);
+        };
+        item.querySelectorAll('.track-btn')[1].onclick = (e) => {
+          e.stopPropagation();
+          removeFromKept(idx);
+        };
+        keptListEl.appendChild(item);
+      });
+    }
+    function renderQueue() {
+      queueListEl.innerHTML = '';
+      queue.forEach((file, idx) => {
+        const item = document.createElement('div');
+        item.className = 'track-item' + (idx === currentIndex ? ' active' : '');
+        item.innerHTML = `
+          <span><i class="fa fa-music"></i></span>
+          <span class="track-name" title="${file.name}">${file.name}</span>
+          <span class="track-folder" title="${file.folderName}">${file.folderName}</span>
+          <button class="track-btn" title="Move Up"><i class="fa fa-arrow-up"></i></button>
+          <button class="track-btn" title="Move Down"><i class="fa fa-arrow-down"></i></button>
+          <button class="track-btn" title="Remove from Queue"><i class="fa fa-times"></i></button>
+          <button class="track-btn" title="Keep"><i class="fa fa-star"></i></button>
+        `;
+        item.onclick = (e) => {
+          if (e.target.closest('.track-btn')) return;
+          playFromList(file, queue, false, idx);
+        };
+        item.querySelectorAll('.track-btn')[0].onclick = (e) => {
+          e.stopPropagation();
+          moveInQueue(idx, -1);
+        };
+        item.querySelectorAll('.track-btn')[1].onclick = (e) => {
+          e.stopPropagation();
+          moveInQueue(idx, 1);
+        };
+        item.querySelectorAll('.track-btn')[2].onclick = (e) => {
+          e.stopPropagation();
+          removeFromQueue(idx);
+        };
+        item.querySelectorAll('.track-btn')[3].onclick = (e) => {
+          e.stopPropagation();
+          addToKept(file);
+        };
+        queueListEl.appendChild(item);
+      });
+    }
+
+    // --- List Actions ---
+    function addToQueue(file) {
+      if (!queue.some(f => f.url === file.url)) {
+        queue.push(file);
+        renderQueue();
+        saveState();
+        if (queue.length === 1) {
+          currentIndex = 0;
+          loadTrack(currentIndex);
+        }
+      }
+    }
+    function addToKept(file) {
+      if (!kept.some(f => f.url === file.url)) {
+        kept.push(file);
+        renderKept();
+        saveState();
+      }
+    }
+    function removeFromKept(idx) {
+      kept.splice(idx, 1);
+      renderKept();
+      saveState();
+    }
+    function removeFromQueue(idx) {
+      queue.splice(idx, 1);
+      if (queue.length === 0) {
+        audioPlayer.pause();
+        currentIndex = 0;
+        updatePlayerUI();
+      } else if (idx < currentIndex) {
+        currentIndex--;
+      } else if (idx === currentIndex) {
+        if (currentIndex >= queue.length) currentIndex = queue.length - 1;
+        loadTrack(currentIndex, false);
+      }
+      renderQueue();
+      saveState();
+    }
+    function moveInQueue(idx, dir) {
+      if ((dir === -1 && idx === 0) || (dir === 1 && idx === queue.length - 1)) return;
+      const newIdx = idx + dir;
+      [queue[idx], queue[newIdx]] = [queue[newIdx], queue[idx]];
+      if (currentIndex === idx) currentIndex = newIdx;
+      else if (currentIndex === newIdx) currentIndex = idx;
+      renderQueue();
+      loadTrack(currentIndex, false);
+      saveState();
+    }
+    function playFromList(file, list, addToQueueIfNot = true, idxOverride = null) {
+      let idx = list.findIndex(f => f.url === file.url);
+      if (list === queue) {
+        if (idx !== -1) {
+          currentIndex = idxOverride !== null ? idxOverride : idx;
+          loadTrack(currentIndex, true);
+        }
+      } else {
+        if (addToQueueIfNot && !queue.some(f => f.url === file.url)) {
+          queue.push(file);
+          renderQueue();
+          saveState();
+        }
+        let qIdx = queue.findIndex(f => f.url === file.url);
+        if (qIdx !== -1) {
+          currentIndex = qIdx;
+          loadTrack(currentIndex, true);
+        }
+      }
+    }
+
+    // --- Player Logic ---
+    function loadTrack(idx, autoPlay = false) {
+      if (!queue[idx]) return;
+      currentIndex = idx;
+      const file = queue[idx];
+      audioPlayer.src = file.url;
+      trackTitle.textContent = file.name;
+      trackPath.textContent = file.path;
+      // Try to load cover art if present in the same folder (cover.jpg/png)
+      const coverUrl = file.path.replace(/[^\/]+$/, '') + 'cover.jpg';
+      const coverPngUrl = file.path.replace(/[^\/]+$/, '') + 'cover.png';
+      setCoverArt(null);
+      const folderInfo = folders.find(f => f.folderName === file.folderName);
+      if (folderInfo) {
+        const { owner, repo, branch } = folderInfo.info;
+        fetchImage(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${coverUrl}`)
+          .then(img => setCoverArt(img))
+          .catch(() => {
+            fetchImage(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${coverPngUrl}`)
+              .then(img => setCoverArt(img))
+              .catch(() => setCoverArt(null));
+          });
+      }
+      renderQueue();
+      saveState();
+      if (autoPlay) playTrack();
+      else pauseTrack();
+    }
+    function setCoverArt(img) {
+      coverArt.innerHTML = '';
+      if (img) {
+        coverArt.appendChild(img);
+      } else {
+        coverArt.innerHTML = `<span class="icon"><i class="fa fa-music"></i></span>`;
+      }
+    }
+    function fetchImage(url) {
+      return new Promise((resolve, reject) => {
+        const img = new window.Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
+    function playTrack() {
+      if (!queue[currentIndex]) return;
+      audioPlayer.play();
+      isPlaying = true;
+      playPauseBtn.innerHTML = '<i class="fa fa-pause"></i>';
+      renderQueue();
+    }
+    function pauseTrack() {
+      audioPlayer.pause();
+      isPlaying = false;
+      playPauseBtn.innerHTML = '<i class="fa fa-play"></i>';
+    }
+    function togglePlay() {
+      if (audioPlayer.paused) playTrack();
+      else pauseTrack();
+    }
+    function prevTrack() {
+      if (shuffle && shuffleOrder.length > 0) {
+        shufflePointer = Math.max(0, shufflePointer - 1);
+        currentIndex = shuffleOrder[shufflePointer];
+        loadTrack(currentIndex, true);
+      } else if (currentIndex > 0) {
+        loadTrack(currentIndex - 1, true);
+      }
+    }
+    function nextTrack() {
+      if (shuffle && shuffleOrder.length > 0) {
+        shufflePointer++;
+        if (shufflePointer >= shuffleOrder.length) {
+          if (repeat) {
+            shufflePointer = 0;
+          } else {
+            pauseTrack();
+            return;
+          }
+        }
+        currentIndex = shuffleOrder[shufflePointer];
+        loadTrack(currentIndex, true);
+      } else if (currentIndex < queue.length - 1) {
+        loadTrack(currentIndex + 1, true);
+      } else if (repeat) {
+        loadTrack(0, true);
+      }
+    }
+    function seek(e) {
+      const rect = progressBar.getBoundingClientRect();
+      const percent = (e.clientX - rect.left) / rect.width;
+      audioPlayer.currentTime = percent * audioPlayer.duration;
+    }
+    function formatTime(sec) {
+      if (isNaN(sec)) return '0:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+    function updatePlayerUI() {
+      if (!queue[currentIndex]) {
+        trackTitle.textContent = 'Track Title';
+        trackPath.textContent = 'Track Path';
+        setCoverArt(null);
+        progress.style.width = '0%';
+        currentTimeEl.textContent = '0:00';
+        durationEl.textContent = '0:00';
+        playPauseBtn.innerHTML = '<i class="fa fa-play"></i>';
+        return;
+      }
+      const file = queue[currentIndex];
+      trackTitle.textContent = file.name;
+      trackPath.textContent = file.path;
+    }
+
+    // --- Shuffle/Repeat ---
+    function toggleShuffle() {
+      shuffle = !shuffle;
+      updateShuffleRepeatUI();
+      saveState();
+      if (shuffle) {
+        shuffleOrder = Array.from(queue.keys());
+        shuffleOrder = shuffleOrder.sort(() => Math.random() - 0.5);
+        shufflePointer = shuffleOrder.indexOf(currentIndex);
+      } else {
+        shuffleOrder = [];
+        shufflePointer = 0;
+      }
+    }
+    function toggleRepeat() {
+      repeat = !repeat;
+      updateShuffleRepeatUI();
+      saveState();
+    }
+    function updateShuffleRepeatUI() {
+      if (!shuffleBtn || !repeatBtn) return;
+      shuffleBtn.classList.toggle('active', shuffle);
+      repeatBtn.classList.toggle('active', repeat);
+    }
+
+    // --- Audio Events ---
+    function setupAudioEvents() {
+      audioPlayer.addEventListener('timeupdate', () => {
+        progress.style.width = ((audioPlayer.currentTime / audioPlayer.duration) * 100 || 0) + '%';
+        currentTimeEl.textContent = formatTime(audioPlayer.currentTime);
+        durationEl.textContent = formatTime(audioPlayer.duration);
+      });
+      audioPlayer.addEventListener('ended', () => {
+        if (repeat || shuffle) {
+          nextTrack();
+        } else if (currentIndex < queue.length - 1) {
+          loadTrack(currentIndex + 1, true);
+        } else {
+          pauseTrack();
+          audioPlayer.currentTime = 0;
+        }
+      });
+      audioPlayer.addEventListener('play', () => {
+        isPlaying = true;
+        playPauseBtn.innerHTML = '<i class="fa fa-pause"></i>';
+      });
+      audioPlayer.addEventListener('pause', () => {
+        isPlaying = false;
+        playPauseBtn.innerHTML = '<i class="fa fa-play"></i>';
+      });
+      audioPlayer.addEventListener('volumechange', () => {
+        if (audioPlayer.volume === 0) {
+          volumeIcon.className = "fa fa-volume-mute";
+        } else {
+          volumeIcon.className = "fa fa-volume-up";
+        }
+      });
+    }
+
+    // --- Volume ---
+    function setupVolume() {
+      volumeSlider.value = audioPlayer.volume;
+      volumeSlider.oninput = () => {
+        audioPlayer.volume = volumeSlider.value;
+      };
+    }
+
+    // --- Keyboard Controls ---
+    document.addEventListener('keydown', e => {
+      if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') return;
+      if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+      if (e.code === 'ArrowRight') { e.preventDefault(); nextTrack(); }
+      if (e.code === 'ArrowLeft') { e.preventDefault(); prevTrack(); }
+      if (e.code === 'KeyS') { e.preventDefault(); toggleShuffle(); }
+      if (e.code === 'KeyR') { e.preventDefault(); toggleRepeat(); }
+    });
+
+    // --- Resizable Columns ---
+    function setupResizableColumns() {
+      let isResizing = false;
+      let startX, startWidth, col;
+      document.querySelectorAll('.resize-handle').forEach(handle => {
+        handle.addEventListener('mousedown', function(e) {
+          isResizing = true;
+          col = document.getElementById(this.dataset.col);
+          startX = e.clientX;
+          startWidth = col.offsetWidth;
+          document.body.style.cursor = 'ew-resize';
+          e.preventDefault();
+        });
+      });
+      window.addEventListener('mousemove', function(e) {
+        if (!isResizing || !col) return;
+        let dx = e.clientX - startX;
+        let newWidth = Math.max(120, Math.min(600, startWidth + dx));
+        col.style.width = newWidth + 'px';
+      });
+      window.addEventListener('mouseup', function() {
+        if (isResizing) {
+          isResizing = false;
+          document.body.style.cursor = '';
+        }
+      });
+    }
+
+    // --- Init ---
+    window.onload = async () => {
+      audioPlayer = document.getElementById('audioPlayer');
+      progressBar = document.getElementById('progressBar');
+      progress = document.getElementById('progress');
+      playPauseBtn = document.getElementById('playPauseBtn');
+      currentTimeEl = document.getElementById('currentTime');
+      durationEl = document.getElementById('duration');
+      coverArt = document.getElementById('coverArt');
+      trackTitle = document.getElementById('trackTitle');
+      trackPath = document.getElementById('trackPath');
+      folderListEl = document.getElementById('folderList');
+      keptListEl = document.getElementById('keptList');
+      queueListEl = document.getElementById('queueList');
+      statusEl = document.getElementById('status');
+      volumeSlider = document.getElementById('volumeSlider');
+      volumeIcon = document.getElementById('volumeIcon');
+      shuffleBtn = document.getElementById('shuffleBtn');
+      repeatBtn = document.getElementById('repeatBtn');
+      setupAudioEvents();
+      setupVolume();
+      setupResizableColumns();
+      await restoreState();
+      updateShuffleRepeatUI();
+    };
+    // Expose addAllFromFolder for inline onclick
+    window.addAllFromFolder = addAllFromFolder;
+  </script>
+</body>
+</html>

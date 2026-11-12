@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Justify Text by Longest Phrase</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #111;
+      color: #f4f4f4;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+    }
+
+    .panel {
+      padding: 24px;
+      background: #1a1a1a;
+      border-right: 1px solid #333;
+      overflow: auto;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0 0 16px;
+      line-height: 1.1;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #bbb;
+      margin: 18px 0 6px;
+    }
+
+    textarea,
+    input,
+    select,
+    button {
+      width: 100%;
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid #444;
+      background: #0e0e0e;
+      color: #fff;
+      padding: 10px 12px;
+    }
+
+    textarea {
+      height: 220px;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    input[type="range"] {
+      padding: 0;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 72px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    button {
+      margin-top: 18px;
+      cursor: pointer;
+      background: #f4f4f4;
+      color: #111;
+      border: none;
+      font-weight: 700;
+    }
+
+    button:hover {
+      background: #fff;
+    }
+
+    .stage-wrap {
+      min-width: 0;
+      display: grid;
+      place-items: center;
+      padding: 32px;
+      overflow: auto;
+    }
+
+    .stage {
+      background: #f2efe8;
+      color: #111;
+      padding: 48px;
+      width: min(900px, 100%);
+      min-height: 500px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 20px;
+      box-shadow: 0 20px 80px rgba(0,0,0,.35);
+    }
+
+    .output {
+      display: inline-block;
+      white-space: nowrap;
+      text-transform: uppercase;
+      font-weight: 900;
+      line-height: 1.02;
+      letter-spacing: 0;
+      text-align: center;
+    }
+
+    .line {
+      display: block;
+      width: max-content;
+      transform-origin: center;
+    }
+
+    .line span {
+      display: inline-block;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: #888;
+      line-height: 1.35;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 800px) {
+      body {
+        grid-template-columns: 1fr;
+      }
+
+      .panel {
+        border-right: 0;
+        border-bottom: 1px solid #333;
+      }
+    }
+  </style>
+</head>
+<body>
+  <aside class="panel">
+    <h1>Justify Text by Longest Phrase</h1>
+
+    <label for="textInput">Text / phrases, one per line</label>
+    <textarea id="textInput">THE WORLD IS
+A BEAUTIFUL PLACE
+BUT ALSO
+A STRANGE ONE</textarea>
+
+    <label for="fontSize">Font size</label>
+    <div class="row">
+      <input id="fontSize" type="range" min="24" max="140" value="72" />
+      <input id="fontSizeNumber" type="number" min="24" max="140" value="72" />
+    </div>
+
+    <label for="lineHeight">Line height</label>
+    <div class="row">
+      <input id="lineHeight" type="range" min="0.7" max="1.8" step="0.01" value="1.02" />
+      <input id="lineHeightNumber" type="number" min="0.7" max="1.8" step="0.01" value="1.02" />
+    </div>
+
+    <label for="mode">Justify mode</label>
+    <select id="mode">
+      <option value="word">Stretch spaces between words</option>
+      <option value="letter">Stretch letters</option>
+      <option value="scale">Scale whole line</option>
+    </select>
+
+    <label for="fontFamily">Font</label>
+    <select id="fontFamily">
+      <option value="Arial Black, Impact, sans-serif">Heavy Sans</option>
+      <option value="Impact, Haettenschweiler, sans-serif">Condensed Poster</option>
+      <option value="Georgia, serif">Serif</option>
+      <option value="Courier New, monospace">Monospace</option>
+    </select>
+
+    <button id="copyButton">Copy HTML Output</button>
+
+    <p class="hint">
+      Longest phrase becomes the target width. Shorter lines are expanded to match it.
+    </p>
+  </aside>
+
+  <main class="stage-wrap">
+    <section class="stage">
+      <div id="output" class="output"></div>
+    </section>
+  </main>
+
+  <script>
+    const textInput = document.getElementById('textInput');
+    const output = document.getElementById('output');
+    const mode = document.getElementById('mode');
+    const fontFamily = document.getElementById('fontFamily');
+    const copyButton = document.getElementById('copyButton');
+
+    const fontSize = document.getElementById('fontSize');
+    const fontSizeNumber = document.getElementById('fontSizeNumber');
+    const lineHeight = document.getElementById('lineHeight');
+    const lineHeightNumber = document.getElementById('lineHeightNumber');
+
+    function syncInputs(range, number) {
+      range.addEventListener('input', () => {
+        number.value = range.value;
+        render();
+      });
+
+      number.addEventListener('input', () => {
+        range.value = number.value;
+        render();
+      });
+    }
+
+    syncInputs(fontSize, fontSizeNumber);
+    syncInputs(lineHeight, lineHeightNumber);
+
+    [textInput, mode, fontFamily].forEach(el => el.addEventListener('input', render));
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>"]/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;'
+      }[char]));
+    }
+
+    function getTextWidth(text, styles) {
+      const temp = document.createElement('span');
+      temp.textContent = text || ' ';
+      temp.style.position = 'absolute';
+      temp.style.visibility = 'hidden';
+      temp.style.whiteSpace = 'nowrap';
+      temp.style.fontFamily = styles.fontFamily;
+      temp.style.fontSize = styles.fontSize;
+      temp.style.fontWeight = styles.fontWeight;
+      temp.style.textTransform = styles.textTransform;
+      document.body.appendChild(temp);
+      const width = temp.getBoundingClientRect().width;
+      temp.remove();
+      return width;
+    }
+
+    function render() {
+      const lines = textInput.value
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean);
+
+      output.innerHTML = '';
+      output.style.fontSize = `${fontSize.value}px`;
+      output.style.lineHeight = lineHeight.value;
+      output.style.fontFamily = fontFamily.value;
+
+      if (!lines.length) return;
+
+      const styles = getComputedStyle(output);
+      const widths = lines.map(line => getTextWidth(line, styles));
+      const targetWidth = Math.max(...widths);
+
+      lines.forEach((line, index) => {
+        const lineEl = document.createElement('div');
+        lineEl.className = 'line';
+        lineEl.textContent = line;
+
+        const currentWidth = widths[index];
+        const difference = targetWidth - currentWidth;
+
+        if (mode.value === 'word') {
+          const wordCount = line.split(/\s+/).length;
+          const gaps = Math.max(0, wordCount - 1);
+          lineEl.style.wordSpacing = gaps > 0 ? `${difference / gaps}px` : '0px';
+        }
+
+        if (mode.value === 'letter') {
+          const chars = line.replace(/\s/g, '').length;
+          const gaps = Math.max(1, chars - 1);
+          lineEl.style.letterSpacing = `${difference / gaps}px`;
+        }
+
+        if (mode.value === 'scale') {
+          const scale = currentWidth > 0 ? targetWidth / currentWidth : 1;
+          lineEl.style.transform = `scaleX(${scale})`;
+        }
+
+        output.appendChild(lineEl);
+      });
+    }
+
+    copyButton.addEventListener('click', async () => {
+      const html = output.outerHTML;
+      await navigator.clipboard.writeText(html);
+      copyButton.textContent = 'Copied!';
+      setTimeout(() => copyButton.textContent = 'Copy HTML Output', 900);
+    });
+
+    render();
+  </script>
+</body>
+</html>

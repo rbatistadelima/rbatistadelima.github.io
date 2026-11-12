@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Coloring Book Timelapse</title>
+
+<style>
+body {
+  background:#222;
+  color:#eee;
+  font-family:sans-serif;
+  text-align:center;
+}
+canvas {
+  background:white;
+  border:1px solid #555;
+  margin-top:10px;
+}
+button, input {
+  margin:6px;
+  padding:6px 12px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Coloring Book Timelapse</h2>
+
+<input type="file" id="upload" accept="image/*"><br>
+<button id="play">Play</button><br>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let originalImageData = null;
+let lineartImageData = null;
+let colorBuckets = [];
+let animating = false;
+
+/* ================= IMAGE LOAD ================= */
+
+document.getElementById("upload").addEventListener("change", e => {
+  const img = new Image();
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+
+    ctx.drawImage(img, 0, 0);
+    originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    lineartImageData = generateLineart(originalImageData);
+    ctx.putImageData(lineartImageData, 0, 0);
+
+    colorBuckets = extractColors(originalImageData);
+  };
+  img.src = URL.createObjectURL(e.target.files[0]);
+});
+
+/* ================= LINEART ================= */
+
+function generateLineart(img) {
+  const w = img.width;
+  const h = img.height;
+  const src = img.data;
+  const out = new ImageData(w, h);
+  const gray = new Float32Array(w * h);
+
+  for (let i = 0; i < w * h; i++) {
+    gray[i] = (src[i*4] + src[i*4+1] + src[i*4+2]) / 3;
+  }
+
+  const sobel = (x, y) => {
+    const i = y * w + x;
+    const gx =
+      -gray[i-w-1] - 2*gray[i-1] - gray[i+w-1] +
+       gray[i-w+1] + 2*gray[i+1] + gray[i+w+1];
+    const gy =
+      -gray[i-w-1] - 2*gray[i-w] - gray[i-w+1] +
+       gray[i+w-1] + 2*gray[i+w] + gray[i+w+1];
+    return Math.sqrt(gx*gx + gy*gy);
+  };
+
+  for (let y = 1; y < h-1; y++) {
+    for (let x = 1; x < w-1; x++) {
+      const edge = sobel(x, y);
+      const v = edge > 60 ? 0 : 255;
+      const i = (y*w + x) * 4;
+      out.data[i] = out.data[i+1] = out.data[i+2] = v;
+      out.data[i+3] = 255;
+    }
+  }
+  return out;
+}
+
+/* ================= COLOR EXTRACTION ================= */
+
+function extractColors(img) {
+  const map = new Map();
+  const d = img.data;
+
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] < 200) continue;
+
+    // quantize to reduce noise
+    const r = d[i]   >> 4;
+    const g = d[i+1] >> 4;
+    const b = d[i+2] >> 4;
+    const key = `${r},${g},${b}`;
+
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(i);
+  }
+
+  return [...map.entries()];
+}
+
+/* ================= PAINT ANIMATION ================= */
+
+document.getElementById("play").onclick = async () => {
+  if (!originalImageData || animating) return;
+
+  animating = true;
+  ctx.putImageData(lineartImageData, 0, 0);
+
+  for (const [key, pixels] of colorBuckets) {
+    const [r, g, b] = key.split(",").map(v => parseInt(v) << 4);
+    await paintColor(pixels, r, g, b);
+  }
+
+  animating = false;
+};
+
+function paintColor(pixels, r, g, b) {
+  return new Promise(resolve => {
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // ---- mask canvas ----
+    const mask = document.createElement("canvas");
+    mask.width = w;
+    mask.height = h;
+    const mctx = mask.getContext("2d");
+    const maskData = mctx.createImageData(w, h);
+
+    for (const i of pixels) {
+      maskData.data[i]     = 255;
+      maskData.data[i + 1] = 255;
+      maskData.data[i + 2] = 255;
+      maskData.data[i + 3] = 255;
+    }
+    mctx.putImageData(maskData, 0, 0);
+
+    // ---- stroke canvas ----
+    const stroke = document.createElement("canvas");
+    stroke.width = w;
+    stroke.height = h;
+    const sctx = stroke.getContext("2d");
+
+    let t = -h;
+    const speed = 2;
+
+    function frame() {
+      sctx.clearRect(0, 0, w, h);
+
+      // diagonal sweeping stroke
+      sctx.strokeStyle = `rgba(${r},${g},${b},0.85)`;
+      sctx.lineWidth = 28;
+      sctx.lineCap = "round";
+      sctx.beginPath();
+      sctx.moveTo(-w, t + h);
+      sctx.lineTo(w * 2, t);
+      sctx.stroke();
+
+      // clip to mask
+      sctx.globalCompositeOperation = "destination-in";
+      sctx.drawImage(mask, 0, 0);
+      sctx.globalCompositeOperation = "source-over";
+
+      // paint onto main canvas
+      ctx.drawImage(stroke, 0, 0);
+
+      t += speed;
+      if (t < h * 2) {
+        requestAnimationFrame(frame);
+      } else {
+        resolve();
+      }
+    }
+
+    frame();
+  });
+}
+</script>
+
+</body>
+</html>

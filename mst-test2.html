@@ -1,0 +1,233 @@
+<tw-storydata name="mst-test2" startnode="1" creator="Twine" creator-version="2.2.1" ifid="07916A6A-163B-4152-B688-229AA0D6EB31" zoom="1" format="SugarCube" format-version="2.21.0" options="" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css">body {
+  background-color: white;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  user-select: none;
+  color: black;
+}
+
+#story {
+  background-color: white;
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+#passages {
+  background-color: white;
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  position:absolute;
+  top:0px;
+  right:0px;
+  bottom:0px;
+  left:0px;
+}
+
+button {
+  -webkit-border-radius: 5px;
+  -moz-border-radius: 5px;
+  border-radius: 5px;
+  background-image: -webkit-gradient(linear, left bottom, left top, color-stop(0.16, rgb(207, 207, 207)), color-stop(0.79, rgb(252, 252, 252)));
+  background-image: -moz-linear-gradient(center bottom, rgb(207, 207, 207) 16%, rgb(252, 252, 252) 79%);
+  background-image: linear-gradient(to top, rgb(207, 207, 207) 16%, rgb(252, 252, 252) 79%); 
+  padding: 3px;
+  border: 1px solid #000;
+  color: black;
+  text-decoration: none;
+}
+
+.column {
+  float: left;
+  width: 20%;
+  padding: 0px;
+  height: 300px;
+  text-align: center;
+  background-color: white !important;
+}
+
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+.left, .right {
+  width: 15%;
+  background-color: red !important;
+  height: 100vh;
+}
+
+.middle {
+  height: 100%;
+  width: 70%;
+  background-color: pink !important;
+  text-align: center;
+  display: table-cell !important;
+  vertical-align: middle !important;
+}
+
+.top {
+  width: 100%;
+  height: 2em;
+  background-color: green !important;
+}
+
+.bottom {
+  background-color: orange !important;
+  position: absolute;
+  width: 70%;
+  height: 3em;
+  bottom: 0;
+}
+
+p {
+  display: flex;
+  justify-content: space-between;
+}
+
+table {
+  border: 1px solid red !important; 
+  width: 100% !important;
+  max-width: 450px !important;
+}
+
+td {
+  width: 50px !important;
+  height: 50px !important;
+  border: 1px black solid;
+}
+
+.grid {
+  border: 1px solid red !important; 
+  width: 100% !important;
+  max-width: 450px !important;
+  margin-top: 0 !important;
+  margin-right: auto !important;
+  margin-left: auto !important;
+  transform: perspective(1000px) rotateX(35deg) !important;
+}
+
+.grid td {
+  width: 150px !important;
+  height: 150px !important;
+  border: 5px black solid;
+}
+
+</style><script role="script" id="twine-user-script" type="text/twine-javascript">$('#ui-bar').remove();
+$(document.head).find('#style-ui-bar').remove();
+
+
+
+</script><tw-passagedata pid="1" name="plantação" tags="" position="511,175" size="100,100">&lt;&lt;nobr&gt;&gt;
+&lt;div class=&quot;row&quot;&gt;
+&lt;div class=&quot;column left&quot; style=&quot;background-color:#aaa;&quot;&gt;
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+&lt;br&gt;&lt;br&gt;
+&lt;button type=&quot;button&quot; title=&quot;5 pontos de energia&amp;#10;Clicando nesse icone você abre o inventario e vê apenas as sementes, pode então escolher uma para plantar&quot;&gt;Plantar semente&lt;/button&gt;
+&lt;br&gt;&lt;br&gt;&lt;button type=&quot;button&quot; title=&quot;5 pontos de energia&amp;#10;Após a semente estar no solo esse opção se habilita, permitindo então que você cubra o quadrado do canteiro com a matéria&quot;&gt;Criar cobertura de solo&lt;/button&gt;
+&lt;/div&gt;
+&lt;div class=&quot;column middle&quot; style=&quot;background-color:#bbb;&quot;&gt;
+
+&lt;div class=&quot;column top&quot;&gt;
+&lt;span style=&quot;float:left;padding:10px;&quot;&gt;João&lt;/span&gt;&lt;span style=&quot;display:inline-block;padding-top:10px;&quot;&gt;04:02&lt;/span&gt;&lt;span style=&quot;float:right;padding:10px;&quot;&gt;27/05&lt;/span&gt;
+&lt;/div&gt;&lt;table class=&quot;grid&quot;&gt;
+&lt;tbody&gt;&lt;tr&gt;
+    &lt;td id=&quot;grid7&quot; onclick=&quot;document.getElementById(&#39;energy&#39;).textContent = &#39;7 selected&#39;;&quot;&gt;&lt;div class=&quot;content&quot;&gt;7&lt;/div&gt;&lt;/td&gt;
+    &lt;td id=&quot;grid8&quot; onclick=&quot;document.getElementById(&#39;energy&#39;).textContent = &#39;8 selected&#39;;&quot;&gt;&lt;div class=&quot;content&quot;&gt;8&lt;/div&gt;&lt;/td&gt;
+    &lt;td id=&quot;grid9&quot; onclick=&quot;document.getElementById(&#39;energy&#39;).textContent = &#39;9 selected&#39;;&quot;&gt;&lt;div class=&quot;content&quot;&gt;9&lt;/div&gt;&lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td id=&quot;grid4&quot; onclick=&quot;document.getElementById(&#39;energy&#39;).textContent = &#39;4 selected&#39;;&quot;&gt;&lt;div class=&quot;content&quot;&gt;4&lt;/div&gt;&lt;/td&gt;
+    &lt;td id=&quot;grid5&quot; onclick=&quot;document.getElementById(&#39;energy&#39;).textContent = &#39;5 selected&#39;;&quot;&gt;&lt;div class=&quot;content&quot;&gt;5&lt;/div&gt;&lt;/td&gt;
+    &lt;td id=&quot;grid6&quot; onclick=&quot;document.getElementById(&#39;energy&#39;).textContent = &#39;6 selected&#39;;&quot;&gt;&lt;div class=&quot;content&quot;&gt;6&lt;/div&gt;&lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td id=&quot;grid1&quot; onclick=&quot;document.getElementById(&#39;energy&#39;).textContent = &#39;1 selected&#39;;&quot;&gt;&lt;div class=&quot;content&quot;&gt;1&lt;/div&gt;&lt;/td&gt;
+    &lt;td id=&quot;grid2&quot; onclick=&quot;document.getElementById(&#39;energy&#39;).textContent = &#39;2 selected&#39;;&quot;&gt;&lt;div class=&quot;content&quot;&gt;2&lt;/div&gt;&lt;/td&gt;
+    &lt;td id=&quot;grid3&quot; onclick=&quot;document.getElementById(&#39;energy&#39;).textContent = &#39;3 selected&#39;;&quot;&gt;&lt;div class=&quot;content&quot;&gt;3&lt;/div&gt;&lt;/td&gt;
+&lt;/tr&gt;&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;div class=&quot;bottom&quot;&gt;&lt;&lt;set $stamina to 100&gt;&gt;
+&lt;div id=&quot;energy&quot;&gt;stamina $stamina&lt;/div&gt;&lt;button type=&quot;button&quot; title=&quot;10 pontos de energia&amp;#10;Após equipar a enxada, pá, rastelo, ou ambas você deve afofar a terra para então adicionar a semente&quot;&gt;Afofar terra&lt;&lt;set $stamina to 90&gt;&gt;&lt;&lt;silently&gt;&gt;&lt;&lt;replace &quot;#energy&quot;&gt;&gt;stamina $stamina&lt;&lt;/replace&gt;&gt;&lt;&lt;/silently&gt;&gt;
+&lt;/button&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;column right&quot; style=&quot;background-color:#ccc;&quot;&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;Inventário
+&lt;table&gt;
+&lt;tbody&gt;&lt;tr&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+&lt;/tr&gt;&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;&lt;script&gt;&gt;
+/* document.getElementById(&quot;grid1&quot;).onclick =  */
+&lt;&lt;/script&gt;&gt;
+&lt;&lt;/nobr&gt;&gt;</tw-passagedata><tw-passagedata pid="2" name="backup" tags="" position="509,295" size="100,100">&lt;&lt;nobr&gt;&gt;
+&lt;div class=&quot;row&quot;&gt;
+&lt;div class=&quot;column left&quot; style=&quot;background-color:#aaa;&quot;&gt;
+&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;
+&lt;br&gt;&lt;br&gt;&lt;button type=&quot;button&quot; title=&quot;5 pontos de energia&amp;#10;Clicando nesse icone você abre o inventario e vê apenas as sementes, pode então escolher uma para plantar&quot;&gt;Plantar semente&lt;/button&gt;
+&lt;br&gt;&lt;br&gt;&lt;button type=&quot;button&quot; title=&quot;5 pontos de energia&amp;#10;Após a semente estar no solo esse opção se habilita, permitindo então que você cubra o quadrado do canteiro com a matéria&quot;&gt;Criar cobertura de solo&lt;/button&gt;
+&lt;/div&gt;
+&lt;div class=&quot;column middle&quot; style=&quot;background-color:#bbb;&quot;&gt;
+
+&lt;div class=&quot;column top&quot;&gt;
+&lt;span style=&quot;float:left;padding:10px;&quot;&gt;João&lt;/span&gt;&lt;span style=&quot;display:inline-block;padding-top:10px;&quot;&gt;04:02&lt;/span&gt;&lt;span style=&quot;float:right;padding:10px;&quot;&gt;27/05&lt;/span&gt;
+&lt;/div&gt;&lt;table class=&quot;grid&quot;&gt;
+&lt;tbody&gt;&lt;tr&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+&lt;/tr&gt;&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;div class=&quot;bottom&quot;&gt;&lt;&lt;set $stamina to 100&gt;&gt;
+&lt;div id=&quot;energy&quot;&gt;stamina $stamina&lt;/div&gt;&lt;button type=&quot;button&quot; title=&quot;10 pontos de energia&amp;#10;Após equipar a enxada, pá, rastelo, ou ambas você deve afofar a terra para então adicionar a semente&quot;&gt;Afofar terra&lt;&lt;set $stamina to 90&gt;&gt;&lt;&lt;silently&gt;&gt;&lt;&lt;replace &quot;#energy&quot;&gt;&gt;stamina $stamina&lt;&lt;/replace&gt;&gt;&lt;&lt;/silently&gt;&gt;
+&lt;/button&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;column right&quot; style=&quot;background-color:#ccc;&quot;&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;Inventário
+&lt;table&gt;
+&lt;tbody&gt;&lt;tr&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+    &lt;td&gt;&lt;div class=&quot;content&quot;&gt;&lt;/div&gt;&lt;/td&gt;
+&lt;/tr&gt;&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;&lt;/div&gt;
+&lt;&lt;/nobr&gt;&gt;</tw-passagedata></tw-storydata>

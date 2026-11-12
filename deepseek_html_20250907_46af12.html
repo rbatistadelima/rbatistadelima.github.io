@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII RPG Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #000;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 10px;
+            border-bottom: 1px solid #fff;
+            margin-bottom: 10px;
+        }
+        
+        .container {
+            display: flex;
+            flex: 1;
+            gap: 10px;
+            overflow: hidden;
+        }
+        
+        .character-panel {
+            width: 30%;
+            border: 1px solid #fff;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .log-panel {
+            width: 70%;
+            border: 1px solid #fff;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .panel-title {
+            text-align: center;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #fff;
+        }
+        
+        .stats {
+            margin-bottom: 15px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .inventory {
+            margin-bottom: 15px;
+        }
+        
+        .inventory-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .item {
+            border: 1px solid #fff;
+            padding: 3px 6px;
+            font-size: 12px;
+        }
+        
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: auto;
+        }
+        
+        button {
+            background: #000;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #fff;
+            color: #000;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        button:disabled:hover {
+            background: #000;
+            color: #fff;
+        }
+        
+        .log-content {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding-right: 5px;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed #333;
+            font-size: 14px;
+        }
+        
+        .voice-controls {
+            display: flex;
+            gap: 10px;
+            padding: 5px;
+            border-top: 1px solid #fff;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 10px;
+            border-top: 1px solid #fff;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #fff;
+        }
+        
+        /* Status indicators */
+        .health-bar, .mana-bar, .explore-bar {
+            height: 10px;
+            border: 1px solid #fff;
+            margin-top: 2px;
+            margin-bottom: 10px;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: #fff;
+            width: 80%;
+        }
+        
+        .mana-fill {
+            height: 100%;
+            background: #fff;
+            width: 60%;
+        }
+        
+        .explore-fill {
+            height: 100%;
+            background: #fff;
+            width: 0%;
+            transition: width 0.5s linear;
+        }
+        
+        .exploration-status {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        .location-display {
+            text-align: center;
+            margin: 10px 0;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ASCII RPG EXPLORER</h1>
+    </div>
+    
+    <div class="container">
+        <div class="character-panel">
+            <div class="panel-title">CHARACTER INFO</div>
+            
+            <div class="stats">
+                <div class="stat-row">
+                    <span>Name:</span>
+                    <span>Eldric</span>
+                </div>
+                <div class="stat-row">
+                    <span>Class:</span>
+                    <span>Mage</span>
+                </div>
+                <div class="stat-row">
+                    <span>Level:</span>
+                    <span>3</span>
+                </div>
+                <div class="stat-row">
+                    <span>Health:</span>
+                    <span>42/50</span>
+                </div>
+                <div class="health-bar">
+                    <div class="health-fill"></div>
+                </div>
+                <div class="stat-row">
+                    <span>Mana:</span>
+                    <span>30/50</span>
+                </div>
+                <div class="mana-bar">
+                    <div class="mana-fill"></div>
+                </div>
+                <div class="stat-row">
+                    <span>Gold:</span>
+                    <span>125</span>
+                </div>
+            </div>
+            
+            <div class="location-display">
+                Current Location: <br>Darkwood Forest
+            </div>
+            
+            <div class="inventory">
+                <div class="panel-title">INVENTORY</div>
+                <div class="inventory-items">
+                    <div class="item">Health Potion</div>
+                    <div class="item">Mana Potion</div>
+                    <div class="item">Scroll of Fire</div>
+                    <div class="item">Rations (3)</div>
+                    <div class="item">Iron Key</div>
+                </div>
+            </div>
+            
+            <div class="actions">
+                <button id="explore-btn" onclick="startExploration()">EXPLORE</button>
+                <button onclick="performAction('rest')">REST</button>
+                <button onclick="performAction('fight')">FIGHT</button>
+                <button onclick="performAction('shop')">SHOP</button>
+            </div>
+        </div>
+        
+        <div class="log-panel">
+            <div class="panel-title">ADVENTURE LOG</div>
+            
+            <div class="exploration-status" id="exploration-status">
+                IDLE - Ready to explore
+            </div>
+            
+            <div class="explore-bar">
+                <div class="explore-fill" id="explore-fill"></div>
+            </div>
+            
+            <div class="log-content" id="log-content">
+                <div class="log-entry">[System]: Game started. Welcome to the realm of ASCII.</div>
+                <div class="log-entry">[Eldric]: I awaken in a dark forest. The air feels thick with magic.</div>
+                <div class="log-entry">[System]: You see a path leading north and a cave to the east.</div>
+                <div class="log-entry">[Eldric]: I cast a light spell to illuminate my surroundings.</div>
+                <div class="log-entry">[System]: The forest comes alive with your light. You notice markings on a nearby tree.</div>
+            </div>
+            
+            <div class="voice-controls">
+                <button onclick="toggleVoice()">TOGGLE VOICE</button>
+                <button onclick="speakLog()">READ LOG</button>
+                <button onclick="addLogEntry()">ADD EVENT</button>
+                <button onclick="clearLog()">CLEAR LOG</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        ASCII RPG Adventure | Voice System: <span id="voice-status">ENABLED</span> | Press F5 to reset
+    </div>
+
+    <script>
+        // Speech synthesis setup
+        const speech = new SpeechSynthesisUtterance();
+        speech.rate = 1.0;
+        speech.pitch = 1.0;
+        speech.volume = 1.0;
+        
+        let voiceEnabled = true;
+        let isExploring = false;
+        let explorationInterval;
+        
+        // Exploration events database
+        const explorationEvents = [
+            "You discover a hidden path leading deeper into the forest.",
+            "A strange glowing mushroom catches your eye. It seems magical.",
+            "You hear rustling in the bushes nearby. Something is moving.",
+            "You find footprints on the ground. They seem recent.",
+            "An ancient stone monument stands among the trees, covered in moss.",
+            "You spot a bird's nest high in a tree with something shiny inside.",
+            "A small stream blocks your path. The water looks clear and drinkable.",
+            "You notice a cave entrance partially hidden by vines.",
+            "The trees thin out, revealing a clearing ahead.",
+            "You find the remains of an old campfire. Someone was here recently.",
+            "A squirrel scurries up a tree, dropping an acorn on your head.",
+            "You discover a patch of rare herbs that could be useful for potions.",
+            "A fallen log blocks your path. It looks recently disturbed.",
+            "You hear distant howling. Wolves, perhaps?",
+            "The forest becomes denser and darker as you proceed.",
+            "You find a discarded map fragment. It seems to show this area.",
+            "A rope bridge spans a ravine ahead. It looks old but serviceable.",
+            "You notice claw marks on a tree trunk. Something large passed by.",
+            "A soft glow emanates from a cluster of fungi on the forest floor.",
+            "You discover a hidden shrine dedicated to an ancient nature spirit."
+        ];
+        
+        // Toggle voice functionality
+        function toggleVoice() {
+            voiceEnabled = !voiceEnabled;
+            document.getElementById('voice-status').textContent = voiceEnabled ? 'ENABLED' : 'DISABLED';
+            addLogEntry(voiceEnabled ? 'Voice enabled' : 'Voice disabled');
+        }
+        
+        // Speak the entire log
+        function speakLog() {
+            if (!voiceEnabled) return;
+            
+            const logEntries = document.querySelectorAll('.log-entry');
+            let fullText = '';
+            
+            logEntries.forEach(entry => {
+                fullText += entry.textContent + '. ';
+            });
+            
+            // Cancel any ongoing speech
+            window.speechSynthesis.cancel();
+            
+            speech.text = fullText;
+            window.speechSynthesis.speak(speech);
+        }
+        
+        // Add a new log entry
+        function addLogEntry(message) {
+            const logContent = document.getElementById('log-content');
+            const newEntry = document.createElement('div');
+            
+            if (!message) {
+                message = '[Event]: ' + explorationEvents[Math.floor(Math.random() * explorationEvents.length)];
+            }
+            
+            newEntry.className = 'log-entry';
+            newEntry.textContent = message;
+            logContent.appendChild(newEntry);
+            
+            // Scroll to bottom
+            logContent.scrollTop = logContent.scrollHeight;
+            
+            // Speak the new entry if voice is enabled
+            if (voiceEnabled) {
+                window.speechSynthesis.cancel();
+                speech.text = message;
+                window.speechSynthesis.speak(speech);
+            }
+            
+            return message;
+        }
+        
+        // Clear the log
+        function clearLog() {
+            const logContent = document.getElementById('log-content');
+            logContent.innerHTML = '';
+            addLogEntry('[System]: Log cleared.');
+        }
+        
+        // Perform an action
+        function performAction(action) {
+            if (isExploring) return;
+            
+            const actions = {
+                rest: [
+                    'You take a moment to rest and recover.',
+                    'You meditate to regain your strength.',
+                    'You set up camp for a short while.',
+                    'You consume some rations and water.',
+                    'You focus on your breathing to recover mana.'
+                ],
+                fight: [
+                    'You engage in combat with a forest creature!',
+                    'You practice your combat techniques.',
+                    'You defend yourself from an ambush!',
+                    'You defeat a hostile entity.',
+                    'You emerge victorious from a skirmish.'
+                ],
+                shop: [
+                    'You browse your inventory for useful items.',
+                    'You come across a wandering merchant.',
+                    'You trade with a friendly traveler.',
+                    'You find a hidden cache of supplies.',
+                    'You craft a new item from available materials.'
+                ]
+            };
+            
+            const message = actions[action][Math.floor(Math.random() * actions[action].length)];
+            addLogEntry(message);
+        }
+        
+        // Start exploration
+        function startExploration() {
+            if (isExploring) return;
+            
+            const exploreBtn = document.getElementById('explore-btn');
+            const exploreFill = document.getElementById('explore-fill');
+            const explorationStatus = document.getElementById('exploration-status');
+            
+            isExploring = true;
+            exploreBtn.disabled = true;
+            explorationStatus.textContent = "EXPLORING - Discovering the unknown...";
+            
+            // Reset progress bar
+            exploreFill.style.width = '0%';
+            
+            // Start exploration progress
+            let progress = 0;
+            explorationInterval = setInterval(() => {
+                progress += 2;
+                exploreFill.style.width = progress + '%';
+                
+                // Random event during exploration
+                if (progress % 20 === 0) {
+                    addLogEntry();
+                }
+                
+                // Exploration complete
+                if (progress >= 100) {
+                    clearInterval(explorationInterval);
+                    finishExploration();
+                }
+            }, 200);
+        }
+        
+        // Finish exploration
+        function finishExploration() {
+            const exploreBtn = document.getElementById('explore-btn');
+            const explorationStatus = document.getElementById('exploration-status');
+            
+            isExploring = false;
+            exploreBtn.disabled = false;
+            explorationStatus.textContent = "EXPLORATION COMPLETE - Ready to explore again";
+            
+            // Add completion message
+            const rewards = [
+                "You find 15 gold coins on the forest floor!",
+                "Discovery complete! You feel more experienced.",
+                "You've mapped out a new area of the forest.",
+                "Your exploration reveals a hidden landmark.",
+                "You return from exploration with new knowledge."
+            ];
+            
+            addLogEntry('[System]: ' + rewards[Math.floor(Math.random() * rewards.length)]);
+        }
+        
+        // Initialize with a welcome message
+        window.onload = function() {
+            setTimeout(() => {
+                if (voiceEnabled) {
+                    speech.text = "Welcome to ASCII RPG Explorer. Click the explore button to begin your journey.";
+                    window.speechSynthesis.speak(speech);
+                }
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

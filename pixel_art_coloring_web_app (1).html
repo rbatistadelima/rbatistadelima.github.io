@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pixel Art Paint Animation</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+    }
+    canvas {
+      image-rendering: pixelated;
+      border: 2px solid #444;
+      background: #000;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <h2>🖌️ Pixel Art Painting Animation</h2>
+
+  <input type="file" id="upload" accept="image/*" />
+
+  <canvas id="canvas"></canvas>
+
+  <div class="controls">
+    <label>Speed <input type="range" id="speed" min="1" max="500" value="50" /></label>
+    <button id="play">Play</button>
+    <button id="reset">Reset</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    const upload = document.getElementById('upload');
+    const playBtn = document.getElementById('play');
+    const resetBtn = document.getElementById('reset');
+    const speedInput = document.getElementById('speed');
+
+    let pixels = [];
+    let index = 0;
+    let animationId = null;
+
+    upload.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const off = document.createElement('canvas');
+        off.width = img.width;
+        off.height = img.height;
+        const offCtx = off.getContext('2d');
+        offCtx.drawImage(img, 0, 0);
+
+        const data = offCtx.getImageData(0, 0, off.width, off.height).data;
+        pixels = [];
+
+        for (let y = 0; y < off.height; y++) {
+          for (let x = 0; x < off.width; x++) {
+            const i = (y * off.width + x) * 4;
+            const a = data[i + 3];
+            if (a > 0) {
+              pixels.push({
+                x,
+                y,
+                r: data[i],
+                g: data[i + 1],
+                b: data[i + 2],
+                a
+              });
+            }
+          }
+        }
+
+        shuffle(pixels);
+        index = 0;
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    playBtn.onclick = () => {
+      if (!pixels.length) return;
+      cancelAnimationFrame(animationId);
+      animate();
+    };
+
+    resetBtn.onclick = () => {
+      cancelAnimationFrame(animationId);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      index = 0;
+    };
+
+    function animate() {
+      const batch = Number(speedInput.value);
+
+      for (let i = 0; i < batch && index < pixels.length; i++) {
+        const p = pixels[index++];
+        ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${p.a / 255})`;
+        ctx.fillRect(p.x, p.y, 1, 1);
+      }
+
+      if (index < pixels.length) {
+        animationId = requestAnimationFrame(animate);
+      }
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+  </script>
+</body>
+</html>

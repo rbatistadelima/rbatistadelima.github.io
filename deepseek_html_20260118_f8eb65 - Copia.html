@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Online Drum MIDI Player + Inspector</title>
+
+<style>
+body {
+  background: #0e0e0e;
+  color: #eee;
+  font-family: system-ui, monospace;
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+}
+h1 { font-size: 1.3rem; }
+button { margin: 6px; padding: 6px 12px; }
+input { margin-top: 10px; }
+canvas {
+  background: #151515;
+  margin-top: 10px;
+  width: 100%;
+  height: 240px;
+}
+.lanes {
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+.lanes div {
+  padding: 2px 0;
+}
+</style>
+</head>
+<body>
+
+<h1>🥁 Drum MIDI Player (Real Drum Sound)</h1>
+
+<input type="file" id="file" accept=".mid"><br>
+<button onclick="play()">▶ Play</button>
+<button onclick="stop()">⏹ Stop</button>
+<button onclick="exportMidi()">💾 Export GM MIDI</button>
+
+<canvas id="canvas" width="900" height="240"></canvas>
+<div class="lanes" id="lanes"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
+
+<script>
+// ------------------
+// GM DRUM DEFINITIONS
+// ------------------
+const DRUMS = {
+  36: { name: "Kick", play: kick },
+  38: { name: "Snare", play: snare },
+  42: { name: "Hi-Hat Closed", play: hihat },
+  46: { name: "Hi-Hat Open", play: hihat },
+  39: { name: "Clap", play: clap },
+  49: { name: "Crash", play: crash }
+};
+
+let ctx;
+let midi;
+let events = [];
+let playing = false;
+let startTime = 0;
+let raf;
+
+// ------------------
+// DRUM SYNTHS
+// ------------------
+function kick(time, vel) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.frequency.setValueAtTime(140, time);
+  osc.frequency.exponentialRampToValueAtTime(40, time + 0.12);
+  gain.gain.setValueAtTime(vel, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(time);
+  osc.stop(time + 0.15);
+}
+
+function snare(time, vel) {
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+  const src = ctx.createBufferSource();
+  const gain = ctx.createGain();
+  src.buffer = buffer;
+  gain.gain.setValueAtTime(vel, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+  src.connect(gain).connect(ctx.destination);
+  src.start(time);
+}
+
+function hihat(time, vel) {
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+  const src = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  const gain = ctx.createGain();
+  filter.type = "highpass";
+  filter.frequency.value = 7000;
+  gain.gain.setValueAtTime(vel * 0.7, time);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+  src.buffer = buffer;
+  src.connect(filter).connect(gain).connect(ctx.destination);
+  src.start(time);
+}
+
+function clap(time, vel) {
+  snare(time, vel * 0.8);
+}
+
+function crash(time, vel) {
+  hihat(time, vel * 1.2);
+}
+
+// ------------------
+// MIDI LOAD
+// ------------------
+document.getElementById("file").onchange = async e => {
+  ctx = new AudioContext();
+  midi = new Midi(await e.target.files[0].arrayBuffer());
+  buildEvents();
+  buildInspector();
+};
+
+function buildEvents() {
+  events = [];
+  midi.tracks.forEach(track => {
+    track.notes.forEach(n => {
+      if (DRUMS[n.midi]) {
+        events.push({
+          time: n.time,
+          note: n.midi,
+          vel: n.velocity
+        });
+      }
+    });
+  });
+}
+
+function buildInspector() {
+  const lanes = {};
+  events.forEach(e => {
+    lanes[DRUMS[e.note].name] = (lanes[DRUMS[e.note].name] || 0) + 1;
+  });
+
+  const div = document.getElementById("lanes");
+  div.innerHTML = "<b>Drum Lane Inspector</b><br>";
+  Object.entries(lanes).forEach(([k,v]) => {
+    div.innerHTML += `${k}: ${v} hits<br>`;
+  });
+}
+
+// ------------------
+// PLAYBACK
+// ------------------
+function play() {
+  if (!events.length || playing) return;
+  playing = true;
+  startTime = ctx.currentTime + 0.1;
+
+  events.forEach(e => {
+    DRUMS[e.note].play(startTime + e.time, e.vel);
+  });
+
+  animate();
+}
+
+function stop() {
+  playing = false;
+  cancelAnimationFrame(raf);
+}
+
+// ------------------
+// VISUAL
+// ------------------
+function animate() {
+  const c = document.getElementById("canvas");
+  const g = c.getContext("2d");
+  g.clearRect(0,0,c.width,c.height);
+
+  const t = ctx.currentTime - startTime;
+  events.forEach(e => {
+    const x = (e.time / midi.duration) * c.width;
+    const y = Object.keys(DRUMS).indexOf(String(e.note)) * 40 + 30;
+    g.fillStyle = e.time < t ? "#0f0" : "#555";
+    g.fillRect(x, y, 6, 12);
+  });
+
+  if (playing) raf = requestAnimationFrame(animate);
+}
+
+// ------------------
+// EXPORT MIDI
+// ------------------
+function exportMidi() {
+  midi.tracks.forEach(t => {
+    t.notes.forEach(n => n.channel = 9);
+    t.programChanges = [];
+  });
+
+  const blob = new Blob([midi.toArray()], { type: "audio/midi" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "drums_GM.mid";
+  a.click();
+}
+</script>
+
+</body>
+</html>

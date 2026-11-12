@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crossfade TTS with Pitch Tags</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    background: #eef;
+    color: #111;
+    text-align: center;
+    padding: 40px;
+  }
+  textarea {
+    width: 90%;
+    height: 140px;
+    font-size: 1rem;
+    padding: 10px;
+    border-radius: 10px;
+    border: 2px solid #88a;
+  }
+  button {
+    margin: 10px;
+    padding: 10px 20px;
+    font-size: 1rem;
+    border-radius: 10px;
+    border: none;
+    background: #4477dd;
+    color: #fff;
+    cursor: pointer;
+  }
+  #output {
+    margin-top: 20px;
+    font-family: monospace;
+    white-space: pre;
+    background: #dde;
+    padding: 10px;
+    border-radius: 10px;
+    display: inline-block;
+    text-align: left;
+  }
+</style>
+</head>
+<body>
+<h1>🎶 Crossfade TTS with Manual Pitch</h1>
+<p>Write phrases like:<br><code>[0.2] hello world [1.0] this is higher</code></p>
+
+<textarea id="text" placeholder="[0.2] hello world [0.8] smoother flow test"></textarea><br>
+<button id="speak">🔊 Speak with Crossfade</button>
+
+<div id="output"></div>
+
+<script>
+const synth = window.speechSynthesis;
+
+// Parse phrases in format [pitch] text
+function parsePhrases(text) {
+  const regex = /\[([\d.]+)\]\s*([^[]+)/g;
+  const result = [];
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    result.push({
+      pitch: parseFloat(match[1]),
+      text: match[2].trim()
+    });
+  }
+  return result.length ? result : [{ pitch: 1.0, text }];
+}
+
+function speakCrossfade(text) {
+  const phrases = parsePhrases(text);
+  const output = document.getElementById("output");
+  output.textContent = "Speaking phrases:\n";
+
+  synth.cancel();
+
+  let delay = 0;
+  const overlap = 250; // milliseconds overlap between phrases
+
+  phrases.forEach((p, i) => {
+    const utter = new SpeechSynthesisUtterance(p.text);
+    utter.pitch = p.pitch;
+    utter.rate = 1.0;
+    utter.volume = 1.0;
+    utter.lang = "en-US";
+    output.textContent += `[${p.pitch}]  ${p.text}\n`;
+
+    // schedule utterance with overlap timing
+    setTimeout(() => synth.speak(utter), delay);
+    delay += Math.max(p.text.length * 40 - overlap, 100);
+  });
+}
+
+document.getElementById("speak").onclick = () => {
+  const text = document.getElementById("text").value;
+  speakCrossfade(text);
+};
+</script>
+</body>
+</html>

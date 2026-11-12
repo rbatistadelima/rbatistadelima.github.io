@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coloring Book Timelapse</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        
+        h1 {
+            color: #4a6fa5;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .upload-section, .controls-section {
+            flex: 1;
+            min-width: 300px;
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .canvas-container {
+            flex: 2;
+            min-width: 500px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+        
+        h2 {
+            color: #4a6fa5;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        
+        .upload-area {
+            border: 3px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #4a6fa5;
+            background-color: #f9f9ff;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            color: #4a6fa5;
+            margin-bottom: 15px;
+        }
+        
+        .upload-text {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .image-preview {
+            max-width: 100%;
+            max-height: 200px;
+            margin: 20px auto;
+            display: block;
+            border-radius: 5px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            background-color: #4a6fa5;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        button:hover {
+            background-color: #3a5a8c;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        #playBtn {
+            background-color: #4CAF50;
+        }
+        
+        #playBtn:hover:not(:disabled) {
+            background-color: #3d8b40;
+        }
+        
+        #exportBtn {
+            background-color: #9c27b0;
+        }
+        
+        #exportBtn:hover:not(:disabled) {
+            background-color: #7b1fa2;
+        }
+        
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+        }
+        
+        .slider-container {
+            margin: 25px 0;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 10px;
+            -webkit-appearance: none;
+            background: #ddd;
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #4a6fa5;
+            cursor: pointer;
+        }
+        
+        .instructions {
+            background-color: #f0f7ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            border-left: 5px solid #4a6fa5;
+        }
+        
+        .instructions h3 {
+            color: #4a6fa5;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ol {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .processing {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .ready {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .exporting {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 1100px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .canvas-container {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Coloring Book Timelapse</h1>
+        <p class="subtitle">Upload a colored image to convert it to lineart and watch it being colored back in with diagonal brush strokes.</p>
+    </header>
+    
+    <div class="container">
+        <div class="upload-section">
+            <h2>Upload Image</h2>
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">🖼️</div>
+                <p class="upload-text">Drag & drop an image here or click to browse</p>
+                <p>Supported formats: JPG, PNG, GIF</p>
+                <input type="file" id="imageInput" class="file-input" accept="image/*">
+            </div>
+            <img id="imagePreview" class="image-preview" style="display: none;">
+            <div class="button-group">
+                <button id="convertBtn" disabled>Convert to Lineart</button>
+            </div>
+            
+            <div class="slider-container">
+                <label for="strokeSpeed">Stroke Speed</label>
+                <input type="range" id="strokeSpeed" min="1" max="10" value="4">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Slow</span>
+                    <span>Fast</span>
+                </div>
+            </div>
+            
+            <div class="slider-container">
+                <label for="strokeWidth">Stroke Width</label>
+                <input type="range" id="strokeWidth" min="1" max="20" value="8">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Thin</span>
+                    <span>Thick</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <h2>Timelapse Animation</h2>
+            <canvas id="mainCanvas" width="800" height="600"></canvas>
+            <div class="button-group">
+                <button id="playBtn" disabled>Play Animation</button>
+                <button id="exportBtn" disabled>Export GIF</button>
+            </div>
+            <div id="status" class="status"></div>
+        </div>
+        
+        <div class="controls-section">
+            <h2>Controls</h2>
+            <div class="button-group">
+                <button id="resetBtn" disabled>Reset Animation</button>
+                <button id="pauseBtn" disabled>Pause</button>
+            </div>
+            
+            <div class="slider-container">
+                <label for="progress">Animation Progress</label>
+                <input type="range" id="progress" min="0" max="100" value="0">
+            </div>
+            
+            <div style="margin-top: 25px;">
+                <h3>Color Palette</h3>
+                <div id="colorPalette" style="display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; min-height: 30px;"></div>
+            </div>
+            
+            <div class="status" id="processingStatus" style="display: none;"></div>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h3>How It Works</h3>
+        <ol>
+            <li><strong>Upload</strong> a fully colored image (JPEG, PNG, or GIF).</li>
+            <li><strong>Convert to lineart</strong> to create a black-and-white outline version.</li>
+            <li><strong>Play the animation</strong> to watch the image being colored back in with diagonal brush strokes.</li>
+            <li><strong>Adjust settings</strong> like stroke speed and width to customize the animation.</li>
+            <li><strong>Export as GIF</strong> to save your timelapse animation.</li>
+        </ol>
+        <p>The animation paints color by color (not region by region) using long diagonal brush strokes moving up-right (↗) across the canvas, simulating a human coloring a book with a marker.</p>
+    </div>
+    
+    <footer>
+        <p>Coloring Book Timelapse &copy; 2023 | Works completely offline in your browser</p>
+    </footer>
+
+    <!-- Include gif.js library for GIF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    
+    <script>
+        // DOM elements
+        const imageInput = document.getElementById('imageInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const imagePreview = document.getElementById('imagePreview');
+        const convertBtn = document.getElementById('convertBtn');
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const mainCanvas = document.getElementById('mainCanvas');
+        const ctx = mainCanvas.getContext('2d');
+        const status = document.getElementById('status');
+        const processingStatus = document.getElementById('processingStatus');
+        const colorPalette = document.getElementById('colorPalette');
+        const strokeSpeed = document.getElementById('strokeSpeed');
+        const strokeWidth = document.getElementById('strokeWidth');
+        const progress = document.getElementById('progress');
+        
+        // Application state
+        let originalImage = null;
+        let lineartImage = null;
+        let colorMap = null;
+        let uniqueColors = [];
+        let animationId = null;
+        let isPlaying = false;
+        let currentColorIndex = 0;
+        let strokeProgress = 0;
+        let gifRecorder = null;
+        let isRecording = false;
+        let framesRecorded = 0;
+        const maxGifFrames = 100;
+        
+        // Event listeners for file upload
+        uploadArea.addEventListener('click', () => imageInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                imageInput.files = e.dataTransfer.files;
+                handleImageUpload(e.dataTransfer.files[0]);
+            }
+        });
+        
+        imageInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleImageUpload(e.target.files[0]);
+            }
+        });
+        
+        // Handle image upload
+        function handleImageUpload(file) {
+            if (!file.type.match('image.*')) {
+                setStatus('Please upload an image file (JPEG, PNG, GIF)', 'processing');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    originalImage = img;
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                    convertBtn.disabled = false;
+                    setStatus('Image loaded. Click "Convert to Lineart" to begin.', 'ready');
+                    
+                    // Set canvas size to match image aspect ratio
+                    const maxWidth = 800;
+                    const maxHeight = 600;
+                    const ratio = Math.min(maxWidth / img.width, maxHeight / img.height);
+                    mainCanvas.width = img.width * ratio;
+                    mainCanvas.height = img.height * ratio;
+                    
+                    // Draw the original image on canvas
+                    ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+                    ctx.drawImage(img, 0, 0, mainCanvas.width, mainCanvas.height);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        // Convert image to lineart
+        convertBtn.addEventListener('click', () => {
+            if (!originalImage) return;
+            
+            setStatus('Processing image to create lineart...', 'processing');
+            convertBtn.disabled = true;
+            
+            // Process image in a timeout to avoid blocking UI
+            setTimeout(() => {
+                processImageToLineart();
+                setStatus('Lineart created. Click "Play Animation" to start coloring.', 'ready');
+                playBtn.disabled = false;
+                resetBtn.disabled = false;
+                exportBtn.disabled = false;
+                
+                // Show color palette
+                displayColorPalette();
+            }, 100);
+        });
+        
+        // Process image to create lineart and extract colors
+        function processImageToLineart() {
+            // Create a temporary canvas for image processing
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = originalImage.width;
+            tempCanvas.height = originalImage.height;
+            
+            // Draw original image to temp canvas
+            tempCtx.drawImage(originalImage, 0, 0);
+            
+            // Get image data
+            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const data = imageData.data;
+            
+            // Create lineart by detecting edges (simplified approach)
+            const lineartData = tempCtx.createImageData(tempCanvas.width, tempCanvas.height);
+            const colorMapData = {};
+            
+            // First pass: extract unique colors and create color map
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const a = data[i + 3];
+                
+                // Skip transparent pixels
+                if (a < 128) continue;
+                
+                // Create color key
+                const colorKey = `${r},${g},${b}`;
+                
+                // Calculate pixel position
+                const pixelIndex = i / 4;
+                const x = pixelIndex % tempCanvas.width;
+                const y = Math.floor(pixelIndex / tempCanvas.width);
+                
+                // Store color in map
+                if (!colorMapData[colorKey]) {
+                    colorMapData[colorKey] = { r, g, b, pixels: [] };
+                }
+                colorMapData[colorKey].pixels.push({ x, y });
+            }
+            
+            // Convert color map to array and sort by color (for consistent ordering)
+            uniqueColors = Object.values(colorMapData);
+            uniqueColors.sort((a, b) => {
+                // Sort by hue then by luminance
+                const hueA = rgbToHue(a.r, a.g, a.b);
+                const hueB = rgbToHue(b.r, b.g, b.b);
+                if (Math.abs(hueA - hueB) > 10) return hueA - hueB;
+                
+                const lumA = (a.r + a.g + a.b) / 3;
+                const lumB = (b.r + b.g + b.b) / 3;
+                return lumA - lumB;
+            });
+            
+            // Assign color IDs
+            uniqueColors.forEach((color, index) => {
+                color.id = index;
+            });
+            
+            // Create color map for fast lookup
+            colorMap = {};
+            uniqueColors.forEach(color => {
+                const colorKey = `${color.r},${color.g},${color.b}`;
+                colorMap[colorKey] = color.id;
+            });
+            
+            // Second pass: create lineart by detecting edges
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const a = data[i + 3];
+                
+                const pixelIndex = i / 4;
+                const x = pixelIndex % tempCanvas.width;
+                const y = Math.floor(pixelIndex / tempCanvas.width);
+                
+                // Default to white
+                lineartData.data[i] = 255;
+                lineartData.data[i + 1] = 255;
+                lineartData.data[i + 2] = 255;
+                lineartData.data[i + 3] = a;
+                
+                // If pixel is near an edge of a color region, make it black
+                if (a > 128 && x > 0 && x < tempCanvas.width - 1 && y > 0 && y < tempCanvas.height - 1) {
+                    // Check neighboring pixels for color differences
+                    const currentColor = `${r},${g},${b}`;
+                    
+                    // Get neighboring pixel colors
+                    const neighbors = [
+                        getPixelColor(data, tempCanvas.width, x - 1, y),
+                        getPixelColor(data, tempCanvas.width, x + 1, y),
+                        getPixelColor(data, tempCanvas.width, x, y - 1),
+                        getPixelColor(data, tempCanvas.width, x, y + 1)
+                    ];
+                    
+                    // Check if any neighbor has a significantly different color
+                    const isEdge = neighbors.some(neighborColor => {
+                        if (!neighborColor) return false;
+                        return neighborColor !== currentColor && colorDistance(r, g, b, ...neighborColor.split(',').map(Number)) > 30;
+                    });
+                    
+                    if (isEdge) {
+                        lineartData.data[i] = 0;
+                        lineartData.data[i + 1] = 0;
+                        lineartData.data[i + 2] = 0;
+                    }
+                }
+            }
+            
+            // Create lineart image
+            tempCtx.putImageData(lineartData, 0, 0);
+            lineartImage = new Image();
+            lineartImage.src = tempCanvas.toDataURL();
+            
+            // Draw lineart to main canvas (scaled)
+            ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            
+            // Create a scaled version for the main canvas
+            const scaleX = mainCanvas.width / tempCanvas.width;
+            const scaleY = mainCanvas.height / tempCanvas.height;
+            
+            ctx.save();
+            ctx.scale(scaleX, scaleY);
+            ctx.drawImage(tempCanvas, 0, 0);
+            ctx.restore();
+            
+            // Store scaling factors for later use
+            mainCanvas.scaleX = scaleX;
+            mainCanvas.scaleY = scaleY;
+            mainCanvas.originalWidth = tempCanvas.width;
+            mainCanvas.originalHeight = tempCanvas.height;
+        }
+        
+        // Helper function to get pixel color from image data
+        function getPixelColor(data, width, x, y) {
+            const index = (y * width + x) * 4;
+            const a = data[index + 3];
+            if (a < 128) return null; // Transparent
+            return `${data[index]},${data[index + 1]},${data[index + 2]}`;
+        }
+        
+        // Calculate color distance
+        function colorDistance(r1, g1, b1, r2, g2, b2) {
+            return Math.sqrt(
+                Math.pow(r2 - r1, 2) + 
+                Math.pow(g2 - g1, 2) + 
+                Math.pow(b2 - b1, 2)
+            );
+        }
+        
+        // Convert RGB to hue value
+        function rgbToHue(r, g, b) {
+            r /= 255;
+            g /= 255;
+            b /= 255;
+            
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            let h = 0;
+            
+            if (max === min) {
+                h = 0;
+            } else if (max === r) {
+                h = ((g - b) / (max - min)) % 6;
+            } else if (max === g) {
+                h = (b - r) / (max - min) + 2;
+            } else {
+                h = (r - g) / (max - min) + 4;
+            }
+            
+            h = Math.round(h * 60);
+            if (h < 0) h += 360;
+            return h;
+        }
+        
+        // Display color palette
+        function displayColorPalette() {
+            colorPalette.innerHTML = '';
+            uniqueColors.forEach(color => {
+                const colorBox = document.createElement('div');
+                colorBox.style.width = '30px';
+                colorBox.style.height = '30px';
+                colorBox.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                colorBox.style.border = '1px solid #ccc';
+                colorBox.style.borderRadius = '4px';
+                colorBox.title = `RGB: ${color.r}, ${color.g}, ${color.b}`;
+                colorPalette.appendChild(colorBox);
+            });
+        }
+        
+        // Animation functions
+        playBtn.addEventListener('click', () => {
+            if (isPlaying) return;
+            
+            isPlaying = true;
+            playBtn.disabled = true;
+            pauseBtn.disabled = false;
+            
+            // If animation is complete, reset it
+            if (currentColorIndex >= uniqueColors.length) {
+                resetAnimation();
+            }
+            
+            animate();
+        });
+        
+        pauseBtn.addEventListener('click', () => {
+            if (!isPlaying) return;
+            
+            isPlaying = false;
+            playBtn.disabled = false;
+            pauseBtn.disabled = true;
+            
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        });
+        
+        resetBtn.addEventListener('click', resetAnimation);
+        
+        // Reset animation
+        function resetAnimation() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            isPlaying = false;
+            currentColorIndex = 0;
+            strokeProgress = 0;
+            playBtn.disabled = false;
+            pauseBtn.disabled = true;
+            
+            // Clear canvas and draw lineart
+            ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            if (lineartImage) {
+                ctx.save();
+                ctx.scale(mainCanvas.scaleX, mainCanvas.scaleY);
+                ctx.drawImage(lineartImage, 0, 0);
+                ctx.restore();
+            }
+            
+            // Reset progress slider
+            progress.value = 0;
+            setStatus('Animation reset. Click "Play Animation" to start.', 'ready');
+        }
+        
+        // Main animation function
+        function animate() {
+            if (!isPlaying) return;
+            
+            // Calculate stroke parameters
+            const speed = parseInt(strokeSpeed.value);
+            const width = parseInt(strokeWidth.value);
+            
+            // Calculate dimensions for diagonal strokes
+            const canvasWidth = mainCanvas.originalWidth;
+            const canvasHeight = mainCanvas.originalHeight;
+            const diagonalLength = Math.sqrt(canvasWidth * canvasWidth + canvasHeight * canvasHeight);
+            
+            // If we've finished all colors, stop animation
+            if (currentColorIndex >= uniqueColors.length) {
+                isPlaying = false;
+                playBtn.disabled = true;
+                pauseBtn.disabled = true;
+                setStatus('Animation complete!', 'ready');
+                return;
+            }
+            
+            // Get current color
+            const color = uniqueColors[currentColorIndex];
+            
+            // Calculate stroke position based on progress
+            const strokePos = strokeProgress * diagonalLength;
+            
+            // Draw the stroke
+            drawDiagonalStroke(color, strokePos, width);
+            
+            // Update progress
+            strokeProgress += 0.002 * speed;
+            
+            // Update progress slider
+            const overallProgress = (currentColorIndex + strokeProgress) / uniqueColors.length * 100;
+            progress.value = Math.min(100, overallProgress);
+            
+            // If stroke is complete, move to next color
+            if (strokeProgress >= 1) {
+                strokeProgress = 0;
+                currentColorIndex++;
+                
+                // If we're recording GIF, capture frame after each color
+                if (isRecording && gifRecorder && framesRecorded < maxGifFrames) {
+                    gifRecorder.addFrame(ctx, {copy: true, delay: 200});
+                    framesRecorded++;
+                }
+            }
+            
+            // Continue animation
+            animationId = requestAnimationFrame(animate);
+        }
+        
+        // Draw a diagonal stroke for the current color
+        function drawDiagonalStroke(color, position, strokeWidth) {
+            const canvasWidth = mainCanvas.originalWidth;
+            const canvasHeight = mainCanvas.originalHeight;
+            const diagonalLength = Math.sqrt(canvasWidth * canvasWidth + canvasHeight * canvasHeight);
+            
+            // Create a temporary canvas for the stroke
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = canvasWidth;
+            tempCanvas.height = canvasHeight;
+            
+            // Draw the current state (lineart + already colored areas) to temp canvas
+            tempCtx.save();
+            tempCtx.scale(1, 1);
+            
+            // First draw the lineart
+            if (lineartImage) {
+                tempCtx.drawImage(lineartImage, 0, 0);
+            }
+            
+            // Then draw already colored areas (previous colors)
+            for (let i = 0; i < currentColorIndex; i++) {
+                const col = uniqueColors[i];
+                tempCtx.fillStyle = `rgb(${col.r}, ${col.g}, ${col.b})`;
+                
+                // Fill all pixels of this color
+                col.pixels.forEach(pixel => {
+                    tempCtx.fillRect(pixel.x, pixel.y, 1, 1);
+                });
+            }
+            
+            // Now draw the current stroke
+            tempCtx.strokeStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+            tempCtx.lineWidth = strokeWidth;
+            tempCtx.lineCap = 'round';
+            tempCtx.lineJoin = 'round';
+            
+            // Calculate stroke line (diagonal from bottom-left to top-right)
+            const startX = -canvasHeight;
+            const startY = canvasHeight;
+            
+            // The line moves from bottom-left to top-right
+            const lineAngle = Math.atan2(canvasHeight, canvasWidth);
+            const cosAngle = Math.cos(lineAngle);
+            const sinAngle = Math.sin(lineAngle);
+            
+            // Calculate the current position along the diagonal
+            const currentX = startX + position * cosAngle;
+            const currentY = startY - position * sinAngle;
+            
+            // Draw the stroke line
+            tempCtx.beginPath();
+            tempCtx.moveTo(currentX - diagonalLength * cosAngle, currentY + diagonalLength * sinAngle);
+            tempCtx.lineTo(currentX, currentY);
+            tempCtx.stroke();
+            
+            // Apply the stroke only to pixels of the current color
+            // We'll use composite operation to achieve this
+            tempCtx.globalCompositeOperation = 'source-in';
+            
+            // Fill with current color
+            tempCtx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+            tempCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+            
+            // Reset composite operation
+            tempCtx.globalCompositeOperation = 'source-over';
+            
+            // Draw the result to the main canvas (scaled)
+            ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            ctx.save();
+            ctx.scale(mainCanvas.scaleX, mainCanvas.scaleY);
+            ctx.drawImage(tempCanvas, 0, 0);
+            ctx.restore();
+        }
+        
+        // GIF Export functionality
+        exportBtn.addEventListener('click', exportGIF);
+        
+        function exportGIF() {
+            if (!uniqueColors.length || !lineartImage) {
+                setStatus('Please convert an image to lineart first', 'processing');
+                return;
+            }
+            
+            setStatus('Preparing GIF export...', 'exporting');
+            exportBtn.disabled = true;
+            
+            // Reset animation state for recording
+            const wasPlaying = isPlaying;
+            if (wasPlaying) {
+                pauseBtn.click();
+            }
+            
+            // Store current state
+            const savedColorIndex = currentColorIndex;
+            const savedStrokeProgress = strokeProgress;
+            
+            // Reset for recording
+            resetAnimation();
+            
+            // Initialize GIF recorder
+            gifRecorder = new GIF({
+                workers: 2,
+                quality: 10,
+                width: mainCanvas.width,
+                height: mainCanvas.height,
+                workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
+            });
+            
+            isRecording = true;
+            framesRecorded = 0;
+            
+            // Capture initial frame (lineart only)
+            gifRecorder.addFrame(ctx, {copy: true, delay: 500});
+            framesRecorded++;
+            
+            // Start recording animation frames
+            function recordFrame() {
+                if (currentColorIndex >= uniqueColors.length || framesRecorded >= maxGifFrames) {
+                    // Finish recording
+                    isRecording = false;
+                    gifRecorder.on('finished', function(blob) {
+                        // Create download link
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'coloring-timelapse.gif';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        
+                        setStatus('GIF exported successfully!', 'ready');
+                        exportBtn.disabled = false;
+                        
+                        // Restore animation state
+                        currentColorIndex = savedColorIndex;
+                        strokeProgress = savedStrokeProgress;
+                        
+                        // Redraw current state
+                        if (wasPlaying) {
+                            playBtn.click();
+                        } else {
+                            // Draw current progress
+                            drawCurrentState();
+                        }
+                    });
+                    
+                    gifRecorder.render();
+                    return;
+                }
+                
+                // Simulate animation progress for recording
+                const colorsPerFrame = Math.max(1, Math.ceil(uniqueColors.length / maxGifFrames));
+                
+                for (let i = 0; i < colorsPerFrame && currentColorIndex < uniqueColors.length; i++) {
+                    // Advance to next color
+                    currentColorIndex++;
+                    
+                    // Draw the state with this color added
+                    drawCurrentState();
+                }
+                
+                // Capture frame
+                gifRecorder.addFrame(ctx, {copy: true, delay: 100});
+                framesRecorded++;
+                
+                // Continue recording
+                setTimeout(recordFrame, 50);
+            }
+            
+            // Start recording
+            setTimeout(recordFrame, 100);
+        }
+        
+        // Draw current animation state
+        function drawCurrentState() {
+            // Clear canvas
+            ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            
+            // Create a temporary canvas
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = mainCanvas.originalWidth;
+            tempCanvas.height = mainCanvas.originalHeight;
+            
+            // Draw lineart
+            if (lineartImage) {
+                tempCtx.drawImage(lineartImage, 0, 0);
+            }
+            
+            // Draw colors up to current index
+            for (let i = 0; i < currentColorIndex && i < uniqueColors.length; i++) {
+                const color = uniqueColors[i];
+                tempCtx.fillStyle = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                
+                // Fill all pixels of this color
+                color.pixels.forEach(pixel => {
+                    tempCtx.fillRect(pixel.x, pixel.y, 1, 1);
+                });
+            }
+            
+            // Draw to main canvas (scaled)
+            ctx.save();
+            ctx.scale(mainCanvas.scaleX, mainCanvas.scaleY);
+            ctx.drawImage(tempCanvas, 0, 0);
+            ctx.restore();
+        }
+        
+        // Progress slider control
+        progress.addEventListener('input', function() {
+            if (!uniqueColors.length) return;
+            
+            // If animation is playing, pause it
+            if (isPlaying) {
+                pauseBtn.click();
+            }
+            
+            // Calculate color index and stroke progress from slider value
+            const value = parseInt(this.value);
+            const normalizedProgress = value / 100;
+            
+            currentColorIndex = Math.floor(normalizedProgress * uniqueColors.length);
+            strokeProgress = (normalizedProgress * uniqueColors.length) - currentColorIndex;
+            
+            // Ensure we don't go out of bounds
+            currentColorIndex = Math.min(currentColorIndex, uniqueColors.length - 1);
+            
+            // Draw current state
+            drawCurrentState();
+            
+            // Update buttons
+            playBtn.disabled = (currentColorIndex >= uniqueColors.length);
+            pauseBtn.disabled = true;
+        });
+        
+        // Set status message
+        function setStatus(message, type) {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            if (type === 'processing') {
+                processingStatus.textContent = message;
+                processingStatus.className = `status ${type}`;
+                processingStatus.style.display = 'block';
+            } else {
+                processingStatus.style.display = 'none';
+            }
+        }
+        
+        // Initialize
+        setStatus('Upload a colored image to begin.', 'ready');
+    </script>
+</body>
+</html>

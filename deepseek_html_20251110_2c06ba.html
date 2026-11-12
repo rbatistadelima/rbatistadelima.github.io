@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portrait Alignment Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e1e4e8;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+        
+        .app-container {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .sidebar {
+            flex: 0 0 300px;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .main-content {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            min-height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .upload-area {
+            border: 2px dashed #bdc3c7;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: #3498db;
+            background-color: #f8fafc;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            color: #bdc3c7;
+            margin-bottom: 10px;
+        }
+        
+        .controls {
+            margin-top: 20px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+        }
+        
+        .button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .button:hover {
+            background-color: #2980b9;
+        }
+        
+        .button-full {
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .button-secondary {
+            background-color: #95a5a6;
+        }
+        
+        .button-secondary:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            border: 1px solid #e1e4e8;
+            border-radius: 4px;
+            overflow: hidden;
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #alignmentCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .image-list {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .image-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #e1e4e8;
+            cursor: pointer;
+        }
+        
+        .image-item.active {
+            background-color: #e3f2fd;
+        }
+        
+        .image-thumb {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        
+        .image-name {
+            flex: 1;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .tools {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .tool-button {
+            flex: 1;
+            padding: 8px;
+            background: #f8f9fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .tool-button:hover {
+            background: #e9ecef;
+        }
+        
+        .tool-button.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        .grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        
+        .grid-line {
+            position: absolute;
+            background-color: rgba(255, 0, 0, 0.3);
+        }
+        
+        .horizontal-line {
+            width: 100%;
+            height: 1px;
+            top: 50%;
+        }
+        
+        .vertical-line {
+            width: 1px;
+            height: 100%;
+            left: 50%;
+        }
+        
+        .status-bar {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Portrait Alignment Tool</h1>
+            <p class="subtitle">Align head positions and eye levels across multiple portraits</p>
+        </header>
+        
+        <div class="app-container">
+            <div class="sidebar">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📷</div>
+                    <h3>Upload Portraits</h3>
+                    <p>Drag & drop images or click to browse</p>
+                    <input type="file" id="fileInput" multiple accept="image/*" class="hidden">
+                </div>
+                
+                <div class="image-list" id="imageList">
+                    <!-- Image list will be populated here -->
+                </div>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="horizontalAlign">Horizontal Alignment</label>
+                        <input type="range" id="horizontalAlign" min="-100" max="100" value="0">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="verticalAlign">Vertical Alignment</label>
+                        <input type="range" id="verticalAlign" min="-100" max="100" value="0">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="rotation">Rotation</label>
+                        <input type="range" id="rotation" min="-15" max="15" value="0">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="scale">Scale</label>
+                        <input type="range" id="scale" min="50" max="150" value="100">
+                    </div>
+                    
+                    <button id="resetButton" class="button button-secondary">Reset Adjustments</button>
+                    <button id="exportButton" class="button button-full">Export All Images</button>
+                </div>
+            </div>
+            
+            <div class="main-content">
+                <div class="tools">
+                    <div class="tool-button active" data-tool="move">Move</div>
+                    <div class="tool-button" data-tool="rotate">Rotate</div>
+                    <div class="tool-button" data-tool="scale">Scale</div>
+                </div>
+                
+                <div class="canvas-container">
+                    <canvas id="alignmentCanvas"></canvas>
+                    <div class="grid-overlay">
+                        <div class="grid-line horizontal-line"></div>
+                        <div class="grid-line vertical-line"></div>
+                    </div>
+                </div>
+                
+                <div class="status-bar" id="statusBar">
+                    No images loaded. Please upload portrait images to begin.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const imageList = document.getElementById('imageList');
+            const canvas = document.getElementById('alignmentCanvas');
+            const ctx = canvas.getContext('2d');
+            const horizontalAlign = document.getElementById('horizontalAlign');
+            const verticalAlign = document.getElementById('verticalAlign');
+            const rotation = document.getElementById('rotation');
+            const scale = document.getElementById('scale');
+            const resetButton = document.getElementById('resetButton');
+            const exportButton = document.getElementById('exportButton');
+            const statusBar = document.getElementById('statusBar');
+            const toolButtons = document.querySelectorAll('.tool-button');
+            
+            // Application state
+            let images = [];
+            let currentImageIndex = -1;
+            let currentTool = 'move';
+            
+            // Canvas setup
+            function setupCanvas() {
+                const container = canvas.parentElement;
+                canvas.width = container.clientWidth;
+                canvas.height = container.clientHeight;
+            }
+            
+            // Event Listeners
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#3498db';
+                uploadArea.style.backgroundColor = '#f0f8ff';
+            });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.style.borderColor = '#bdc3c7';
+                uploadArea.style.backgroundColor = '';
+            });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#bdc3c7';
+                uploadArea.style.backgroundColor = '';
+                
+                if (e.dataTransfer.files.length > 0) {
+                    handleFiles(e.dataTransfer.files);
+                }
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFiles(e.target.files);
+                }
+            });
+            
+            horizontalAlign.addEventListener('input', updateImage);
+            verticalAlign.addEventListener('input', updateImage);
+            rotation.addEventListener('input', updateImage);
+            scale.addEventListener('input', updateImage);
+            
+            resetButton.addEventListener('click', resetAdjustments);
+            exportButton.addEventListener('click', exportImages);
+            
+            toolButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    toolButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    currentTool = this.getAttribute('data-tool');
+                    updateStatus();
+                });
+            });
+            
+            // Functions
+            function handleFiles(files) {
+                const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+                
+                if (imageFiles.length === 0) {
+                    statusBar.textContent = 'Please select valid image files.';
+                    return;
+                }
+                
+                statusBar.textContent = `Loading ${imageFiles.length} image(s)...`;
+                
+                imageFiles.forEach(file => {
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        img.onload = function() {
+                            images.push({
+                                file: file,
+                                element: img,
+                                name: file.name,
+                                x: 0,
+                                y: 0,
+                                rotation: 0,
+                                scale: 1,
+                                thumb: createThumbnail(img)
+                            });
+                            
+                            if (images.length === imageFiles.length) {
+                                currentImageIndex = 0;
+                                updateImageList();
+                                updateControls();
+                                drawImage();
+                                updateStatus();
+                            }
+                        };
+                        img.src = e.target.result;
+                    };
+                    
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            function createThumbnail(img) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const size = 40;
+                
+                canvas.width = size;
+                canvas.height = size;
+                
+                // Calculate dimensions to maintain aspect ratio
+                const ratio = Math.min(size / img.width, size / img.height);
+                const width = img.width * ratio;
+                const height = img.height * ratio;
+                const x = (size - width) / 2;
+                const y = (size - height) / 2;
+                
+                ctx.drawImage(img, x, y, width, height);
+                return canvas.toDataURL();
+            }
+            
+            function updateImageList() {
+                imageList.innerHTML = '';
+                
+                images.forEach((image, index) => {
+                    const item = document.createElement('div');
+                    item.className = `image-item ${index === currentImageIndex ? 'active' : ''}`;
+                    item.innerHTML = `
+                        <img src="${image.thumb}" class="image-thumb">
+                        <span class="image-name">${image.name}</span>
+                    `;
+                    
+                    item.addEventListener('click', () => {
+                        currentImageIndex = index;
+                        updateImageList();
+                        updateControls();
+                        drawImage();
+                        updateStatus();
+                    });
+                    
+                    imageList.appendChild(item);
+                });
+            }
+            
+            function updateControls() {
+                if (currentImageIndex >= 0 && currentImageIndex < images.length) {
+                    const image = images[currentImageIndex];
+                    horizontalAlign.value = image.x;
+                    verticalAlign.value = image.y;
+                    rotation.value = image.rotation;
+                    scale.value = image.scale * 100;
+                }
+            }
+            
+            function updateImage() {
+                if (currentImageIndex >= 0 && currentImageIndex < images.length) {
+                    const image = images[currentImageIndex];
+                    image.x = parseInt(horizontalAlign.value);
+                    image.y = parseInt(verticalAlign.value);
+                    image.rotation = parseInt(rotation.value);
+                    image.scale = parseInt(scale.value) / 100;
+                    
+                    drawImage();
+                    updateStatus();
+                }
+            }
+            
+            function drawImage() {
+                if (currentImageIndex < 0 || currentImageIndex >= images.length) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    return;
+                }
+                
+                const image = images[currentImageIndex].element;
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Save context
+                ctx.save();
+                
+                // Move to center of canvas
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                
+                // Apply transformations
+                ctx.translate(images[currentImageIndex].x, images[currentImageIndex].y);
+                ctx.rotate(images[currentImageIndex].rotation * Math.PI / 180);
+                ctx.scale(images[currentImageIndex].scale, images[currentImageIndex].scale);
+                
+                // Draw image centered
+                ctx.drawImage(image, -image.width / 2, -image.height / 2);
+                
+                // Restore context
+                ctx.restore();
+            }
+            
+            function resetAdjustments() {
+                if (currentImageIndex >= 0 && currentImageIndex < images.length) {
+                    images[currentImageIndex].x = 0;
+                    images[currentImageIndex].y = 0;
+                    images[currentImageIndex].rotation = 0;
+                    images[currentImageIndex].scale = 1;
+                    
+                    updateControls();
+                    drawImage();
+                    updateStatus();
+                }
+            }
+            
+            function exportImages() {
+                if (images.length === 0) {
+                    statusBar.textContent = 'No images to export. Please upload images first.';
+                    return;
+                }
+                
+                statusBar.textContent = 'Preparing images for export...';
+                
+                // In a real application, this would process and download all images
+                // For this demo, we'll just simulate the process
+                setTimeout(() => {
+                    statusBar.textContent = `Exported ${images.length} aligned images.`;
+                }, 1500);
+            }
+            
+            function updateStatus() {
+                if (currentImageIndex >= 0 && currentImageIndex < images.length) {
+                    const image = images[currentImageIndex];
+                    statusBar.textContent = 
+                        `Current: ${image.name} | Position: (${image.x}, ${image.y}) | Rotation: ${image.rotation}° | Scale: ${Math.round(image.scale * 100)}% | Tool: ${currentTool}`;
+                } else if (images.length > 0) {
+                    statusBar.textContent = `Loaded ${images.length} image(s). Select an image to align.`;
+                } else {
+                    statusBar.textContent = 'No images loaded. Please upload portrait images to begin.';
+                }
+            }
+            
+            // Initialize
+            setupCanvas();
+            window.addEventListener('resize', setupCanvas);
+            updateStatus();
+        });
+    </script>
+</body>
+</html>

@@ -1,886 +1,105 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Authenticator Dashboard</title>
-    <style>
-        :root {
-            --bg-color: #0b0f19;
-            --card-bg: #111827;
-            --card-border: #1f2937;
-            --text-main: #f3f4f6;
-            --text-muted: #9ca3af;
-            --primary: #3b82f6;
-            --primary-hover: #2563eb;
-            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: var(--font-sans);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Header */
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.25rem 2rem;
-            background-color: #0d1322;
-            border-bottom: 1px solid var(--card-border);
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 1.25rem;
-            font-weight: 700;
-        }
-
-        .brand svg {
-            color: var(--primary);
-            fill: currentColor;
-        }
-
-        .timer-pill {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            background-color: #1a2332;
-            border: 1px solid var(--card-border);
-            padding: 0.35rem 0.85rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            font-family: var(--font-mono);
-        }
-
-        .timer-circle {
-            width: 18px;
-            height: 18px;
-            transform: rotate(-90deg);
-        }
-
-        .timer-circle circle {
-            fill: none;
-            stroke-width: 3;
-        }
-
-        .timer-circle .bg {
-            stroke: #374151;
-        }
-
-        .timer-circle .progress {
-            stroke: var(--primary);
-            stroke-linecap: round;
-            transition: stroke-dashoffset 1s linear;
-        }
-
-        /* Main Container */
-        main {
-            padding: 2rem;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1.5rem;
-            width: 100%;
-        }
-
-        .grid {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 1.5rem;
-            width: 100%;
-            max-width: 1200px;
-        }
-
-        /* Card Component */
-        .card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-            width: 340px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-        }
-
-        .data-fields {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .data-field {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background-color: #0b0f19;
-            border: 1px solid var(--card-border);
-            border-radius: 0.375rem;
-            padding: 0.6rem 0.85rem;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: border-color 0.2s, background-color 0.2s;
-        }
-
-        .data-field:hover {
-            border-color: var(--primary);
-            background-color: #131b2e;
-        }
-
-        .data-field .text {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            color: var(--text-muted);
-            font-family: var(--font-mono);
-            max-width: 82%;
-        }
-
-        .otp-box {
-            background-color: #0b0f19;
-            border: 1px solid var(--card-border);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.2s, background-color 0.2s;
-        }
-
-        .otp-box:hover {
-            border-color: var(--primary);
-            background-color: #131b2e;
-        }
-
-        .otp-code {
-            font-family: var(--font-mono);
-            font-size: 2rem;
-            font-weight: 700;
-            letter-spacing: 0.12em;
-            color: #fff;
-        }
-
-        .icon-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            padding: 0.25rem;
-            border-radius: 0.25rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: none;
-        }
-
-        /* Tabbed Notes Section */
-        .notes-section {
-            flex: 1;
-            width: 100%;
-            max-width: 1120px;
-            background-color: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 0.75rem;
-            padding: 1rem;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-            min-height: 250px;
-        }
-
-        .tabs-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            border-bottom: 1px solid var(--card-border);
-            padding-bottom: 0.5rem;
-            margin-bottom: 0.75rem;
-            overflow-x: auto;
-        }
-
-        .tab-btn {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            background-color: #0b0f19;
-            border: 1px solid var(--card-border);
-            color: var(--text-muted);
-            padding: 0.4rem 0.85rem;
-            border-radius: 0.375rem;
-            font-size: 0.85rem;
-            font-family: var(--font-sans);
-            cursor: pointer;
-            user-select: none;
-            transition: all 0.2s ease;
-            min-width: 80px;
-        }
-
-        .tab-btn:hover {
-            border-color: var(--primary);
-            color: var(--text-main);
-        }
-
-        .tab-btn.active {
-            background-color: var(--primary);
-            border-color: var(--primary);
-            color: #ffffff;
-            font-weight: 600;
-        }
-
-        .tab-title {
-            outline: none;
-            white-space: nowrap;
-            min-width: 30px;
-            display: inline-block;
-            padding: 2px 4px;
-            border-radius: 2px;
-        }
-
-        .tab-title[contenteditable="true"] {
-            background-color: rgba(255, 255, 255, 0.25);
-            color: #fff;
-            cursor: text;
-            user-select: text;
-        }
-
-        .tab-close {
-            background: transparent;
-            border: none;
-            color: currentColor;
-            font-size: 1rem;
-            line-height: 1;
-            cursor: pointer;
-            opacity: 0.7;
-            padding: 0 0.15rem;
-            border-radius: 0.2rem;
-        }
-
-        .tab-close:hover {
-            opacity: 1;
-            background-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .add-tab-btn {
-            background-color: #1a2332;
-            border: 1px dashed var(--card-border);
-            color: var(--primary);
-            padding: 0.4rem 0.75rem;
-            border-radius: 0.375rem;
-            font-size: 1rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .add-tab-btn:hover {
-            background-color: var(--primary);
-            color: #fff;
-            border-style: solid;
-        }
-
-        .notes-textarea {
-            width: 100%;
-            height: 100%;
-            flex: 1;
-            background-color: #0b0f19;
-            border: 1px solid var(--card-border);
-            border-radius: 0.5rem;
-            padding: 0.85rem;
-            color: var(--text-main);
-            font-family: var(--font-mono);
-            font-size: 0.9rem;
-            resize: none;
-            outline: none;
-        }
-
-        .notes-textarea:focus {
-            border-color: var(--primary);
-        }
-
-        /* Toast Notification */
-        #toast-container {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            z-index: 1000;
-        }
-
-        .toast {
-            background-color: #1f2937;
-            color: #fff;
-            border: 1px solid var(--primary);
-            padding: 0.75rem 1.25rem;
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            animation: fadeIn 0.2s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCII RPG Demo</title>
+<style>
+  body {
+    margin: 0;
+    font-family: "Courier New", monospace;
+    background-color: #111;
+    color: #eee;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .column {
+    padding: 10px;
+    overflow-y: auto;
+  }
+  #left { width: 20%; background-color: #222; }
+  #middle { width: 60%; background-color: #111; }
+  #right { width: 20%; background-color: #222; }
+  button {
+    background: #333;
+    color: #eee;
+    border: 1px solid #555;
+    cursor: pointer;
+    font-family: monospace;
+  }
+  button:hover { background: #444; }
+</style>
 </head>
 <body>
 
-    <header>
-        <div class="brand">
-            <svg width="24" height="24" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-            Authenticator Dashboard
-        </div>
-        <div class="timer-pill">
-            <svg class="timer-circle">
-                <circle class="bg" cx="9" cy="9" r="7"></circle>
-                <circle class="progress" id="timer-progress" cx="9" cy="9" r="7" stroke-dasharray="44" stroke-dashoffset="0"></circle>
-            </svg>
-            <span id="timer-text">30s</span>
-        </div>
-    </header>
+<!-- Left column: stats & inventory -->
+<div id="left" class="column">
+  <div id="statsPanel"></div>
+</div>
+
+<!-- Middle column: message log -->
+<div id="middle" class="column">
+  <div id="messageLog"></div>
+</div>
+
+<!-- Right column: options -->
+<div id="right" class="column">
+  <div id="optionsPanel"></div>
+</div>
+
+<script type="module">
+  // --- Global object to hold loaded modules ---
+  window.loaded = {};
+
+  // List of module paths
+  const modules = [
+    "modules/utils.js",
+    "modules/player.js",
+    "modules/events.js",
+    "modules/inventory.js",
+    "modules/progress.js",
+    "modules/save-system.js",
+    "modules/ui.js",
+    "modules/voice.js",
+    "modules/areas.js",
+    "modules/items.js",
+    "modules/enemies.js"
+  ];
+
+  // Dynamically import modules
+  for (const path of modules) {
+    const name = path.split("/").pop().replace(".js","");
+    window.loaded[name] = await import(`./${path}`);
+    console.log(`Module loaded: ${name}`);
+  }
+
+  // --- Initialize UI ---
+  loaded.ui.initUI();
+
+  // --- Create player and refresh stats ---
+  loaded.player.createPlayer("Rafael", "Warrior");
+  loaded.ui.refreshAll(loaded.player.player);
+
+  // --- Example message and event ---
+  loaded.ui.addMessage("Welcome to ASCII RPG Demo!", "system");
+
+  // Add an example item to inventory
+  const sword = loaded.items.createItem("sword_iron");
+  loaded.inventory.addItem(sword);
+  loaded.ui.addMessage(`You received: ${sword.name}`, "system");
+
+  // Set up example options
+  loaded.ui.showMenu("Actions", [
+    { label: "Attack", action: () => loaded.ui.addMessage("You swing your sword!") },
+    { label: "Heal", action: () => { loaded.player.heal(10); loaded.ui.refreshAll(loaded.player.player); loaded.ui.addMessage("You healed 10 HP"); } },
+    { label: "View Inventory", action: () => loaded.ui.addMessage("Inventory: " + loaded.inventory.items.map(i => i.name).join(", ")) }
+  ]);
+
+  // --- Animate text using voice module ---
+  const logDiv = document.getElementById("messageLog");
+  loaded.voice.animateText(logDiv, "Prepare for your ASCII adventure...\n", 30);
+</script>
 
-    <main>
-        <div class="grid" id="accounts-grid"></div>
-
-        <div class="notes-section">
-            <div class="tabs-header" id="tabs-header">
-                <!-- Dynamic tabs rendered via JavaScript -->
-                <button class="add-tab-btn" onclick="addNewTab()" title="Add Tab">+</button>
-            </div>
-            <textarea id="notes-input" class="notes-textarea" placeholder="Type your notes here..."></textarea>
-        </div>
-    </main>
-
-    <div id="toast-container"></div>
-
-    <script>
-        /* ==========================================
-           1. DATABASE & STORAGE (IndexedDB)
-           ========================================== */
-        const DB_NAME = 'AuthenticatorDB';
-        const DB_VERSION = 1;
-        let db = null;
-
-        function initDB() {
-            return new Promise((resolve, reject) => {
-                const req = indexedDB.open(DB_NAME, DB_VERSION);
-                req.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains('accounts')) {
-                        db.createObjectStore('accounts', { keyPath: 'id', autoIncrement: true });
-                    }
-                };
-                req.onsuccess = (e) => {
-                    db = e.target.result;
-                    resolve(db);
-                };
-                req.onerror = (e) => reject(e);
-            });
-        }
-
-        function getAllAccounts() {
-            return new Promise((resolve) => {
-                const tx = db.transaction('accounts', 'readonly');
-                const store = tx.objectStore('accounts');
-                const req = store.getAll();
-                req.onsuccess = () => resolve(req.result || []);
-            });
-        }
-
-        function saveAccount(acc) {
-            return new Promise((resolve) => {
-                const tx = db.transaction('accounts', 'readwrite');
-                const store = tx.objectStore('accounts');
-                const req = store.put(acc);
-                req.onsuccess = () => resolve(req.result);
-            });
-        }
-
-        function clearAccounts() {
-            return new Promise((resolve) => {
-                const tx = db.transaction('accounts', 'readwrite');
-                const store = tx.objectStore('accounts');
-                const req = store.clear();
-                req.onsuccess = () => resolve();
-            });
-        }
-
-        /* ==========================================
-           2. CRYPTO & TOTP IMPLEMENTATION (RFC 6238)
-           ========================================== */
-        function base32ToBuf(base32) {
-            const b32 = base32.toUpperCase().replace(/=+$/, '').replace(/ /g, '');
-            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-            let bits = '';
-            for (let i = 0; i < b32.length; i++) {
-                const val = alphabet.indexOf(b32.charAt(i));
-                if (val === -1) continue;
-                bits += val.toString(2).padStart(5, '0');
-            }
-            const bytes = new Uint8Array(Math.floor(bits.length / 8));
-            for (let i = 0; i < bytes.length; i++) {
-                bytes[i] = parseInt(bits.substr(i * 8, 8), 2);
-            }
-            return bytes.buffer;
-        }
-
-        async function generateTOTP(secret, period = 30, digits = 6, algo = 'SHA-1') {
-            try {
-                const keyBuf = base32ToBuf(secret);
-                if (keyBuf.byteLength === 0) return '000000';
-
-                const epoch = Math.floor(Date.now() / 1000);
-                const timeStep = Math.floor(epoch / period);
-
-                const timeBuf = new ArrayBuffer(8);
-                const view = new DataView(timeBuf);
-                view.setBigUint64(0, BigInt(timeStep), false);
-
-                const cryptoAlgo = { name: 'HMAC', hash: { name: algo } };
-
-                const cryptoKey = await crypto.subtle.importKey(
-                    'raw', keyBuf, cryptoAlgo, false, ['sign']
-                );
-
-                const signature = await crypto.subtle.sign('HMAC', cryptoKey, timeBuf);
-                const sigBytes = new Uint8Array(signature);
-
-                const offset = sigBytes[sigBytes.length - 1] & 0x0f;
-                const binary =
-                    ((sigBytes[offset] & 0x7f) << 24) |
-                    ((sigBytes[offset + 1] & 0xff) << 16) |
-                    ((sigBytes[offset + 2] & 0xff) << 8) |
-                    (sigBytes[offset + 3] & 0xff);
-
-                const otp = binary % Math.pow(10, digits);
-                return otp.toString().padStart(digits, '0');
-            } catch (err) {
-                return 'ERROR';
-            }
-        }
-
-        /* ==========================================
-           3. PROTOBUF DECODER (Google Authenticator)
-           ========================================== */
-        function decodeProtobufVarint(buffer, offset) {
-            let res = 0;
-            let shift = 0;
-            let b;
-            do {
-                if (offset >= buffer.length) throw new Error("Varint overflow");
-                b = buffer[offset++];
-                res |= (b & 0x7f) << shift;
-                shift += 7;
-            } while (b & 0x80);
-            return { value: res, nextOffset: offset };
-        }
-
-        function parseMigrationPayload(buffer) {
-            let offset = 0;
-            const otpParameters = [];
-
-            while (offset < buffer.length) {
-                const tag = buffer[offset++];
-                const wireType = tag & 0x07;
-                const fieldNum = tag >> 3;
-
-                if (fieldNum === 1 && wireType === 2) {
-                    const lenInfo = decodeProtobufVarint(buffer, offset);
-                    const paramEnd = lenInfo.nextOffset + lenInfo.value;
-                    let pOffset = lenInfo.nextOffset;
-
-                    let param = { secret: '', name: '', issuer: '', algorithm: 'SHA-1', digits: 6 };
-
-                    while (pOffset < paramEnd) {
-                        const pTag = buffer[pOffset++];
-                        const pWire = pTag & 0x07;
-                        const pField = pTag >> 3;
-
-                        if (pWire === 2) {
-                            const l = decodeProtobufVarint(buffer, pOffset);
-                            const bytes = buffer.subarray(l.nextOffset, l.nextOffset + l.value);
-                            pOffset = l.nextOffset + l.value;
-
-                            if (pField === 1) {
-                                param.secret = bufToBase32(bytes);
-                            } else if (pField === 2) {
-                                param.name = new TextDecoder().decode(bytes);
-                            } else if (pField === 3) {
-                                param.issuer = new TextDecoder().decode(bytes);
-                            }
-                        } else if (pWire === 0) {
-                            const v = decodeProtobufVarint(buffer, pOffset);
-                            pOffset = v.nextOffset;
-                            if (pField === 4) {
-                                if (v.value === 1) param.algorithm = 'SHA-1';
-                                else if (v.value === 2) param.algorithm = 'SHA-256';
-                                else if (v.value === 3) param.algorithm = 'SHA-512';
-                            } else if (pField === 5) {
-                                if (v.value === 1) param.digits = 6;
-                                else if (v.value === 2) param.digits = 8;
-                            }
-                        } else {
-                            pOffset = paramEnd;
-                        }
-                    }
-                    otpParameters.push(param);
-                    offset = paramEnd;
-                } else {
-                    break;
-                }
-            }
-            return otpParameters;
-        }
-
-        function bufToBase32(buf) {
-            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-            let bits = '';
-            let output = '';
-            for (let i = 0; i < buf.length; i++) {
-                bits += buf[i].toString(2).padStart(8, '0');
-            }
-            for (let i = 0; i < bits.length; i += 5) {
-                const chunk = bits.substr(i, 5).padEnd(5, '0');
-                output += alphabet[parseInt(chunk, 2)];
-            }
-            return output;
-        }
-
-        function cleanEmail(raw) {
-            return raw.replace(/@www\.gnjoylatam\.com/gi, '');
-        }
-
-        async function processMigrationURI(uri) {
-            try {
-                const url = new URL(uri);
-                if (url.protocol === 'otpauth-migration:') {
-                    const dataParam = url.searchParams.get('data');
-                    if (!dataParam) return;
-
-                    const raw = atob(dataParam);
-                    const bytes = new Uint8Array(raw.length);
-                    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-
-                    const parsedAccounts = parseMigrationPayload(bytes);
-
-                    // Target order: Left: gmail, Middle: hotmail, Right: pasteldevgames
-                    const targetOrder = [
-                        'rbatistadelima@gmail.com',
-                        'rbatistadelima@hotmail.com',
-                        'pasteldevgames@gmail.com'
-                    ];
-
-                    await clearAccounts();
-
-                    // Map keys to their target positions based on parsed array indices
-                    const mappedSecrets = [
-                        parsedAccounts[2], // gmail
-                        parsedAccounts[0], // hotmail
-                        parsedAccounts[1]  // pasteldevgames
-                    ];
-
-                    for (let i = 0; i < mappedSecrets.length; i++) {
-                        const p = mappedSecrets[i];
-                        if (!p) continue;
-                        await saveAccount({
-                            account: targetOrder[i],
-                            secret: p.secret,
-                            digits: p.digits || 6,
-                            period: 30,
-                            algorithm: p.algorithm || 'SHA-1'
-                        });
-                    }
-                }
-            } catch (err) {}
-        }
-
-        /* ==========================================
-           4. RENDERING & UI
-           ========================================== */
-        let accounts = [];
-
-        async function loadAndRender() {
-            accounts = await getAllAccounts();
-
-            const emailOrder = [
-                'rbatistadelima@gmail.com',
-                'rbatistadelima@hotmail.com',
-                'pasteldevgames@gmail.com'
-            ];
-
-            accounts.sort((a, b) => {
-                const idxA = emailOrder.indexOf(a.account);
-                const idxB = emailOrder.indexOf(b.account);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-                return 0;
-            });
-
-            renderGrid();
-        }
-
-        async function renderGrid() {
-            const grid = document.getElementById('accounts-grid');
-            grid.innerHTML = '';
-
-            for (const acc of accounts) {
-                const cleanAccEmail = cleanEmail(acc.account || '');
-                const code = await generateTOTP(acc.secret, acc.period || 30, acc.digits || 6, acc.algorithm || 'SHA-1');
-                const formattedCode = code.length === 6 ? `${code.substr(0, 3)} ${code.substr(3)}` : code;
-
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = `
-                    <div class="data-fields">
-                        <div class="data-field" onclick="copyToClipboard('${escapeJs(cleanAccEmail)}', 'Email')">
-                            <span class="text" title="${escapeHtml(cleanAccEmail)}">${escapeHtml(cleanAccEmail)}</span>
-                            <div class="icon-btn">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                            </div>
-                        </div>
-                        <div class="data-field" onclick="copyToClipboard('${escapeJs(acc.password || "Pr34ch3r!@")}', 'Password')">
-                            <span class="text">••••••••••••</span>
-                            <div class="icon-btn">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="otp-box" onclick="copyToClipboard('${code}', 'OTP Code')">
-                        <div class="otp-code">${formattedCode}</div>
-                    </div>
-                `;
-                grid.appendChild(card);
-            }
-        }
-
-        function startTimerLoop() {
-            setInterval(() => {
-                const now = Math.floor(Date.now() / 1000);
-                const period = 30;
-                const remaining = period - (now % period);
-
-                document.getElementById('timer-text').innerText = `${remaining}s`;
-
-                const circle = document.getElementById('timer-progress');
-                const circumference = 2 * Math.PI * 7;
-                const offset = circumference - (remaining / period) * circumference;
-                circle.style.strokeDashoffset = offset;
-
-                if (remaining === period) {
-                    renderGrid();
-                }
-            }, 1000);
-        }
-
-        function copyToClipboard(text, label) {
-            navigator.clipboard.writeText(text).then(() => {
-                showToast(`${label} copied!`);
-            });
-        }
-
-        function showToast(msg) {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.innerText = msg;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
-
-        function escapeHtml(str) {
-            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        }
-
-        function escapeJs(str) {
-            return String(str).replace(/'/g, "\\'").replace(/"/g, '\\"');
-        }
-
-        /* ==========================================
-           5. TABBED LOCALSTORAGE NOTES SYSTEM
-           ========================================== */
-        let tabsState = {
-            activeTabId: null,
-            tabs: []
-        };
-
-        function initTabs() {
-            const savedData = localStorage.getItem('authenticator_tabs_v4');
-            
-            if (savedData) {
-                try {
-                    tabsState = JSON.parse(savedData);
-                } catch (e) {
-                    tabsState = { activeTabId: null, tabs: [] };
-                }
-            }
-
-            if (!tabsState.tabs || tabsState.tabs.length === 0) {
-                tabsState.tabs = [
-                    { id: 'tab_1', title: 'Notes 1', content: '' }
-                ];
-                tabsState.activeTabId = 'tab_1';
-                saveTabsToStorage();
-            }
-
-            if (!tabsState.activeTabId || !tabsState.tabs.some(t => t.id === tabsState.activeTabId)) {
-                tabsState.activeTabId = tabsState.tabs[0].id;
-            }
-
-            renderTabs();
-
-            const notesInput = document.getElementById('notes-input');
-            notesInput.addEventListener('input', (e) => {
-                const currentTab = tabsState.tabs.find(t => t.id === tabsState.activeTabId);
-                if (currentTab) {
-                    currentTab.content = e.target.value;
-                    saveTabsToStorage();
-                }
-            });
-        }
-
-        function saveTabsToStorage() {
-            localStorage.setItem('authenticator_tabs_v4', JSON.stringify(tabsState));
-        }
-
-        function renderTabs() {
-            const container = document.getElementById('tabs-header');
-            const existingTabBtns = container.querySelectorAll('.tab-btn');
-            existingTabBtns.forEach(btn => btn.remove());
-
-            tabsState.tabs.forEach(tab => {
-                const tabBtn = document.createElement('div');
-                tabBtn.className = `tab-btn ${tab.id === tabsState.activeTabId ? 'active' : ''}`;
-                
-                tabBtn.onclick = (e) => {
-                    if (e.target.classList.contains('tab-close')) return;
-                    if (tabsState.activeTabId !== tab.id) {
-                        selectTab(tab.id);
-                    }
-                };
-
-                const titleSpan = document.createElement('span');
-                titleSpan.className = 'tab-title';
-                titleSpan.innerText = tab.title || '';
-                
-                titleSpan.ondblclick = (e) => {
-                    e.stopPropagation();
-                    enableEditing(titleSpan, tab);
-                };
-
-                const closeBtn = document.createElement('button');
-                closeBtn.className = 'tab-close';
-                closeBtn.innerHTML = '&times;';
-                closeBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    removeTab(tab.id);
-                };
-
-                tabBtn.appendChild(titleSpan);
-                tabBtn.appendChild(closeBtn);
-                container.insertBefore(tabBtn, container.querySelector('.add-tab-btn'));
-            });
-
-            const activeTab = tabsState.tabs.find(t => t.id === tabsState.activeTabId);
-            const notesInput = document.getElementById('notes-input');
-            if (activeTab) {
-                notesInput.value = activeTab.content || '';
-            } else {
-                notesInput.value = '';
-            }
-        }
-
-        function selectTab(id) {
-            tabsState.activeTabId = id;
-            saveTabsToStorage();
-            renderTabs();
-        }
-
-        function addNewTab() {
-            const newId = 'tab_' + Date.now();
-            const newTab = {
-                id: newId,
-                title: `Notes ${tabsState.tabs.length + 1}`,
-                content: ''
-            };
-            tabsState.tabs.push(newTab);
-            tabsState.activeTabId = newId;
-            saveTabsToStorage();
-            renderTabs();
-        }
-
-        function removeTab(id) {
-            if (tabsState.tabs.length <= 1) {
-                showToast("Cannot delete the last tab");
-                return;
-            }
-
-            tabsState.tabs = tabsState.tabs.filter(t => t.id !== id);
-            if (tabsState.activeTabId === id) {
-                tabsState.activeTabId = tabsState.tabs[tabsState.tabs.length - 1].id;
-            }
-            saveTabsToStorage();
-            renderTabs();
-        }
-
-        function enableEditing(span, tab) {
-            span.contentEditable = "true";
-            span.focus();
-
-            const range = document.createRange();
-            range.selectNodeContents(span);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-
-            function finishEditing() {
-                span.contentEditable = "false";
-                const newTitle = span.innerText.trim();
-                tab.title = newTitle || 'Untitled';
-                saveTabsToStorage();
-                renderTabs();
-            }
-
-            span.onblur = () => finishEditing();
-            span.onkeydown = (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    span.blur();
-                }
-            };
-        }
-
-        /* ==========================================
-           6. INITIALIZATION
-           ========================================== */
-        window.addEventListener('DOMContentLoaded', async () => {
-            await initDB();
-            initTabs();
-            await loadAndRender();
-            startTimerLoop();
-        });
-    </script>
 </body>
 </html>

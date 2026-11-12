@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII RPG - Extended Exploration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #000;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 10px;
+            border-bottom: 1px solid #fff;
+            margin-bottom: 10px;
+        }
+        
+        .container {
+            display: flex;
+            flex: 1;
+            gap: 10px;
+            overflow: hidden;
+        }
+        
+        .character-panel {
+            width: 30%;
+            border: 1px solid #fff;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .log-panel {
+            width: 70%;
+            border: 1px solid #fff;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .panel-title {
+            text-align: center;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #fff;
+        }
+        
+        .stats {
+            margin-bottom: 15px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .inventory {
+            margin-bottom: 15px;
+        }
+        
+        .inventory-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .item {
+            border: 1px solid #fff;
+            padding: 3px 6px;
+            font-size: 12px;
+        }
+        
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: auto;
+        }
+        
+        button {
+            background: #000;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #fff;
+            color: #000;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        button:disabled:hover {
+            background: #000;
+            color: #fff;
+        }
+        
+        .log-content {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding-right: 5px;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed #333;
+            font-size: 14px;
+        }
+        
+        .voice-controls {
+            display: flex;
+            gap: 10px;
+            padding: 5px;
+            border-top: 1px solid #fff;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 10px;
+            border-top: 1px solid #fff;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #fff;
+        }
+        
+        /* Status indicators */
+        .health-bar, .mana-bar, .explore-bar {
+            height: 10px;
+            border: 1px solid #fff;
+            margin-top: 2px;
+            margin-bottom: 10px;
+        }
+        
+        .health-fill {
+            height: 100%;
+            background: #fff;
+            width: 80%;
+        }
+        
+        .mana-fill {
+            height: 100%;
+            background: #fff;
+            width: 60%;
+        }
+        
+        .explore-fill {
+            height: 100%;
+            background: #fff;
+            width: 0%;
+            transition: width 0.5s linear;
+        }
+        
+        .exploration-status {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        .location-display {
+            text-align: center;
+            margin: 10px 0;
+            font-style: italic;
+        }
+        
+        .time-display {
+            text-align: center;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ASCII RPG - DEEP FOREST EXPEDITION</h1>
+    </div>
+    
+    <div class="container">
+        <div class="character-panel">
+            <div class="panel-title">CHARACTER INFO</div>
+            
+            <div class="stats">
+                <div class="stat-row">
+                    <span>Name:</span>
+                    <span>Eldric</span>
+                </div>
+                <div class="stat-row">
+                    <span>Class:</span>
+                    <span>Explorer</span>
+                </div>
+                <div class="stat-row">
+                    <span>Level:</span>
+                    <span>5</span>
+                </div>
+                <div class="stat-row">
+                    <span>Health:</span>
+                    <span>75/80</span>
+                </div>
+                <div class="health-bar">
+                    <div class="health-fill"></div>
+                </div>
+                <div class="stat-row">
+                    <span>Stamina:</span>
+                    <span>60/100</span>
+                </div>
+                <div class="mana-bar">
+                    <div class="mana-fill" style="width: 60%;"></div>
+                </div>
+                <div class="stat-row">
+                    <span>Gold:</span>
+                    <span>225</span>
+                </div>
+            </div>
+            
+            <div class="location-display">
+                Current Location: <br>Darkwood Forest
+            </div>
+            
+            <div class="time-display" id="time-display">
+                Expedition: 0:00 / 3:00
+            </div>
+            
+            <div class="inventory">
+                <div class="panel-title">INVENTORY</div>
+                <div class="inventory-items">
+                    <div class="item">Health Potion</div>
+                    <div class="item">Stamina Elixir</div>
+                    <div class="item">Map</div>
+                    <div class="item">Rations (5)</div>
+                    <div class="item">Compass</div>
+                    <div class="item">Torch</div>
+                </div>
+            </div>
+            
+            <div class="actions">
+                <button id="explore-btn" onclick="startExpedition()">BEGIN EXPEDITION</button>
+                <button onclick="performAction('rest')">REST</button>
+                <button onclick="performAction('craft')">CRAFT</button>
+                <button onclick="performAction('map')">VIEW MAP</button>
+            </div>
+        </div>
+        
+        <div class="log-panel">
+            <div class="panel-title">EXPEDITION LOG</div>
+            
+            <div class="exploration-status" id="exploration-status">
+                READY - Begin when prepared
+            </div>
+            
+            <div class="explore-bar">
+                <div class="explore-fill" id="explore-fill"></div>
+            </div>
+            
+            <div class="log-content" id="log-content">
+                <div class="log-entry">[System]: Expedition initialized. Darkwood Forest awaits.</div>
+                <div class="log-entry">[Eldric]: This forest is deeper than any I've explored before. I should prepare thoroughly.</div>
+                <div class="log-entry">[System]: The expedition will take approximately 3 minutes. You may encounter various events.</div>
+                <div class="log-entry">[Eldric]: My supplies seem adequate. I'll begin when ready.</div>
+            </div>
+            
+            <div class="voice-controls">
+                <button onclick="toggleVoice()">TOGGLE VOICE</button>
+                <button onclick="speakLatest()">READ LAST EVENT</button>
+                <button onclick="stopSpeech()">STOP VOICE</button>
+                <button onclick="clearLog()">CLEAR LOG</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        ASCII RPG Expedition | Voice: <span id="voice-status">ENABLED</span> | Expedition Status: <span id="status">IDLE</span>
+    </div>
+
+    <script>
+        // Speech synthesis setup
+        const speech = new SpeechSynthesisUtterance();
+        speech.rate = 0.9;
+        speech.pitch = 1.0;
+        speech.volume = 1.0;
+        
+        let voiceEnabled = true;
+        let isExploring = false;
+        let explorationInterval;
+        let expeditionStartTime;
+        let expeditionDuration = 180000; // 3 minutes in milliseconds
+        let speechQueue = [];
+        let isSpeaking = false;
+        
+        // Expedition events database - longer and more detailed
+        const expeditionEvents = [
+            // Phase 1: Initial exploration (0-60 seconds)
+            "You begin your expedition into the dense Darkwood Forest. The canopy above blocks most sunlight.",
+            "The path narrows as you venture deeper. You notice strange markings on the ancient trees.",
+            "A babbling brook crosses your path. The water appears clean and drinkable.",
+            "You find animal tracks - too large to be any common forest creature. You proceed with caution.",
+            "The forest grows quieter, as if holding its breath. You feel watched but see nothing.",
+            
+            // Phase 2: Deep forest (60-120 seconds)
+            "The trees here are enormous, their trunks wider than houses. You feel very small in comparison.",
+            "You discover a circle of mushrooms with a faint magical glow. Do you dare step inside?",
+            "A ruined stone structure suggests this forest was once inhabited. Who built this, and why was it abandoned?",
+            "You hear distant howling. Wolves, or something more sinister? You grip your weapon tighter.",
+            "The air grows cold suddenly. Your breath mists despite it being midday. Something isn't right here.",
+            
+            // Phase 3: Mysterious discoveries (120-150 seconds)
+            "You find a crystal formation pulsating with soft light. It seems to respond to your presence.",
+            "Ancient runes are carved into a stone monolith. They tell of a 'Guardian' of the forest.",
+            "A hidden cave entrance lies behind a waterfall. Strange echoes emerge from within.",
+            "You discover the skeleton of a previous explorer. Their journal mentions 'whispers in the trees'.",
+            "A sudden fog rolls in, reducing visibility. You rely on your compass to maintain direction.",
+            
+            // Phase 4: The heart of the forest (150-180 seconds)
+            "The forest opens into a clearing with a massive ancient tree at its center. This must be the Heartwood.",
+            "You feel a powerful presence. The Guardian is near. Your expedition is reaching its climax.",
+            "The whispers grow louder, almost forming words. They seem to be warning you about something.",
+            "Strange lights dance between the trees. Are they will-o-wisps or something more mysterious?",
+            "You've reached the deepest part of Darkwood Forest. The air hums with ancient magic."
+        ];
+        
+        // Toggle voice functionality
+        function toggleVoice() {
+            voiceEnabled = !voiceEnabled;
+            document.getElementById('voice-status').textContent = voiceEnabled ? 'ENABLED' : 'DISABLED';
+            addLogEntry(voiceEnabled ? 'Voice narration enabled' : 'Voice narration disabled');
+        }
+        
+        // Speak text using queue system
+        function speakText(text) {
+            if (!voiceEnabled) return;
+            
+            speechQueue.push(text);
+            
+            if (!isSpeaking) {
+                processSpeechQueue();
+            }
+        }
+        
+        // Process the speech queue
+        function processSpeechQueue() {
+            if (speechQueue.length === 0) {
+                isSpeaking = false;
+                return;
+            }
+            
+            isSpeaking = true;
+            const text = speechQueue.shift();
+            
+            // Cancel any ongoing speech
+            window.speechSynthesis.cancel();
+            
+            speech.text = text;
+            window.speechSynthesis.speak(speech);
+            
+            // When done speaking, process next in queue
+            speech.onend = function() {
+                setTimeout(processSpeechQueue, 500);
+            };
+        }
+        
+        // Stop all speech
+        function stopSpeech() {
+            window.speechSynthesis.cancel();
+            speechQueue = [];
+            isSpeaking = false;
+            addLogEntry("Voice narration stopped");
+        }
+        
+        // Speak the latest log entry
+        function speakLatest() {
+            const logEntries = document.querySelectorAll('.log-entry');
+            if (logEntries.length > 0) {
+                const latestEntry = logEntries[logEntries.length - 1].textContent;
+                speakText(latestEntry);
+            }
+        }
+        
+        // Add a new log entry
+        function addLogEntry(message, speakIt = true) {
+            const logContent = document.getElementById('log-content');
+            const newEntry = document.createElement('div');
+            
+            if (!message) {
+                // Calculate expedition progress to determine which events to show
+                const elapsed = Date.now() - expeditionStartTime;
+                const progress = Math.min(elapsed / expeditionDuration, 1);
+                const eventIndex = Math.min(
+                    Math.floor(progress * expeditionEvents.length),
+                    expeditionEvents.length - 1
+                );
+                
+                message = expeditionEvents[eventIndex];
+            }
+            
+            newEntry.className = 'log-entry';
+            newEntry.textContent = message;
+            logContent.appendChild(newEntry);
+            
+            // Scroll to bottom
+            logContent.scrollTop = logContent.scrollHeight;
+            
+            // Add to speech queue if requested
+            if (speakIt && voiceEnabled) {
+                speakText(message);
+            }
+            
+            return message;
+        }
+        
+        // Clear the log
+        function clearLog() {
+            const logContent = document.getElementById('log-content');
+            logContent.innerHTML = '';
+            addLogEntry('[System]: Log cleared. Expedition continues.', false);
+        }
+        
+        // Perform an action
+        function performAction(action) {
+            if (isExploring) return;
+            
+            const actions = {
+                rest: [
+                    'You take a moment to rest and recover stamina.',
+                    'You find a comfortable spot to sit and consume some rations.',
+                    'You meditate briefly, recovering your focus.',
+                    'You drink from your waterskin and enjoy a short break.',
+                    'You tighten your bootlaces and prepare to continue.'
+                ],
+                craft: [
+                    'You fashion a walking stick from a fallen branch.',
+                    'Using forest materials, you create a simple trap for small game.',
+                    'You repair a tear in your pack with some cordage.',
+                    'You sharpen your blade on a smooth stone.',
+                    'You organize your supplies for easier access.'
+                ],
+                map: [
+                    'You consult your map, noting interesting landmarks.',
+                    'You update your map with recent discoveries.',
+                    'The map shows a potential shortcut through a ravine.',
+                    'You compare your position with known landmarks.',
+                    'Your map suggests a mysterious area ahead marked "Here there be monsters".'
+                ]
+            };
+            
+            const message = actions[action][Math.floor(Math.random() * actions[action].length)];
+            addLogEntry(message);
+        }
+        
+        // Start the 3-minute expedition
+        function startExpedition() {
+            if (isExploring) return;
+            
+            const exploreBtn = document.getElementById('explore-btn');
+            const exploreFill = document.getElementById('explore-fill');
+            const explorationStatus = document.getElementById('exploration-status');
+            const statusDisplay = document.getElementById('status');
+            
+            isExploring = true;
+            exploreBtn.disabled = true;
+            explorationStatus.textContent = "EXPEDITION IN PROGRESS - Exploring Darkwood Forest";
+            statusDisplay.textContent = "IN PROGRESS";
+            
+            // Reset progress bar
+            exploreFill.style.width = '0%';
+            
+            // Set start time
+            expeditionStartTime = Date.now();
+            const expeditionEndTime = expeditionStartTime + expeditionDuration;
+            
+            // Start expedition progress
+            explorationInterval = setInterval(() => {
+                const currentTime = Date.now();
+                const elapsed = currentTime - expeditionStartTime;
+                const remaining = Math.max(expeditionEndTime - currentTime, 0);
+                
+                // Update progress bar
+                const progress = (elapsed / expeditionDuration) * 100;
+                exploreFill.style.width = progress + '%';
+                
+                // Update time display
+                const elapsedMinutes = Math.floor(elapsed / 60000);
+                const elapsedSeconds = Math.floor((elapsed % 60000) / 1000);
+                const totalMinutes = Math.floor(expeditionDuration / 60000);
+                const totalSeconds = Math.floor((expeditionDuration % 60000) / 1000);
+                
+                document.getElementById('time-display').textContent = 
+                    `Expedition: ${elapsedMinutes}:${elapsedSeconds.toString().padStart(2, '0')} / ${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
+                
+                // Add events at intervals (more frequent at beginning, less later)
+                let eventInterval = 10000; // 10 seconds by default
+                
+                if (elapsed < 60000) { // First minute: more events
+                    eventInterval = 8000;
+                } else if (elapsed < 120000) { // Second minute: medium
+                    eventInterval = 12000;
+                } else { // Final minute: less frequent
+                    eventInterval = 15000;
+                }
+                
+                if (elapsed % eventInterval < 500) { // Roughly every eventInterval ms
+                    addLogEntry();
+                }
+                
+                // Expedition complete
+                if (currentTime >= expeditionEndTime) {
+                    clearInterval(explorationInterval);
+                    finishExpedition();
+                }
+            }, 500);
+        }
+        
+        // Finish expedition
+        function finishExpedition() {
+            const exploreBtn = document.getElementById('explore-btn');
+            const explorationStatus = document.getElementById('exploration-status');
+            const statusDisplay = document.getElementById('status');
+            
+            isExploring = false;
+            exploreBtn.disabled = false;
+            explorationStatus.textContent = "EXPEDITION COMPLETE - Darkwood Forest explored";
+            statusDisplay.textContent = "COMPLETE";
+            
+            // Add completion message
+            addLogEntry("[System]: Expedition complete! You've uncovered the secrets of Darkwood Forest.");
+            addLogEntry("[Eldric]: This forest holds more mysteries than I imagined. I should return after rest.");
+            
+            // Final voice message after a delay
+            setTimeout(() => {
+                speakText("Expedition complete. You have discovered the heart of Darkwood Forest.");
+            }, 3000);
+        }
+        
+        // Initialize with a welcome message
+        window.onload = function() {
+            setTimeout(() => {
+                if (voiceEnabled) {
+                    speakText("Welcome to the Darkwood Forest Expedition. Prepare for a three minute journey into the unknown.");
+                }
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

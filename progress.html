@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progress Module - Idle ASCII RPG</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #1a1a1a;
+            color: #ccc;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #ffa500;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .module {
+            background-color: #222;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .module h2 {
+            color: #4ca8ff;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .code-container {
+            background-color: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 15px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        pre {
+            margin: 0;
+            color: #f8f8f2;
+        }
+        .note {
+            color: #888;
+            font-style: italic;
+            margin-top: 10px;
+        }
+        .test-area {
+            background-color: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .test-area h3 {
+            color: #4caf50;
+            margin-top: 0;
+        }
+        button {
+            background-color: #444;
+            color: #fff;
+            border: none;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover {
+            background-color: #555;
+        }
+        .output {
+            background-color: #222;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            height: 300px;
+            overflow-y: auto;
+        }
+        .resource {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 5px;
+            background-color: #333;
+            border-radius: 3px;
+        }
+        .job {
+            margin: 8px 0;
+            padding: 8px;
+            background-color: #3a3a3a;
+            border-radius: 4px;
+            border-left: 3px solid #ffa500;
+        }
+        .upgrade {
+            margin: 8px 0;
+            padding: 8px;
+            background-color: #3a3a3a;
+            border-radius: 4px;
+            border-left: 3px solid #4caf50;
+        }
+        .progress-bar {
+            height: 15px;
+            background-color: #222;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #4caf50;
+            border-radius: 8px;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <h1>Progress Module (progress.js)</h1>
+    
+    <div class="module">
+        <h2>Progress System (progress.js)</h2>
+        <div class="code-container">
+            <pre>// system/progress.js
+export const progress = {
+    resources: {
+        wood: 0,
+        stone: 0,
+        iron: 0,
+        gold: 0,
+        essence: 0
+    },
+    
+    jobs: {
+        lumberjack: {
+            name: "Lumberjack",
+            level: 0,
+            rate: 0.1,
+            resource: "wood",
+            cost: { wood: 10, gold: 5 },
+            unlocked: true
+        },
+        miner: {
+            name: "Miner",
+            level: 0,
+            rate: 0.05,
+            resource: "stone",
+            cost: { wood: 5, stone: 10, gold: 8 },
+            unlocked: false
+        },
+        blacksmith: {
+            name: "Blacksmith",
+            level: 0,
+            rate: 0.03,
+            resource: "iron",
+            cost: { wood: 20, stone: 15, gold: 15 },
+            unlocked: false
+        },
+        alchemist: {
+            name: "Alchemist",
+            level: 0,
+            rate: 0.02,
+            resource: "essence",
+            cost: { wood: 10, stone: 10, iron: 5, gold: 20 },
+            unlocked: false
+        }
+    },
+    
+    upgrades: {
+        better_tools: {
+            name: "Better Tools",
+            description: "Increases resource gathering rate by 20%",
+            cost: { wood: 50, stone: 25, gold: 20 },
+            effect: (job) => job.rate *= 1.2,
+            purchased: false
+        },
+        efficiency: {
+            name: "Efficiency Training",
+            description: "Reduces job upgrade costs by 15%",
+            cost: { wood: 100, stone: 50, gold: 40 },
+            effect: () => {
+                // This would be applied during cost calculation
+            },
+            purchased: false
+        },
+        automation: {
+            name: "Basic Automation",
+            description: "Jobs continue working when offline",
+            cost: { wood: 200, stone: 100, gold: 100 },
+            effect: () => {
+                // Enable offline progress
+            },
+            purchased: false
+        }
+    },
+    
+    achievements: {
+        first_tree: {
+            name: "First Tree",
+            description: "Chop down your first tree",
+            completed: false,
+            reward: { gold: 10 }
+        },
+        stone_age: {
+            name: "Stone Age",
+            description: "Gather 100 stone",
+            completed: false,
+            reward: { stone: 50 }
+        },
+        master_lumberjack: {
+            name: "Master Lumberjack",
+            description: "Reach level 10 Lumberjack",
+            completed: false,
+            reward: { wood: 200, gold: 50 }
+        }
+    },
+    
+    // Update progress based on elapsed time
+    update(deltaTime) {
+        // Update resource generation based on jobs
+        for (const jobId in this.jobs) {
+            const job = this.jobs[jobId];
+            if (job.level > 0 && job.unlocked) {
+                this.resources[job.resource] += job.rate * job.level * deltaTime;
+                
+                // Check achievements
+                this.checkAchievements();
+            }
+        }
+    },
+    
+    // Upgrade a job
+    upgradeJob(jobId) {
+        const job = this.jobs[jobId];
+        if (!job || !job.unlocked) return false;
+        
+        // Calculate cost with potential discounts
+        const costMultiplier = 1.0; // Would be reduced by upgrades
+        const actualCost = {};
+        for (const resource in job.cost) {
+            actualCost[resource] = job.cost[resource] * (job.level + 1) * costMultiplier;
+            if (this.resources[resource] < actualCost[resource]) {
+                return false;
+            }
+        }
+        
+        // Deduct costs
+        for (const resource in actualCost) {
+            this.resources[resource] -= actualCost[resource];
+        }
+        
+        job.level++;
+        return true;
+    },
+    
+    // Unlock a job
+    unlockJob(jobId) {
+        const job = this.jobs[jobId];
+        if (!job || job.unlocked) return false;
+        
+        // Check requirements (simplified)
+        const requirements = {
+            miner: { wood: 50 },
+            blacksmith: { wood: 100, stone: 50 },
+            alchemist: { wood: 150, stone: 100, iron: 25 }
+        };
+        
+        if (requirements[jobId]) {
+            for (const resource in requirements[jobId]) {
+                if (this.resources[resource] < requirements[jobId][resource]) {
+                    return false;
+                }
+            }
+        }
+        
+        job.unlocked = true;
+        return true;
+    },
+    
+    // Purchase an upgrade
+    purchaseUpgrade(upgradeId) {
+        const upgrade = this.upgrades[upgradeId];
+        if (!upgrade || upgrade.purchased) return false;
+        
+        // Check if player can afford the upgrade
+        for (const resource in upgrade.cost) {
+            if (this.resources[resource] < upgrade.cost[resource]) {
+                return false;
+            }
+        }
+        
+        // Deduct costs
+        for (const resource in upgrade.cost) {
+            this.resources[resource] -= upgrade.cost[resource];
+        }
+        
+        // Apply upgrade effect
+        if (upgrade.effect) {
+            for (const jobId in this.jobs) {
+                upgrade.effect(this.jobs[jobId]);
+            }
+        }
+        
+        upgrade.purchased = true;
+        return true;
+    },
+    
+    // Check and complete achievements
+    checkAchievements() {
+        // First Tree
+        if (!this.achievements.first_tree.completed && this.resources.wood >= 1) {
+            this.achievements.first_tree.completed = true;
+            this.applyReward(this.achievements.first_tree.reward);
+        }
+        
+        // Stone Age
+        if (!this.achievements.stone_age.completed && this.resources.stone >= 100) {
+            this.achievements.stone_age.completed = true;
+            this.applyReward(this.achievements.stone_age.reward);
+        }
+        
+        // Master Lumberjack
+        if (!this.achievements.master_lumberjack.completed && 
+            this.jobs.lumberjack.level >= 10) {
+            this.achievements.master_lumberjack.completed = true;
+            this.applyReward(this.achievements.master_lumberjack.reward);
+        }
+    },
+    
+    // Apply achievement rewards
+    applyReward(reward) {
+        for (const resource in reward) {
+            this.resources[resource] += reward[resource];
+        }
+    },
+    
+    // Get total production rates
+    getProductionRates() {
+        const rates = {};
+        for (const resource in this.resources) {
+            rates[resource] = 0;
+        }
+        
+        for (const jobId in this.jobs) {
+            const job = this.jobs[jobId];
+            if (job.level > 0 && job.unlocked) {
+                rates[job.resource] += job.rate * job.level;
+            }
+        }
+        
+        return rates;
+    },
+    
+    // Get save data for progress
+    getSaveData() {
+        return {
+            resources: {...this.resources},
+            jobs: JSON.parse(JSON.stringify(this.jobs)),
+            upgrades: JSON.parse(JSON.stringify(this.upgrades)),
+            achievements: JSON.parse(JSON.stringify(this.achievements))
+        };
+    },
+    
+    // Load progress from save data
+    loadSaveData(data) {
+        this.resources = {...data.resources};
+        this.jobs = data.jobs;
+        this.upgrades = data.upgrades;
+        this.achievements = data.achievements;
+    },
+    
+    // Reset progress to initial state
+    reset() {
+        this.resources = {
+            wood: 0,
+            stone: 0,
+            iron: 0,
+            gold: 0,
+            essence: 0
+        };
+        
+        for (const jobId in this.jobs) {
+            this.jobs[jobId].level = 0;
+            this.jobs[jobId].unlocked = jobId === "lumberjack";
+        }
+        
+        for (const upgradeId in this.upgrades) {
+            this.upgrades[upgradeId].purchased = false;
+        }
+        
+        for (const achievementId in this.achievements) {
+            this.achievements[achievementId].completed = false;
+        }
+    }
+};</pre>
+        </div>
+        <p class="note">This module handles resource generation, jobs, upgrades, and achievement systems.</p>
+    </div>
+
+    <div class="test-area">
+        <h3>Module Testing</h3>
+        <p>Test the progress module functionality:</p>
+        <button onclick="testUpdate()">Simulate 10s Progress</button>
+        <button onclick="testUpgradeJob()">Upgrade Lumberjack</button>
+        <button onclick="testUnlockJob()">Unlock Miner</button>
+        <button onclick="testPurchaseUpgrade()">Buy Better Tools</button>
+        <button onclick="testAddResources()">Add Resources</button>
+        <button onclick="testReset()">Reset Progress</button>
+        
+        <div class="output" id="output">Progress state will be shown here...</div>
+    </div>
+
+    <script>
+        // Progress module implementation
+        const progress = {
+            resources: {
+                wood: 0,
+                stone: 0,
+                iron: 0,
+                gold: 0,
+                essence: 0
+            },
+            
+            jobs: {
+                lumberjack: {
+                    name: "Lumberjack",
+                    level: 0,
+                    rate: 0.1,
+                    resource: "wood",
+                    cost: { wood: 10, gold: 5 },
+                    unlocked: true
+                },
+                miner: {
+                    name: "Miner",
+                    level: 0,
+                    rate: 0.05,
+                    resource: "stone",
+                    cost: { wood: 5, stone: 10, gold: 8 },
+                    unlocked: false
+                },
+                blacksmith: {
+                    name: "Blacksmith",
+                    level: 0,
+                    rate: 0.03,
+                    resource: "iron",
+                    cost: { wood: 20, stone: 15, gold: 15 },
+                    unlocked: false
+                },
+                alchemist: {
+                    name: "Alchemist",
+                    level: 0,
+                    rate: 0.02,
+                    resource: "essence",
+                    cost: { wood: 10, stone: 10, iron: 5, gold: 20 },
+                    unlocked: false
+                }
+            },
+            
+            upgrades: {
+                better_tools: {
+                    name: "Better Tools",
+                    description: "Increases resource gathering rate by 20%",
+                    cost: { wood: 50, stone: 25, gold: 20 },
+                    effect: (job) => job.rate *= 1.2,
+                    purchased: false
+                },
+                efficiency: {
+                    name: "Efficiency Training",
+                    description: "Reduces job upgrade costs by 15%",
+                    cost: { wood: 100, stone: 50, gold: 40 },
+                    effect: () => {
+                        // Would be applied during cost calculation
+                    },
+                    purchased: false
+                },
+                automation: {
+                    name: "Basic Automation",
+                    description: "Jobs continue working when offline",
+                    cost: { wood: 200, stone: 100, gold: 100 },
+                    effect: () => {
+                        // Enable offline progress
+                    },
+                    purchased: false
+                }
+            },
+            
+            achievements: {
+                first_tree: {
+                    name: "First Tree",
+                    description: "Chop down your first tree",
+                    completed: false,
+                    reward: { gold: 10 }
+                },
+                stone_age: {
+                    name: "Stone Age",
+                    description: "Gather 100 stone",
+                    completed: false,
+                    reward: { stone: 50 }
+                },
+                master_lumberjack: {
+                    name: "Master Lumberjack",
+                    description: "Reach level 10 Lumberjack",
+                    completed: false,
+                    reward: { wood: 200, gold: 50 }
+                }
+            },
+            
+            update(deltaTime) {
+                for (const jobId in this.jobs) {
+                    const job = this.jobs[jobId];
+                    if (job.level > 0 && job.unlocked) {
+                        this.resources[job.resource] += job.rate * job.level * deltaTime;
+                        this.checkAchievements();
+                    }
+                }
+            },
+            
+            upgradeJob(jobId) {
+                const job = this.jobs[jobId];
+                if (!job || !job.unlocked) return false;
+                
+                const costMultiplier = 1.0;
+                const actualCost = {};
+                for (const resource in job.cost) {
+                    actualCost[resource] = job.cost[resource] * (job.level + 1) * costMultiplier;
+                    if (this.resources[resource] < actualCost[resource]) {
+                        return false;
+                    }
+                }
+                
+                for (const resource in actualCost) {
+                    this.resources[resource] -= actualCost[resource];
+                }
+                
+                job.level++;
+                return true;
+            },
+            
+            unlockJob(jobId) {
+                const job = this.jobs[jobId];
+                if (!job || job.unlocked) return false;
+                
+                const requirements = {
+                    miner: { wood: 50 },
+                    blacksmith: { wood: 100, stone: 50 },
+                    alchemist: { wood: 150, stone: 100, iron: 25 }
+                };
+                
+                if (requirements[jobId]) {
+                    for (const resource in requirements[jobId]) {
+                        if (this.resources[resource] < requirements[jobId][resource]) {
+                            return false;
+                        }
+                    }
+                }
+                
+                job.unlocked = true;
+                return true;
+            },
+            
+            purchaseUpgrade(upgradeId) {
+                const upgrade = this.upgrades[upgradeId];
+                if (!upgrade || upgrade.purchased) return false;
+                
+                for (const resource in upgrade.cost) {
+                    if (this.resources[resource] < upgrade.cost[resource]) {
+                        return false;
+                    }
+                }
+                
+                for (const resource in upgrade.cost) {
+                    this.resources[resource] -= upgrade.cost[resource];
+                }
+                
+                if (upgrade.effect) {
+                    for (const jobId in this.jobs) {
+                        upgrade.effect(this.jobs[jobId]);
+                    }
+                }
+                
+                upgrade.purchased = true;
+                return true;
+            },
+            
+            checkAchievements() {
+                if (!this.achievements.first_tree.completed && this.resources.wood >= 1) {
+                    this.achievements.first_tree.completed = true;
+                    this.applyReward(this.achievements.first_tree.reward);
+                }
+                
+                if (!this.achievements.stone_age.completed && this.resources.stone >= 100) {
+                    this.achievements.stone_age.completed = true;
+                    this.applyReward(this.achievements.stone_age.reward);
+                }
+                
+                if (!this.achievements.master_lumberjack.completed && 
+                    this.jobs.lumberjack.level >= 10) {
+                    this.achievements.master_lumberjack.completed = true;
+                    this.applyReward(this.achievements.master_lumberjack.reward);
+                }
+            },
+            
+            applyReward(reward) {
+                for (const resource in reward) {
+                    this.resources[resource] += reward[resource];
+                }
+            },
+            
+            getProductionRates() {
+                const rates = {};
+                for (const resource in this.resources) {
+                    rates[resource] = 0;
+                }
+                
+                for (const jobId in this.jobs) {
+                    const job = this.jobs[jobId];
+                    if (job.level > 0 && job.unlocked) {
+                        rates[job.resource] += job.rate * job.level;
+                    }
+                }
+                
+                return rates;
+            },
+            
+            getSaveData() {
+                return {
+                    resources: {...this.resources},
+                    jobs: JSON.parse(JSON.stringify(this.jobs)),
+                    upgrades: JSON.parse(JSON.stringify(this.upgrades)),
+                    achievements: JSON.parse(JSON.stringify(this.achievements))
+                };
+            },
+            
+            loadSaveData(data) {
+                this.resources = {...data.resources};
+                this.jobs = data.jobs;
+                this.upgrades = data.upgrades;
+                this.achievements = data.achievements;
+            },
+            
+            reset() {
+                this.resources = {
+                    wood: 0,
+                    stone: 0,
+                    iron: 0,
+                    gold: 0,
+                    essence: 0
+                };
+                
+                for (const jobId in this.jobs) {
+                    this.jobs[jobId].level = 0;
+                    this.jobs[jobId].unlocked = jobId === "lumberjack";
+                }
+                
+                for (const upgradeId in this.upgrades) {
+                    this.upgrades[upgradeId].purchased = false;
+                }
+                
+                for (const achievementId in this.achievements) {
+                    this.achievements[achievementId].completed = false;
+                }
+            }
+        };
+
+        // Test functions
+        function updateOutput() {
+            const output = document.getElementById('output');
+            let html = '<h4>Resources:</h4>';
+            
+            for (const resource in progress.resources) {
+                html += `
+                    <div class="resource">
+                        <span>${resource}:</span>
+                        <span>${Math.floor(progress.resources[resource])}</span>
+                    </div>
+                `;
+            }
+            
+            html += '<h4>Jobs:</h4>';
+            for (const jobId in progress.jobs) {
+                const job = progress.jobs[jobId];
+                html += `
+                    <div class="job">
+                        <div>${job.name} (Lvl ${job.level}) - ${job.unlocked ? 'Unlocked' : 'Locked'}</div>
+                        <div>Rate: ${job.rate * job.level}/s ${job.resource}</div>
+                    </div>
+                `;
+            }
+            
+            html += '<h4>Upgrades:</h4>';
+            for (const upgradeId in progress.upgrades) {
+                const upgrade = progress.upgrades[upgradeId];
+                html += `
+                    <div class="upgrade">
+                        <div>${upgrade.name} - ${upgrade.purchased ? 'Purchased' : 'Available'}</div>
+                        <div>${upgrade.description}</div>
+                    </div>
+                `;
+            }
+            
+            html += '<h4>Achievements:</h4>';
+            for (const achievementId in progress.achievements) {
+                const achievement = progress.achievements[achievementId];
+                html += `
+                    <div class="upgrade">
+                        <div>${achievement.name} - ${achievement.completed ? 'Completed' : 'Incomplete'}</div>
+                        <div>${achievement.description}</div>
+                    </div>
+                `;
+            }
+            
+            const rates = progress.getProductionRates();
+            html += '<h4>Production Rates:</h4>';
+            for (const resource in rates) {
+                if (rates[resource] > 0) {
+                    html += `<div class="resource">${resource}: ${rates[resource].toFixed(2)}/s</div>`;
+                }
+            }
+            
+            output.innerHTML = html;
+        }
+
+        function testUpdate() {
+            progress.update(10); // Simulate 10 seconds of progress
+            updateOutput();
+            alert("Simulated 10 seconds of progress");
+        }
+
+        function testUpgradeJob() {
+            // Add some resources first
+            progress.resources.wood = 50;
+            progress.resources.gold = 20;
+            
+            const success = progress.upgradeJob("lumberjack");
+            updateOutput();
+            alert(success ? "Lumberjack upgraded!" : "Failed to upgrade job");
+        }
+
+        function testUnlockJob() {
+            // Add resources needed for miner
+            progress.resources.wood = 100;
+            progress.resources.stone = 50;
+            progress.resources.gold = 20;
+            
+            const success = progress.unlockJob("miner");
+            updateOutput();
+            alert(success ? "Miner unlocked!" : "Failed to unlock job");
+        }
+
+        function testPurchaseUpgrade() {
+            // Add resources needed for better tools
+            progress.resources.wood = 100;
+            progress.resources.stone = 50;
+            progress.resources.gold = 50;
+            
+            const success = progress.purchaseUpgrade("better_tools");
+            updateOutput();
+            alert(success ? "Upgrade purchased!" : "Failed to purchase upgrade");
+        }
+
+        function testAddResources() {
+            progress.resources.wood += 100;
+            progress.resources.stone += 50;
+            progress.resources.iron += 25;
+            progress.resources.gold += 30;
+            progress.resources.essence += 10;
+            updateOutput();
+            alert("Added resources to all categories");
+        }
+
+        function testReset() {
+            progress.reset();
+            updateOutput();
+            alert("Progress reset to initial state");
+        }
+
+        // Initialize output
+        updateOutput();
+    </script>
+</body>
+</html>

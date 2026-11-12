@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Tab Drum Machine</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #1a1a2e;
+            color: #e6e6e6;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+        
+        h1 {
+            color: #4cc9f0;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+        
+        .subtitle {
+            color: #8a8a8a;
+            font-size: 1.1rem;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            background-color: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            margin-bottom: 8px;
+            color: #a9a9a9;
+            font-weight: bold;
+        }
+        
+        select, input[type="range"] {
+            background-color: #0f3460;
+            color: white;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        input[type="range"] {
+            padding: 0;
+            cursor: pointer;
+        }
+        
+        .value-display {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 0.9rem;
+            color: #8a8a8a;
+        }
+        
+        .transport {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        button {
+            background-color: #4cc9f0;
+            color: #0f3460;
+            border: none;
+            border-radius: 4px;
+            padding: 12px 24px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background-color: #3aa8cc;
+            transform: translateY(-2px);
+        }
+        
+        button#stopBtn {
+            background-color: #f05454;
+        }
+        
+        button#stopBtn:hover {
+            background-color: #d93c3c;
+        }
+        
+        .editor-container {
+            background-color: #0f3460;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .instruments {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .instrument-tag {
+            background-color: #1a1a2e;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .instructions {
+            color: #8a8a8a;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 300px;
+            background-color: #0d1b36;
+            color: #e6e6e6;
+            border: 2px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            line-height: 1.8;
+            resize: vertical;
+            tab-size: 4;
+            white-space: pre;
+            overflow-x: auto;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #4cc9f0;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #16213e;
+            border-radius: 4px;
+            color: #a9a9a9;
+            font-size: 0.9rem;
+        }
+        
+        .active-status {
+            color: #4cc9f0;
+            font-weight: bold;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #333;
+            color: #8a8a8a;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .transport {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Text Tab Drum Machine</h1>
+        <p class="subtitle">A tracker-style percussion sequencer using text notation</p>
+    </header>
+    
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label for="presetSelect">Brazilian Rhythm Presets</label>
+                <select id="presetSelect">
+                    <option value="">-- Select a preset --</option>
+                    <option value="samba">Samba</option>
+                    <option value="forro">Forró</option>
+                    <option value="funk">Funk Carioca</option>
+                    <option value="maracatu">Maracatu</option>
+                    <option value="pagode">Pagode</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="tempoControl">Tempo: <span id="tempoValue">120</span> BPM</label>
+                <input type="range" id="tempoControl" min="60" max="240" value="120" step="1">
+                <div class="value-display">
+                    <span>Slow</span>
+                    <span>Fast</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label for="volumeControl">Volume: <span id="volumeValue">80</span>%</label>
+                <input type="range" id="volumeControl" min="0" max="100" value="80" step="1">
+                <div class="value-display">
+                    <span>Quiet</span>
+                    <span>Loud</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="transport">
+            <button id="playBtn">▶ Play</button>
+            <button id="stopBtn">■ Stop</button>
+        </div>
+        
+        <div class="editor-container">
+            <div class="editor-header">
+                <h2>Drum Tab Editor</h2>
+                <div class="instruments">
+                    <span class="instrument-tag">K = Kick</span>
+                    <span class="instrument-tag">S = Snare</span>
+                    <span class="instrument-tag">H = Hi-hat</span>
+                    <span class="instrument-tag">C = Clap</span>
+                    <span class="instrument-tag">B = Cowbell</span>
+                    <span class="instrument-tag">R = Shaker</span>
+                </div>
+            </div>
+            
+            <p class="instructions">
+                Use 'x' or 'o' for hits, '-' for silences. Each line represents one instrument across 16 steps.
+                Changes apply on the next loop.
+            </p>
+            
+            <textarea id="drumTab" spellcheck="false">
+K  |o---o-------o-|
+S  |----o-------o-|
+H  |x-x-x-x-x-x-x-|
+C  |------------o-|
+B  |--------o-----|
+R  |x-x-x-x-------|</textarea>
+            
+            <div class="status">
+                Status: <span id="statusText" class="active-status">Ready</span>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        <p>Text-based drum machine using Web Audio API | Brazilian rhythm presets included</p>
+    </footer>
+
+    <script>
+        // Web Audio API setup
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let isPlaying = false;
+        let currentStep = 0;
+        let stepInterval = null;
+        let lastPatternText = '';
+        
+        // Audio nodes
+        const masterGain = audioContext.createGain();
+        masterGain.connect(audioContext.destination);
+        masterGain.gain.value = 0.8;
+        
+        // DOM Elements
+        const drumTabTextarea = document.getElementById('drumTab');
+        const playBtn = document.getElementById('playBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const presetSelect = document.getElementById('presetSelect');
+        const tempoControl = document.getElementById('tempoControl');
+        const tempoValue = document.getElementById('tempoValue');
+        const volumeControl = document.getElementById('volumeControl');
+        const volumeValue = document.getElementById('volumeValue');
+        const statusText = document.getElementById('statusText');
+        
+        // Brazilian rhythm presets
+        const presets = {
+            samba: `K  |o---o---o---o---|
+S  |----o-------o---|
+H  |x-x-x-x-x-x-x-x-|
+C  |------------o---|
+B  |--------o-------|
+R  |x-x-x-x-x-x-x-x-|`,
+            
+            forro: `K  |o---o---o---o---|
+S  |----o---o---o---|
+H  |x-x-x-x-x-x-x-x-|
+C  |------------o---|
+B  |o---------------|
+R  |x-x-x-x-x-x-x-x-|`,
+            
+            funk: `K  |o-------o-------|
+S  |----o-------o---|
+H  |x-x---x-x-x---x-|
+C  |----------------|
+B  |--------o-------|
+R  |x-x-x-x-x-x-x-x-|`,
+            
+            maracatu: `K  |o-------o-------|
+S  |----o-------o---|
+H  |x---x---x---x---|
+C  |------------o---|
+B  |o---o---o---o---|
+R  |x-x-x-x-x-x-x-x-|`,
+            
+            pagode: `K  |o---o---o---o---|
+S  |----o---o---o---|
+H  |x-x-x-x-x-x-x-x-|
+C  |------------o---|
+B  |--------o-------|
+R  |x-x-x-x-x-x-x---|`
+        };
+        
+        // Instrument sound generators
+        const soundGenerators = {
+            // Kick drum
+            K: () => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(masterGain);
+                
+                oscillator.frequency.setValueAtTime(150, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+                
+                gainNode.gain.setValueAtTime(1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.5);
+            },
+            
+            // Snare drum
+            S: () => {
+                const noise = audioContext.createBufferSource();
+                const noiseFilter = audioContext.createBiquadFilter();
+                const noiseGain = audioContext.createGain();
+                
+                // Create noise buffer
+                const bufferSize = audioContext.sampleRate * 0.5;
+                const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+                const output = buffer.getChannelData(0);
+                
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                
+                noise.buffer = buffer;
+                noise.connect(noiseFilter);
+                noiseFilter.connect(noiseGain);
+                noiseGain.connect(masterGain);
+                
+                noiseFilter.type = 'bandpass';
+                noiseFilter.frequency.value = 1000;
+                noiseFilter.Q.value = 0.5;
+                
+                noiseGain.gain.setValueAtTime(1, audioContext.currentTime);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+                
+                noise.start();
+                noise.stop(audioContext.currentTime + 0.3);
+            },
+            
+            // Hi-hat
+            H: () => {
+                const fundamental = 40;
+                const ratios = [2, 3, 4.16, 5.43, 6.79, 8.21];
+                
+                const gainNode = audioContext.createGain();
+                gainNode.connect(masterGain);
+                
+                // Create multiple oscillators for metallic sound
+                for (let i = 0; i < ratios.length; i++) {
+                    const oscillator = audioContext.createOscillator();
+                    oscillator.connect(gainNode);
+                    
+                    oscillator.type = 'square';
+                    oscillator.frequency.setValueAtTime(fundamental * ratios[i], audioContext.currentTime);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.1);
+                }
+                
+                gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+            },
+            
+            // Clap
+            C: () => {
+                const createNoiseBuffer = () => {
+                    const bufferSize = audioContext.sampleRate * 0.1;
+                    const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+                    const output = buffer.getChannelData(0);
+                    
+                    for (let i = 0; i < bufferSize; i++) {
+                        output[i] = Math.random() * 2 - 1;
+                    }
+                    
+                    return buffer;
+                };
+                
+                const playNoise = (time, volume) => {
+                    const noise = audioContext.createBufferSource();
+                    const gainNode = audioContext.createGain();
+                    
+                    noise.buffer = createNoiseBuffer();
+                    noise.connect(gainNode);
+                    gainNode.connect(masterGain);
+                    
+                    gainNode.gain.setValueAtTime(volume, time);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+                    
+                    noise.start(time);
+                    noise.stop(time + 0.2);
+                };
+                
+                // Multiple noise bursts for clap effect
+                const now = audioContext.currentTime;
+                playNoise(now, 0.7);
+                playNoise(now + 0.01, 0.5);
+                playNoise(now + 0.02, 0.3);
+            },
+            
+            // Cowbell
+            B: () => {
+                const oscillator1 = audioContext.createOscillator();
+                const oscillator2 = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator1.connect(gainNode);
+                oscillator2.connect(gainNode);
+                gainNode.connect(masterGain);
+                
+                oscillator1.type = 'sine';
+                oscillator2.type = 'sine';
+                
+                oscillator1.frequency.setValueAtTime(800, audioContext.currentTime);
+                oscillator2.frequency.setValueAtTime(1200, audioContext.currentTime);
+                
+                oscillator1.frequency.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+                oscillator2.frequency.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+                
+                gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+                
+                oscillator1.start();
+                oscillator2.start();
+                oscillator1.stop(audioContext.currentTime + 0.3);
+                oscillator2.stop(audioContext.currentTime + 0.3);
+            },
+            
+            // Shaker
+            R: () => {
+                const bufferSize = audioContext.sampleRate * 0.5;
+                const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+                const output = buffer.getChannelData(0);
+                
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                
+                const noise = audioContext.createBufferSource();
+                const filter = audioContext.createBiquadFilter();
+                const gainNode = audioContext.createGain();
+                
+                noise.buffer = buffer;
+                noise.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(masterGain);
+                
+                filter.type = 'highpass';
+                filter.frequency.value = 2000;
+                
+                gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.4);
+                
+                noise.start();
+                noise.stop(audioContext.currentTime + 0.4);
+            }
+        };
+        
+        // Parse drum tab text into a pattern object
+        function parseDrumTab(text) {
+            const lines = text.trim().split('\n');
+            const pattern = {};
+            
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (trimmedLine.length === 0) return;
+                
+                // Match instrument and pattern: K  |o---o---o---o---|
+                const match = trimmedLine.match(/^([A-Z])\s*\|\s*([xo\-]{16})\s*\|$/);
+                if (match) {
+                    const instrument = match[1];
+                    const steps = match[2];
+                    pattern[instrument] = steps.split('');
+                }
+            });
+            
+            return pattern;
+        }
+        
+        // Normalize drum tab text to ensure proper formatting
+        function normalizeDrumTab(text) {
+            const instruments = ['K', 'S', 'H', 'C', 'B', 'R'];
+            const lines = text.trim().split('\n');
+            const normalizedLines = [];
+            
+            // Process existing lines
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (trimmedLine.length === 0) return;
+                
+                const match = trimmedLine.match(/^([A-Z])\s*\|\s*([xo\-]+)\s*\|$/);
+                if (match) {
+                    let instrument = match[1];
+                    let steps = match[2];
+                    
+                    // Ensure steps are exactly 16 characters
+                    if (steps.length > 16) {
+                        steps = steps.substring(0, 16);
+                    } else if (steps.length < 16) {
+                        steps = steps.padEnd(16, '-');
+                    }
+                    
+                    normalizedLines.push(`${instrument}  |${steps}|`);
+                    
+                    // Remove from instruments array
+                    const index = instruments.indexOf(instrument);
+                    if (index > -1) {
+                        instruments.splice(index, 1);
+                    }
+                }
+            });
+            
+            // Add missing instruments with empty patterns
+            instruments.forEach(instrument => {
+                normalizedLines.push(`${instrument}  |----------------|`);
+            });
+            
+            return normalizedLines.join('\n');
+        }
+        
+        // Play a step
+        function playStep(pattern, step) {
+            for (const instrument in pattern) {
+                if (pattern[instrument][step] === 'x' || pattern[instrument][step] === 'o') {
+                    if (soundGenerators[instrument]) {
+                        soundGenerators[instrument]();
+                    }
+                }
+            }
+        }
+        
+        // Start playing the pattern
+        function startPlayback() {
+            if (isPlaying) return;
+            
+            isPlaying = true;
+            statusText.textContent = 'Playing';
+            playBtn.textContent = '⏸ Pause';
+            
+            const tempo = parseInt(tempoControl.value);
+            const stepDuration = 60 / tempo / 4; // 16th notes
+            
+            currentStep = 0;
+            const patternText = normalizeDrumTab(drumTabTextarea.value);
+            const pattern = parseDrumTab(patternText);
+            
+            // Play first step immediately
+            playStep(pattern, currentStep);
+            currentStep = (currentStep + 1) % 16;
+            
+            // Set up interval for subsequent steps
+            stepInterval = setInterval(() => {
+                const updatedPatternText = normalizeDrumTab(drumTabTextarea.value);
+                const updatedPattern = parseDrumTab(updatedPatternText);
+                playStep(updatedPattern, currentStep);
+                currentStep = (currentStep + 1) % 16;
+            }, stepDuration * 1000);
+        }
+        
+        // Stop playback
+        function stopPlayback() {
+            if (!isPlaying) return;
+            
+            isPlaying = false;
+            clearInterval(stepInterval);
+            stepInterval = null;
+            statusText.textContent = 'Stopped';
+            playBtn.textContent = '▶ Play';
+            
+            // Reset current step
+            currentStep = 0;
+        }
+        
+        // Toggle playback
+        function togglePlayback() {
+            if (isPlaying) {
+                stopPlayback();
+            } else {
+                startPlayback();
+            }
+        }
+        
+        // Event Listeners
+        playBtn.addEventListener('click', togglePlayback);
+        stopBtn.addEventListener('click', stopPlayback);
+        
+        tempoControl.addEventListener('input', function() {
+            tempoValue.textContent = this.value;
+            
+            // If playing, restart with new tempo
+            if (isPlaying) {
+                stopPlayback();
+                startPlayback();
+            }
+        });
+        
+        volumeControl.addEventListener('input', function() {
+            const volume = this.value / 100;
+            volumeValue.textContent = this.value;
+            masterGain.gain.value = volume;
+        });
+        
+        presetSelect.addEventListener('change', function() {
+            const preset = this.value;
+            
+            if (preset && presets[preset]) {
+                drumTabTextarea.value = presets[preset];
+                statusText.textContent = `Loaded ${preset} preset`;
+                
+                // If playing, restart to apply new pattern
+                if (isPlaying) {
+                    stopPlayback();
+                    startPlayback();
+                }
+            }
+        });
+        
+        // Normalize text on input
+        drumTabTextarea.addEventListener('input', function() {
+            const cursorPosition = this.selectionStart;
+            const normalizedText = normalizeDrumTab(this.value);
+            this.value = normalizedText;
+            
+            // Try to preserve cursor position
+            this.setSelectionRange(cursorPosition, cursorPosition);
+            
+            // Update status
+            if (this.value.trim() === '') {
+                statusText.textContent = 'Empty (silence)';
+            } else {
+                statusText.textContent = 'Pattern updated';
+            }
+        });
+        
+        // Initialize with normalized text
+        drumTabTextarea.value = normalizeDrumTab(drumTabTextarea.value);
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Space toggles playback
+            if (e.code === 'Space' && e.target !== drumTabTextarea) {
+                e.preventDefault();
+                togglePlayback();
+            }
+            
+            // Escape stops playback
+            if (e.code === 'Escape') {
+                stopPlayback();
+            }
+        });
+        
+        // Auto-focus the textarea
+        drumTabTextarea.focus();
+        
+        // Handle page visibility change to stop audio when tab is inactive
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && isPlaying) {
+                stopPlayback();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Coloring Book Timelapse (Diagonal)</title>
+  <style>
+    body { font-family: sans-serif; background:#222; color:#eee; text-align:center; }
+    canvas { image-rendering: pixelated; border:1px solid #555; background:#fff; }
+    .controls { margin:10px; }
+  </style>
+</head>
+<body>
+
+<h2>Coloring Book Timelapse – ↗ Diagonal Brush</h2>
+
+<input type="file" id="input" accept="image/*" />
+<div class="controls">
+  Speed <input type="range" id="speed" min="1" max="10" value="3" />
+</div>
+
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+let refImg, bwData, colorData;
+let colorQueue = [];
+let currentColorIndex = 0;
+let strokeOffset = 0;
+
+input.onchange = e => {
+  const img = new Image();
+  img.onload = () => start(img);
+  img.src = URL.createObjectURL(e.target.files[0]);
+};
+
+function start(img) {
+  canvas.width = img.width;
+  canvas.height = img.height;
+
+  ctx.drawImage(img,0,0);
+  colorData = ctx.getImageData(0,0,canvas.width,canvas.height);
+
+  // create black & white version
+  bwData = ctx.createImageData(canvas.width, canvas.height);
+  const colors = new Map();
+
+  for(let i=0;i<colorData.data.length;i+=4){
+    const r=colorData.data[i], g=colorData.data[i+1], b=colorData.data[i+2];
+    const key=`${r},${g},${b}`;
+    if(r+g+b < 50) {
+      bwData.data[i]=bwData.data[i+1]=bwData.data[i+2]=0;
+      bwData.data[i+3]=255;
+    } else {
+      bwData.data[i]=bwData.data[i+1]=bwData.data[i+2]=255;
+      bwData.data[i+3]=255;
+      colors.set(key,(colors.get(key)||0)+1);
+    }
+  }
+
+  ctx.putImageData(bwData,0,0);
+
+  // sort colors by frequency (largest first)
+  colorQueue = [...colors.entries()]
+    .sort((a,b)=>b[1]-a[1])
+    .map(e=>e[0]);
+
+  currentColorIndex = 0;
+  strokeOffset = 0;
+  requestAnimationFrame(paintLoop);
+}
+
+function paintLoop(){
+  if(currentColorIndex >= colorQueue.length) return;
+
+  const [cr,cg,cb] = colorQueue[currentColorIndex].split(',').map(Number);
+  const speed = Number(document.getElementById('speed').value);
+
+  for(let s=0;s<speed;s++){
+    drawDiagonalStroke(cr,cg,cb, strokeOffset);
+    strokeOffset += 4;
+    if(strokeOffset > canvas.width + canvas.height){
+      strokeOffset = 0;
+      currentColorIndex++;
+      break;
+    }
+  }
+
+  requestAnimationFrame(paintLoop);
+}
+
+function drawDiagonalStroke(r,g,b,offset){
+  const img = ctx.getImageData(0,0,canvas.width,canvas.height);
+  const d = img.data;
+
+  for(let y=0;y<canvas.height;y++){
+    const x = offset - y;
+    if(x<0||x>=canvas.width) continue;
+    const i=(y*canvas.width+x)*4;
+
+    // skip outlines (black)
+    if(bwData.data[i]===0) continue;
+
+    // paint only matching color from reference
+    if(colorData.data[i]===r && colorData.data[i+1]===g && colorData.data[i+2]===b){
+      d[i]=r; d[i+1]=g; d[i+2]=b; d[i+3]=255;
+    }
+  }
+
+  ctx.putImageData(img,0,0);
+}
+</script>
+
+</body>
+</html>

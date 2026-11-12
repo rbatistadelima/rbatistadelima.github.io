@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Module - Idle ASCII RPG</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #1a1a1a;
+            color: #ccc;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #ffa500;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .module {
+            background-color: #222;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .module h2 {
+            color: #4ca8ff;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .code-container {
+            background-color: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 15px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        pre {
+            margin: 0;
+            color: #f8f8f2;
+        }
+        .note {
+            color: #888;
+            font-style: italic;
+            margin-top: 10px;
+        }
+        .test-area {
+            background-color: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .test-area h3 {
+            color: #4caf50;
+            margin-top: 0;
+        }
+        button {
+            background-color: #444;
+            color: #fff;
+            border: none;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover {
+            background-color: #555;
+        }
+        .output {
+            background-color: #222;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            height: 300px;
+            overflow-y: auto;
+        }
+        .event {
+            margin: 5px 0;
+            padding: 8px;
+            background-color: #333;
+            border-radius: 4px;
+            border-left: 3px solid #4ca8ff;
+        }
+        .event-combat {
+            border-left-color: #ff5555;
+        }
+        .event-explore {
+            border-left-color: #55ff55;
+        }
+        .event-story {
+            border-left-color: #5555ff;
+        }
+        .handler {
+            margin: 5px 0;
+            padding: 5px;
+            background-color: #2a2a2a;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Event Module (events.js)</h1>
+    
+    <div class="module">
+        <h2>Event System (events.js)</h2>
+        <div class="code-container">
+            <pre>// system/events.js
+export const events = {
+    eventQueue: [],
+    eventHandlers: {},
+    lastEventTime: 0,
+    eventCooldown: 1000, // ms between events
+    
+    // Trigger a new event
+    trigger(eventName, data = {}) {
+        const event = {
+            name: eventName,
+            data: data,
+            timestamp: Date.now(),
+            id: Date.now() + Math.random().toString(36).substr(2, 5)
+        };
+        
+        this.eventQueue.push(event);
+        
+        // Immediately notify handlers if any are registered
+        if (this.eventHandlers[eventName]) {
+            this.eventHandlers[eventName].forEach(handler => handler(event.data));
+        }
+        
+        return event.id;
+    },
+    
+    // Register an event handler
+    on(eventName, handler) {
+        if (!this.eventHandlers[eventName]) {
+            this.eventHandlers[eventName] = [];
+        }
+        this.eventHandlers[eventName].push(handler);
+    },
+    
+    // Remove an event handler
+    off(eventName, handler) {
+        if (!this.eventHandlers[eventName]) return false;
+        
+        const index = this.eventHandlers[eventName].indexOf(handler);
+        if (index !== -1) {
+            this.eventHandlers[eventName].splice(index, 1);
+            return true;
+        }
+        return false;
+    },
+    
+    // Process the next event in the queue
+    processNext() {
+        if (this.eventQueue.length === 0) return null;
+        
+        const now = Date.now();
+        if (now - this.lastEventTime < this.eventCooldown) return null;
+        
+        this.lastEventTime = now;
+        return this.eventQueue.shift();
+    },
+    
+    // Process all available events
+    processAll() {
+        const processed = [];
+        let event;
+        
+        while ((event = this.processNext()) !== null) {
+            processed.push(event);
+        }
+        
+        return processed;
+    },
+    
+    // Clear all events from the queue
+    clearQueue() {
+        this.eventQueue = [];
+    },
+    
+    // Get the number of events in the queue
+    getQueueLength() {
+        return this.eventQueue.length;
+    },
+    
+    // Check if an event type has handlers
+    hasHandlers(eventName) {
+        return this.eventHandlers[eventName] && this.eventHandlers[eventName].length > 0;
+    },
+    
+    // Predefined game events
+    combat: {
+        encounter: (enemyType, difficulty = 1) => {
+            return {
+                type: "combat",
+                enemy: enemyType,
+                difficulty: difficulty,
+                message: `A ${enemyType} appears!`
+            };
+        },
+        
+        victory: (enemy, rewards = {}) => {
+            return {
+                type: "combat_result",
+                result: "victory",
+                enemy: enemy,
+                rewards: rewards,
+                message: `You defeated the ${enemy}!`
+            };
+        },
+        
+        defeat: (enemy, penalty = {}) => {
+            return {
+                type: "combat_result",
+                result: "defeat",
+                enemy: enemy,
+                penalty: penalty,
+                message: `You were defeated by the ${enemy}!`
+            };
+        }
+    },
+    
+    exploration: {
+        discover: (location, items = []) => {
+            return {
+                type: "discovery",
+                location: location,
+                items: items,
+                message: `You discovered ${location}!`
+            };
+        },
+        
+        findItem: (item, quantity = 1) => {
+            return {
+                type: "item_found",
+                item: item,
+                quantity: quantity,
+                message: `You found ${quantity > 1 ? quantity + ' ' : ''}${item}!`
+            };
+        },
+        
+        trap: (damage = 10) => {
+            return {
+                type: "trap",
+                damage: damage,
+                message: "You triggered a trap!"
+            };
+        }
+    },
+    
+    player: {
+        levelUp: (newLevel, stats = {}) => {
+            return {
+                type: "level_up",
+                level: newLevel,
+                stats: stats,
+                message: `You reached level ${newLevel}!`
+            };
+        },
+        
+        statIncrease: (stat, amount = 1) => {
+            return {
+                type: "stat_increase",
+                stat: stat,
+                amount: amount,
+                message: `Your ${stat} increased by ${amount}!`
+            };
+        },
+        
+        damage: (amount, source = "unknown") => {
+            return {
+                type: "damage",
+                amount: amount,
+                source: source,
+                message: `You took ${amount} damage from ${source}!`
+            };
+        },
+        
+        heal: (amount, source = "unknown") => {
+            return {
+                type: "heal",
+                amount: amount,
+                source: source,
+                message: `You recovered ${amount} HP from ${source}!`
+            };
+        }
+    },
+    
+    world: {
+        timeChange: (newTime) => {
+            return {
+                type: "time_change",
+                time: newTime,
+                message: `Time changes to ${newTime}`
+            };
+        },
+        
+        weatherChange: (newWeather) => {
+            return {
+                type: "weather_change",
+                weather: newWeather,
+                message: `Weather changes to ${newWeather}`
+            };
+        }
+    },
+    
+    // Get save data for events
+    getSaveData() {
+        return {
+            eventQueue: JSON.parse(JSON.stringify(this.eventQueue)),
+            eventHandlers: {} // Handlers are functions, so we don't save them
+        };
+    },
+    
+    // Load events from save data
+    loadSaveData(data) {
+        this.eventQueue = data.eventQueue || [];
+        // Handlers are re-registered by game systems during initialization
+    }
+};</pre>
+        </div>
+        <p class="note">This module handles all game events, event queuing, and event processing with a handler system.</p>
+    </div>
+
+    <div class="test-area">
+        <h3>Module Testing</h3>
+        <p>Test the event module functionality:</p>
+        <button onclick="testTriggerEvent()">Trigger Event</button>
+        <button onclick="testCombatEvent()">Combat Event</button>
+        <button onclick="testExplorationEvent()">Exploration Event</button>
+        <button onclick="testProcessEvents()">Process Events</button>
+        <button onclick="testEventHandler()">Test Event Handler</button>
+        <button onclick="testClearEvents()">Clear Events</button>
+        
+        <div class="output" id="output">Event state will be shown here...</div>
+    </div>
+
+    <script>
+        // Event module implementation
+        const events = {
+            eventQueue: [],
+            eventHandlers: {},
+            lastEventTime: 0,
+            eventCooldown: 1000,
+            
+            trigger(eventName, data = {}) {
+                const event = {
+                    name: eventName,
+                    data: data,
+                    timestamp: Date.now(),
+                    id: Date.now() + Math.random().toString(36).substr(2, 5)
+                };
+                
+                this.eventQueue.push(event);
+                
+                if (this.eventHandlers[eventName]) {
+                    this.eventHandlers[eventName].forEach(handler => handler(event.data));
+                }
+                
+                return event.id;
+            },
+            
+            on(eventName, handler) {
+                if (!this.eventHandlers[eventName]) {
+                    this.eventHandlers[eventName] = [];
+                }
+                this.eventHandlers[eventName].push(handler);
+            },
+            
+            off(eventName, handler) {
+                if (!this.eventHandlers[eventName]) return false;
+                
+                const index = this.eventHandlers[eventName].indexOf(handler);
+                if (index !== -1) {
+                    this.eventHandlers[eventName].splice(index, 1);
+                    return true;
+                }
+                return false;
+            },
+            
+            processNext() {
+                if (this.eventQueue.length === 0) return null;
+                
+                const now = Date.now();
+                if (now - this.lastEventTime < this.eventCooldown) return null;
+                
+                this.lastEventTime = now;
+                return this.eventQueue.shift();
+            },
+            
+            processAll() {
+                const processed = [];
+                let event;
+                
+                while ((event = this.processNext()) !== null) {
+                    processed.push(event);
+                }
+                
+                return processed;
+            },
+            
+            clearQueue() {
+                this.eventQueue = [];
+            },
+            
+            getQueueLength() {
+                return this.eventQueue.length;
+            },
+            
+            hasHandlers(eventName) {
+                return this.eventHandlers[eventName] && this.eventHandlers[eventName].length > 0;
+            },
+            
+            combat: {
+                encounter: (enemyType, difficulty = 1) => {
+                    return {
+                        type: "combat",
+                        enemy: enemyType,
+                        difficulty: difficulty,
+                        message: `A ${enemyType} appears!`
+                    };
+                },
+                
+                victory: (enemy, rewards = {}) => {
+                    return {
+                        type: "combat_result",
+                        result: "victory",
+                        enemy: enemy,
+                        rewards: rewards,
+                        message: `You defeated the ${enemy}!`
+                    };
+                },
+                
+                defeat: (enemy, penalty = {}) => {
+                    return {
+                        type: "combat_result",
+                        result: "defeat",
+                        enemy: enemy,
+                        penalty: penalty,
+                        message: `You were defeated by the ${enemy}!`
+                    };
+                }
+            },
+            
+            exploration: {
+                discover: (location, items = []) => {
+                    return {
+                        type: "discovery",
+                        location: location,
+                        items: items,
+                        message: `You discovered ${location}!`
+                    };
+                },
+                
+                findItem: (item, quantity = 1) => {
+                    return {
+                        type: "item_found",
+                        item: item,
+                        quantity: quantity,
+                        message: `You found ${quantity > 1 ? quantity + ' ' : ''}${item}!`
+                    };
+                },
+                
+                trap: (damage = 10) => {
+                    return {
+                        type: "trap",
+                        damage: damage,
+                        message: "You triggered a trap!"
+                    };
+                }
+            },
+            
+            player: {
+                levelUp: (newLevel, stats = {}) => {
+                    return {
+                        type: "level_up",
+                        level: newLevel,
+                        stats: stats,
+                        message: `You reached level ${newLevel}!`
+                    };
+                },
+                
+                statIncrease: (stat, amount = 1) => {
+                    return {
+                        type: "stat_increase",
+                        stat: stat,
+                        amount: amount,
+                        message: `Your ${stat} increased by ${amount}!`
+                    };
+                },
+                
+                damage: (amount, source = "unknown") => {
+                    return {
+                        type: "damage",
+                        amount: amount,
+                        source: source,
+                        message: `You took ${amount} damage from ${source}!`
+                    };
+                },
+                
+                heal: (amount, source = "unknown") => {
+                    return {
+                        type: "heal",
+                        amount: amount,
+                        source: source,
+                        message: `You recovered ${amount} HP from ${source}!`
+                    };
+                }
+            },
+            
+            world: {
+                timeChange: (newTime) => {
+                    return {
+                        type: "time_change",
+                        time: newTime,
+                        message: `Time changes to ${newTime}`
+                    };
+                },
+                
+                weatherChange: (newWeather) => {
+                    return {
+                        type: "weather_change",
+                        weather: newWeather,
+                        message: `Weather changes to ${newWeather}`
+                    };
+                }
+            },
+            
+            getSaveData() {
+                return {
+                    eventQueue: JSON.parse(JSON.stringify(this.eventQueue)),
+                    eventHandlers: {}
+                };
+            },
+            
+            loadSaveData(data) {
+                this.eventQueue = data.eventQueue || [];
+            }
+        };
+
+        // Test functions
+        function updateOutput() {
+            const output = document.getElementById('output');
+            let html = `<h4>Event Queue: ${events.getQueueLength()} events</h4>`;
+            
+            if (events.eventQueue.length === 0) {
+                html += '<p>No events in queue</p>';
+            } else {
+                events.eventQueue.forEach(event => {
+                    const eventClass = event.data.type ? `event-${event.data.type}` : 'event';
+                    html += `
+                        <div class="event ${eventClass}">
+                            <strong>${event.name}</strong>: ${event.data.message || 'No message'}
+                            <br><small>ID: ${event.id.substr(0, 8)}...</small>
+                        </div>
+                    `;
+                });
+            }
+            
+            html += '<h4>Event Handlers:</h4>';
+            let hasHandlers = false;
+            for (const eventName in events.eventHandlers) {
+                if (events.eventHandlers[eventName].length > 0) {
+                    html += `<div class="handler">${eventName}: ${events.eventHandlers[eventName].length} handlers</div>`;
+                    hasHandlers = true;
+                }
+            }
+            
+            if (!hasHandlers) {
+                html += '<p>No event handlers registered</p>';
+            }
+            
+            output.innerHTML = html;
+        }
+
+        function testTriggerEvent() {
+            const eventId = events.trigger("test_event", {
+                type: "test",
+                message: "This is a test event!",
+                value: Math.floor(Math.random() * 100)
+            });
+            updateOutput();
+            alert(`Event triggered with ID: ${eventId.substr(0, 8)}...`);
+        }
+
+        function testCombatEvent() {
+            const enemyTypes = ["Goblin", "Orc", "Skeleton", "Dragon", "Bandit"];
+            const enemy = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+            
+            events.trigger("combat_encounter", events.combat.encounter(enemy));
+            updateOutput();
+            alert(`Combat event triggered: ${enemy} encounter`);
+        }
+
+        function testExplorationEvent() {
+            const locations = ["Ancient Ruins", "Mysterious Cave", "Hidden Grove", "Abandoned Tower"];
+            const location = locations[Math.floor(Math.random() * locations.length)];
+            
+            events.trigger("exploration_discover", events.exploration.discover(location));
+            updateOutput();
+            alert(`Exploration event triggered: Discovered ${location}`);
+        }
+
+        function testProcessEvents() {
+            const processed = events.processAll();
+            updateOutput();
+            alert(`Processed ${processed.length} events`);
+        }
+
+        // Test event handler
+        const testEventHandler = (data) => {
+            alert(`Event handler called with: ${data.message || 'No message'}`);
+        };
+
+        function testEventHandler() {
+            events.on("test_event", testEventHandler);
+            updateOutput();
+            alert("Test event handler registered. Trigger a test event to see it in action.");
+        }
+
+        function testClearEvents() {
+            events.clearQueue();
+            updateOutput();
+            alert("Event queue cleared");
+        }
+
+        // Initialize output
+        updateOutput();
+    </script>
+</body>
+</html>

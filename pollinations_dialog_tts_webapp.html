@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pollinations NPC Dialogue + TTS</title>
+  <style>
+    :root {
+      --bg: #11131a;
+      --panel: #1b1f2a;
+      --panel-2: #242a38;
+      --text: #f2f4f8;
+      --muted: #aeb6c4;
+      --accent: #8fd3ff;
+      --accent-2: #ffd166;
+      --danger: #ff6b6b;
+      --ok: #78e08f;
+      --border: #333a4c;
+      --shadow: 0 18px 60px rgba(0,0,0,.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(143,211,255,.16), transparent 32rem),
+        radial-gradient(circle at bottom right, rgba(255,209,102,.12), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .app {
+      width: min(1120px, 100%);
+      display: grid;
+      grid-template-columns: 330px 1fr;
+      gap: 18px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01)), var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .side {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+
+    h1 {
+      font-size: 24px;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .npc-preview {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 18px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+    }
+
+    .portrait {
+      width: 76px;
+      height: 76px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      font-size: 42px;
+      background: linear-gradient(135deg, rgba(143,211,255,.35), rgba(255,209,102,.25));
+      border: 1px solid rgba(255,255,255,.14);
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    input, textarea, select, button {
+      width: 100%;
+      font: inherit;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #111620;
+      color: var(--text);
+      padding: 11px 12px;
+      outline: none;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 82px;
+      line-height: 1.4;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(143,211,255,.12);
+    }
+
+    .field { display: grid; gap: 7px; }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #b5f0ff);
+      color: #071019;
+      border: none;
+      transition: transform .12s ease, opacity .12s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid rgba(255,107,107,.45);
+    }
+
+    .main {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 760px;
+    }
+
+    .topbar {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,.025);
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--ok);
+      box-shadow: 0 0 14px rgba(120,224,143,.6);
+    }
+
+    .chat {
+      padding: 18px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 570px;
+    }
+
+    .msg {
+      max-width: 82%;
+      padding: 13px 15px;
+      border-radius: 18px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      animation: pop .15s ease-out;
+    }
+
+    @keyframes pop {
+      from { transform: translateY(4px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      background: var(--accent);
+      color: #071019;
+      border-bottom-right-radius: 6px;
+    }
+
+    .msg.npc {
+      align-self: flex-start;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 6px;
+    }
+
+    .msg.system {
+      align-self: center;
+      max-width: 92%;
+      color: var(--muted);
+      background: transparent;
+      border: 1px dashed var(--border);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .composer {
+      padding: 16px 18px 18px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 140px;
+      gap: 10px;
+      background: rgba(255,255,255,.025);
+    }
+
+    .composer textarea {
+      min-height: 56px;
+      max-height: 150px;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .pillbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      width: auto;
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      background: #111620;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    @media (max-width: 860px) {
+      body { padding: 12px; }
+      .app { grid-template-columns: 1fr; }
+      .main { min-height: 620px; }
+      .chat { max-height: 440px; }
+      .composer { grid-template-columns: 1fr; }
+      .msg { max-width: 92%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="card side">
+      <div>
+        <h1>NPC Dialogue<br>with TTS</h1>
+        <p class="subtitle">Pollinations generates the NPC response. Your browser reads it aloud with Web Speech.</p>
+      </div>
+
+      <div class="npc-preview">
+        <div class="portrait" id="portrait">🧙</div>
+        <div>
+          <h2 id="npcTitle">Dona Cida</h2>
+          <p class="subtitle" id="npcSubtitle">mystic neighbor NPC</p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>NPC Name</label>
+        <input id="npcName" value="Dona Cida" />
+      </div>
+
+      <div class="field">
+        <label>NPC Role / Personality</label>
+        <textarea id="npcPersona">You are Dona Cida, a mysterious elderly neighbor in a 1990s Brazilian JRPG. You speak warmly, with a little humor, and give short quest-like answers. You know rumors about haunted houses, missing keys, street dogs, old radios, botecos, and neighborhood secrets.</textarea>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Model</label>
+          <select id="model">
+            <option value="openai">openai</option>
+            <option value="mistral">mistral</option>
+            <option value="deepseek">deepseek</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Temperature</label>
+          <input id="temperature" type="number" min="0" max="3" step="0.1" value="0.8" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Voice</label>
+        <select id="voiceSelect"></select>
+        <p class="small">Voices depend on your browser/OS. Chrome and Edge usually have more options.</p>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Rate</label>
+          <input id="voiceRate" type="number" min="0.5" max="2" step="0.1" value="1" />
+        </div>
+        <div class="field">
+          <label>Pitch</label>
+          <input id="voicePitch" type="number" min="0" max="2" step="0.1" value="1" />
+        </div>
+      </div>
+
+      <div class="pillbar">
+        <button class="pill" data-prompt="Ask about the abandoned house.">haunted house</button>
+        <button class="pill" data-prompt="Ask if she has a quest for you.">quest</button>
+        <button class="pill" data-prompt="Ask about the strange dog near the boteco.">dog rumor</button>
+      </div>
+
+      <button class="ghost" id="testVoiceBtn">Test Voice</button>
+      <button class="danger" id="resetBtn">Reset Dialogue</button>
+
+      <p class="small">For quick prototypes this can run directly in the browser. For production, route API calls through your own backend to handle keys, limits, logging, and safety.</p>
+    </aside>
+
+    <main class="card main">
+      <header class="topbar">
+        <div>
+          <h3>Dialogue Log</h3>
+          <p class="subtitle">Try speaking to the NPC like a player in an RPG.</p>
+        </div>
+        <div class="status"><span class="dot"></span><span id="statusText">Ready</span></div>
+      </header>
+
+      <section class="chat" id="chat"></section>
+
+      <form class="composer" id="form">
+        <textarea id="userInput" placeholder="Type your dialogue choice...">Oi, Dona Cida. What happened in that abandoned house?</textarea>
+        <button id="sendBtn" type="submit">Send</button>
+      </form>
+    </main>
+  </div>
+
+  <script>
+    const API_URL = "https://text.pollinations.ai/openai";
+
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("form");
+    const userInput = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const statusText = document.getElementById("statusText");
+    const npcName = document.getElementById("npcName");
+    const npcPersona = document.getElementById("npcPersona");
+    const model = document.getElementById("model");
+    const temperature = document.getElementById("temperature");
+    const voiceSelect = document.getElementById("voiceSelect");
+    const voiceRate = document.getElementById("voiceRate");
+    const voicePitch = document.getElementById("voicePitch");
+    const testVoiceBtn = document.getElementById("testVoiceBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const npcTitle = document.getElementById("npcTitle");
+    const npcSubtitle = document.getElementById("npcSubtitle");
+
+    let messages = [];
+    let voices = [];
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function syncNpcHeader() {
+      npcTitle.textContent = npcName.value.trim() || "NPC";
+      npcSubtitle.textContent = "AI dialogue character";
+    }
+
+    npcName.addEventListener("input", syncNpcHeader);
+
+    function addMessage(role, content) {
+      const div = document.createElement("div");
+      div.className = `msg ${role}`;
+      div.textContent = content;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function cleanForSpeech(text) {
+      return text
+        .replace(/\*+/g, "")
+        .replace(/\[[^\]]*\]/g, "")
+        .replace(/\([^)]*roll[^)]*\)/gi, "")
+        .trim();
+    }
+
+    function speak(text) {
+      if (!("speechSynthesis" in window)) {
+        addMessage("system", "This browser does not support speech synthesis.");
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(cleanForSpeech(text));
+      const selectedVoiceName = voiceSelect.value;
+      const selectedVoice = voices.find(v => v.name === selectedVoiceName);
+      if (selectedVoice) utterance.voice = selectedVoice;
+      utterance.rate = Number(voiceRate.value) || 1;
+      utterance.pitch = Number(voicePitch.value) || 1;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function loadVoices() {
+      voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+      voiceSelect.innerHTML = "";
+
+      const preferred = voices
+        .map((v, index) => ({ v, index }))
+        .sort((a, b) => {
+          const aScore = /pt-BR|en-US/i.test(a.v.lang) ? 0 : 1;
+          const bScore = /pt-BR|en-US/i.test(b.v.lang) ? 0 : 1;
+          return aScore - bScore || a.index - b.index;
+        });
+
+      for (const item of preferred) {
+        const option = document.createElement("option");
+        option.value = item.v.name;
+        option.textContent = `${item.v.name} — ${item.v.lang}`;
+        voiceSelect.appendChild(option);
+      }
+    }
+
+    if ("speechSynthesis" in window) {
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
+    function buildSystemPrompt() {
+      return `${npcPersona.value.trim()}\n\nRules:\n- Stay in character.\n- Reply as ${npcName.value.trim() || "the NPC"}.\n- Keep responses under 90 words unless the player asks for detail.\n- Use natural dialogue, not assistant explanations.\n- Occasionally offer a concrete quest clue, item, place, or rumor.\n- Do not mention that you are an AI model.`;
+    }
+
+    async function askPollinations(playerText) {
+      const payload = {
+        model: model.value,
+        messages: [
+          { role: "system", content: buildSystemPrompt() },
+          ...messages,
+          { role: "user", content: playerText }
+        ],
+        temperature: Number(temperature.value) || 0.8,
+        max_tokens: 220,
+        stream: false
+      };
+
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Pollinations error ${response.status}: ${text.slice(0, 180)}`);
+      }
+
+      const data = await response.json();
+      return data?.choices?.[0]?.message?.content?.trim() || "...";
+    }
+
+    async function sendDialogue(text) {
+      const playerText = text.trim();
+      if (!playerText) return;
+
+      addMessage("user", playerText);
+      messages.push({ role: "user", content: playerText });
+      userInput.value = "";
+      sendBtn.disabled = true;
+      setStatus("Thinking...");
+
+      try {
+        const npcReply = await askPollinations(playerText);
+        addMessage("npc", npcReply);
+        messages.push({ role: "assistant", content: npcReply });
+        speak(npcReply);
+        setStatus("Ready");
+      } catch (error) {
+        console.error(error);
+        addMessage("system", error.message + "\n\nTry another model, wait a moment, or check if the endpoint is available from your browser.");
+        setStatus("Error");
+      } finally {
+        sendBtn.disabled = false;
+        userInput.focus();
+      }
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      sendDialogue(userInput.value);
+    });
+
+    document.querySelectorAll(".pill").forEach(button => {
+      button.addEventListener("click", () => {
+        userInput.value = button.dataset.prompt;
+        userInput.focus();
+      });
+    });
+
+    testVoiceBtn.addEventListener("click", () => {
+      speak("Oi, criança. Se ouvir um rádio tocando sozinho depois da meia-noite, não olhe pela janela.");
+    });
+
+    resetBtn.addEventListener("click", () => {
+      messages = [];
+      chat.innerHTML = "";
+      addMessage("system", "Dialogue reset. Start a new conversation with the NPC.");
+      window.speechSynthesis?.cancel();
+      setStatus("Ready");
+    });
+
+    userInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    syncNpcHeader();
+    addMessage("system", "Talk to the NPC. The next reply will be generated by Pollinations and spoken aloud by your browser.");
+  </script>
+</body>
+</

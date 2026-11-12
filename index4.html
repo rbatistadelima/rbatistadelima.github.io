@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idle ASCII RPG</title>
+    <link rel="stylesheet" href="system/style.css">
+</head>
+<body>
+    <div class="game-container">
+        <!-- Left Column - Player Stats & Inventory -->
+        <div class="column column-left">
+            <h2 class="section-header">Player</h2>
+            <div id="player-stats" class="loading">Loading player data...</div>
+            
+            <h2 class="section-header">Inventory</h2>
+            <div id="inventory-list" class="loading">Loading inventory...</div>
+            
+            <div class="ascii-art" id="player-ascii">
+                <!-- ASCII art will be loaded here -->
+            </div>
+        </div>
+        
+        <!-- Center Column - Main Game Log -->
+        <div class="column column-center">
+            <h2 class="section-header">Adventure Log</h2>
+            <div id="game-log" class="game-log">
+                <div class="log-entry">Initializing game world...</div>
+            </div>
+        </div>
+        
+        <!-- Right Column - Actions & Progress -->
+        <div class="column column-right">
+            <h2 class="section-header">Actions</h2>
+            <div id="action-buttons" class="loading">Loading actions...</div>
+            
+            <h2 class="section-header">Progress</h2>
+            <div id="progress-display" class="loading">Loading progress...</div>
+            
+            <div class="save-status" id="save-status">
+                Save system initializing...
+            </div>
+        </div>
+    </div>
+
+    <!-- Load all modular JavaScript systems -->
+    <script type="module">
+        // Import all game systems
+        import { player } from './system/player.js';
+        import { inventory } from './system/inventory.js';
+        import { events } from './system/events.js';
+        import { decisions } from './system/decisions.js';
+        import { progress } from './system/progress.js';
+        import { saveSystem } from './system/save-system.js';
+        import { ui } from './system/ui.js';
+        import { utils } from './system/utils.js';
+        import { voice } from './system/voice.js';
+
+        // Game state
+        const game = {
+            isRunning: false,
+            lastUpdate: 0,
+            systems: {}
+        };
+
+        // Initialize the game
+        async function initGame() {
+            console.log("Initializing Idle ASCII RPG...");
+            
+            try {
+                // Try to load saved game
+                if (saveSystem.load()) {
+                    ui.addToLog("Game loaded successfully!");
+                } else {
+                    ui.addToLog("Starting new game...");
+                    // Initialize default items
+                    inventory.addItem({ id: "health_potion", name: "Health Potion", stackable: true });
+                    inventory.addItem({ id: "rusty_sword", name: "Rusty Sword", equippable: true, slot: "weapon" });
+                }
+                
+                // Set up event handlers
+                events.on('combat_start', handleCombatStart);
+                events.on('item_found', handleItemFound);
+                events.on('level_up', handleLevelUp);
+                
+                // Initialize UI
+                ui.init();
+                ui.updateAllDisplays();
+                
+                // Start the game loop
+                game.isRunning = true;
+                game.lastUpdate = Date.now();
+                requestAnimationFrame(gameLoop);
+                
+                // Start autosave
+                saveSystem.autoSave(30000); // Save every 30 seconds
+                
+                // Welcome message
+                voice.say("Welcome to Idle ASCII RPG! Your adventure begins now.", document.getElementById('game-log'));
+                
+            } catch (error) {
+                console.error("Failed to initialize game:", error);
+                ui.addToLog("Error initializing game. Check console for details.");
+            }
+        }
+
+        // Main game loop
+        function gameLoop() {
+            if (!game.isRunning) return;
+            
+            const now = Date.now();
+            const deltaTime = (now - game.lastUpdate) / 1000; // Convert to seconds
+            game.lastUpdate = now;
+            
+            // Update game systems
+            progress.update(deltaTime);
+            decisions.processQueue();
+            
+            // Process events
+            const nextEvent = events.processQueue();
+            if (nextEvent) {
+                // Handle event
+                ui.addToLog(`Event: ${nextEvent.name}`);
+            }
+            
+            // Update UI
+            ui.updateAllDisplays();
+            
+            // Continue the loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event handlers
+        function handleCombatStart(data) {
+            ui.addToLog(`Combat started with ${data.enemy.name}!`);
+            decisions.present(events.combatEvents.enemyEncounter(data.enemy));
+        }
+
+        function handleItemFound(data) {
+            ui.addToLog(`You found a ${data.item.name}!`);
+            inventory.addItem(data.item);
+        }
+
+        function handleLevelUp(data) {
+            ui.addToLog(`Level up! You are now level ${player.level}.`);
+            voice.say(`Congratulations! You reached level ${player.level}.`, document.getElementById('game-log'));
+        }
+
+        // Start the game when all modules are loaded
+        window.addEventListener('DOMContentLoaded', initGame);
+        
+        // Handle window unload
+        window.addEventListener('beforeunload', () => {
+            if (game.isRunning) {
+                saveSystem.save();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Drum Audio to MIDI Converter</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #151922;
+    --panel2: #1d2330;
+    --text: #f2f5ff;
+    --muted: #9aa4b8;
+    --line: #2a3142;
+    --accent: #7c5cff;
+    --good: #34d399;
+    --warn: #fbbf24;
+    --bad: #fb7185;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: radial-gradient(circle at top, #1a1e2c 0%, var(--bg) 45%, #05060a 100%);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .app {
+    width: min(1180px, 100%);
+  }
+
+  header {
+    margin-bottom: 22px;
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 52px);
+    letter-spacing: -0.05em;
+    line-height: 0.95;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    max-width: 680px;
+    margin: 12px 0 0;
+    font-size: 15px;
+  }
+
+  .badge {
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.04);
+    padding: 10px 14px;
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 16px;
+  }
+
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 18px;
+    box-shadow: 0 22px 80px rgba(0,0,0,0.32);
+  }
+
+  .card h2 {
+    margin: 0 0 14px;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  input[type="file"] {
+    width: 100%;
+    padding: 13px;
+    background: var(--panel2);
+    border: 1px dashed #3a4357;
+    border-radius: 16px;
+    color: var(--text);
+  }
+
+  .controls {
+    display: grid;
+    gap: 14px;
+    margin-top: 16px;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .row span {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+
+  button {
+    border: 0;
+    background: var(--accent);
+    color: white;
+    padding: 13px 16px;
+    border-radius: 16px;
+    cursor: pointer;
+    font-weight: 800;
+    transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
+  }
+
+  button:hover { transform: translateY(-1px); filter: brightness(1.07); }
+  button:disabled { opacity: 0.42; cursor: not-allowed; transform: none; }
+
+  .buttonRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .secondary { background: #2a3142; }
+  .green { background: #0f9f6e; }
+
+  .status {
+    margin-top: 14px;
+    color: var(--muted);
+    min-height: 22px;
+    font-size: 13px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 14px;
+  }
+
+  .stat .num {
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+  }
+
+  .stat .txt {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  canvas {
+    width: 100%;
+    height: 300px;
+    background: #080a10;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    display: block;
+  }
+
+  .legend {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 12px 0 16px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+    background: currentColor;
+  }
+
+  .kick { color: #60a5fa; }
+  .snare { color: #fb7185; }
+  .hat { color: #fbbf24; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    overflow: hidden;
+    border-radius: 16px;
+  }
+
+  th, td {
+    border-bottom: 1px solid var(--line);
+    padding: 9px 10px;
+    text-align: left;
+  }
+
+  th {
+    color: var(--muted);
+    font-weight: 700;
+    background: rgba(255,255,255,0.04);
+  }
+
+  tbody tr:hover { background: rgba(255,255,255,0.035); }
+
+  .tableWrap {
+    max-height: 270px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+  }
+
+  .hint {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(251,191,36,0.1);
+    border: 1px solid rgba(251,191,36,0.25);
+    color: #fde68a;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Drum Audio<br>to MIDI</h1>
+      <p class="subtitle">Upload a drum loop or drum stem. The app estimates BPM, detects kick/snare/hi-hat hits, quantizes them, and exports a General MIDI drum file.</p>
+    </div>
+    <div class="badge">Browser-only • WAV/MP3/OGG/M4A</div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <h2>1. Audio input</h2>
+      <label for="fileInput">Choose drum audio</label>
+      <input id="fileInput" type="file" accept="audio/*" />
+
+      <div class="controls">
+        <div>
+          <div class="row"><label>Detection sensitivity</label><span id="sensVal">62%</span></div>
+          <input id="sensitivity" type="range" min="20" max="95" value="62" />
+        </div>
+        <div>
+          <div class="row"><label>Quantize grid</label><span id="gridVal">1/16</span></div>
+          <input id="grid" type="range" min="1" max="4" value="3" />
+        </div>
+        <div>
+          <div class="row"><label>Minimum hit gap</label><span id="gapVal">70 ms</span></div>
+          <input id="gap" type="range" min="25" max="160" value="70" />
+        </div>
+        <div>
+          <div class="row"><label>BPM range</label><span id="bpmRangeVal">70–190</span></div>
+          <input id="bpmMin" type="range" min="50" max="120" value="70" />
+          <input id="bpmMax" type="range" min="121" max="240" value="190" />
+        </div>
+      </div>
+
+      <div class="buttonRow">
+        <button id="analyzeBtn">Analyze</button>
+        <button id="playBtn" class="secondary" disabled>Preview MIDI</button>
+      </div>
+      <div class="buttonRow">
+        <button id="downloadBtn" class="green" disabled>Download MIDI</button>
+        <button id="clearBtn" class="secondary">Clear</button>
+      </div>
+
+      <div id="status" class="status">Load an audio file to begin.</div>
+
+      <div class="hint">Best results come from isolated drum stems or clean loops. Full songs are much harder because bass, vocals, and guitars can trigger false drum hits.</div>
+    </section>
+
+    <main class="card">
+      <h2>2. Detection result</h2>
+      <div class="stats">
+        <div class="stat"><div class="num" id="bpmOut">—</div><div class="txt">Estimated BPM</div></div>
+        <div class="stat"><div class="num" id="kickOut">0</div><div class="txt">Kicks</div></div>
+        <div class="stat"><div class="num" id="snareOut">0</div><div class="txt">Snares</div></div>
+        <div class="stat"><div class="num" id="hatOut">0</div><div class="txt">Hi-hats</div></div>
+      </div>
+
+      <canvas id="canvas" width="1200" height="360"></canvas>
+      <div class="legend">
+        <span class="kick"><i class="dot"></i>Kick C1 / MIDI 36</span>
+        <span class="snare"><i class="dot"></i>Snare D1 / MIDI 38</span>
+        <span class="hat"><i class="dot"></i>Closed Hat F#1 / MIDI 42</span>
+      </div>
+
+      <div class="tableWrap">
+        <table>
+          <thead><tr><th>#</th><th>Time</th><th>Beat</th><th>Drum</th><th>MIDI note</th><th>Velocity</th></tr></thead>
+          <tbody id="hitsTable"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const playBtn = document.getElementById('playBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+const clearBtn = document.getElementById('clearBtn');
+const statusEl = document.getElementById('status');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const sensitivityEl = document.getElementById('sensitivity');
+const gridEl = document.getElementById('grid');
+const gapEl = document.getElementById('gap');
+const bpmMinEl = document.getElementById('bpmMin');
+const bpmMaxEl = document.getElementById('bpmMax');
+const sensVal = document.getElementById('sensVal');
+const gridVal = document.getElementById('gridVal');
+const gapVal = document.getElementById('gapVal');
+const bpmRangeVal = document.getElementById('bpmRangeVal');
+const bpmOut = document.getElementById('bpmOut');
+const kickOut = document.getElementById('kickOut');
+const snareOut = document.getElementById('snareOut');
+const hatOut = document.getElementById('hatOut');
+const hitsTable = document.getElementById('hitsTable');
+
+let audioCtx = null;
+let audioBuffer = null;
+let analysis = null;
+let lastObjectUrl = null;
+
+const DRUMS = {
+  kick: { note: 36, name: 'Kick', color: '#60a5fa' },
+  snare: { note: 38, name: 'Snare', color: '#fb7185' },
+  hat: { note: 42, name: 'Closed Hat', color: '#fbbf24' }
+};
+
+function setStatus(msg) { statusEl.textContent = msg; }
+
+function updateLabels() {
+  sensVal.textContent = sensitivityEl.value + '%';
+  const gridNames = ['1/4','1/8','1/16','1/32'];
+  gridVal.textContent = gridNames[Number(gridEl.value) - 1];
+  gapVal.textContent = gapEl.value + ' ms';
+  let min = Number(bpmMinEl.value);
+  let max = Number(bpmMaxEl.value);
+  if (min >= max) min = max - 1;
+  bpmRangeVal.textContent = min + '–' + max;
+}
+[sensitivityEl, gridEl, gapEl, bpmMinEl, bpmMaxEl].forEach(el => el.addEventListener('input', updateLabels));
+updateLabels();
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  try {
+    setStatus('Decoding audio...');
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const arr = await file.arrayBuffer();
+    audioBuffer = await audioCtx.decodeAudioData(arr.slice(0));
+    analysis = null;
+    downloadBtn.disabled = true;
+    playBtn.disabled = true;
+    clearOutputs();
+    drawEmpty();
+    setStatus(`Loaded ${file.name} • ${audioBuffer.duration.toFixed(2)}s`);
+  } catch (err) {
+    console.error(err);
+    setStatus('Could not decode this audio file. Try WAV, MP3, OGG, or M4A.');
+  }
+});
+
+analyzeBtn.addEventListener('click', async () => {
+  if (!audioBuffer) {
+    setStatus('Choose an audio file first.');
+    return;
+  }
+  setStatus('Analyzing transients and frequency bands...');
+  await sleep(30);
+  analysis = analyzeDrums(audioBuffer);
+  renderAnalysis();
+  downloadBtn.disabled = analysis.hits.length === 0;
+  playBtn.disabled = analysis.hits.length === 0;
+  setStatus(`Done. Detected ${analysis.hits.length} drum events.`);
+});
+
+playBtn.addEventListener('click', () => {
+  if (!analysis) return;
+  previewMidiDrums(analysis.hits, analysis.duration);
+});
+
+downloadBtn.addEventListener('click', () => {
+  if (!analysis) return;
+  const bytes = buildMidiFile(analysis.hits, analysis.bpm, analysis.duration);
+  const blob = new Blob([bytes], { type: 'audio/midi' });
+  if (lastObjectUrl) URL.revokeObjectURL(lastObjectUrl);
+  lastObjectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = lastObjectUrl;
+  a.download = 'detected_drums.mid';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+
+clearBtn.addEventListener('click', () => {
+  fileInput.value = '';
+  audioBuffer = null;
+  analysis = null;
+  downloadBtn.disabled = true;
+  playBtn.disabled = true;
+  clearOutputs();
+  drawEmpty();
+  setStatus('Cleared. Load an audio file to begin.');
+});
+
+function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+function clearOutputs() {
+  bpmOut.textContent = '—';
+  kickOut.textContent = '0';
+  snareOut.textContent = '0';
+  hatOut.textContent = '0';
+  hitsTable.innerHTML = '';
+}
+
+function analyzeDrums(buffer) {
+  const sr = buffer.sampleRate;
+  const mono = mixToMono(buffer);
+  const duration = buffer.duration;
+
+  const frame = 1024;
+  const hop = 512;
+  const bands = createBandEnergy(mono, sr, frame, hop);
+  const onset = spectralFlux(bands.total);
+
+  const minBpm = Math.min(Number(bpmMinEl.value), Number(bpmMaxEl.value) - 1);
+  const maxBpm = Math.max(Number(bpmMaxEl.value), minBpm + 1);
+  const bpm = estimateBpm(onset, sr / hop, minBpm, maxBpm);
+
+  const sensitivity = Number(sensitivityEl.value) / 100;
+  const minGap = Number(gapEl.value) / 1000;
+  const qDiv = [1, 2, 4, 8][Number(gridEl.value) - 1];
+  const beatDur = 60 / bpm;
+  const gridDur = beatDur / qDiv;
+
+  const kickEvents = pickBandHits(bands.low, bands.mid, bands.high, sr, hop, sensitivity, minGap, 'kick');
+  const snareEvents = pickBandHits(bands.mid, bands.low, bands.high, sr, hop, sensitivity * 0.94, minGap, 'snare');
+  const hatEvents = pickBandHits(bands.high, bands.low, bands.mid, sr, hop, sensitivity * 0.9, Math.max(0.035, minGap * 0.55), 'hat');
+
+  let hits = [...kickEvents, ...snareEvents, ...hatEvents];
+  hits = mergeAndCleanHits(hits, gridDur, duration);
+  hits.sort((a, b) => a.time - b.time || a.note - b.note);
+
+  return { bpm, hits, duration, waveform: downsampleWaveform(mono, 1200) };
+}
+
+function mixToMono(buffer) {
+  const len = buffer.length;
+  const mono = new Float32Array(len);
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < len; i++) mono[i] += data[i] / buffer.numberOfChannels;
+  }
+  return mono;
+}
+
+function createBandEnergy(samples, sr, frame, hop) {
+  const nFrames = Math.floor((samples.length - frame) / hop);
+  const low = new Float32Array(nFrames);
+  const mid = new Float32Array(nFrames);
+  const high = new Float32Array(nFrames);
+  const total = new Float32Array(nFrames);
+
+  let lpFast = 0, lpSlow = 0, hp = 0, prev = 0;
+  const lowAlpha = 1 - Math.exp(-2 * Math.PI * 150 / sr);
+  const midAlpha = 1 - Math.exp(-2 * Math.PI * 1200 / sr);
+
+  const lowSig = new Float32Array(samples.length);
+  const midSig = new Float32Array(samples.length);
+  const highSig = new Float32Array(samples.length);
+
+  for (let i = 0; i < samples.length; i++) {
+    const x = samples[i];
+    lpFast += lowAlpha * (x - lpFast);
+    lpSlow += midAlpha * (x - lpSlow);
+    hp = x - lpSlow;
+    lowSig[i] = lpFast;
+    midSig[i] = lpSlow - lpFast;
+    highSig[i] = hp;
+    prev = x;
+  }
+
+  for (let f = 0; f < nFrames; f++) {
+    const start = f * hop;
+    let le = 0, me = 0, he = 0, te = 0;
+    for (let i = 0; i < frame; i++) {
+      const idx = start + i;
+      const w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (frame - 1));
+      const l = lowSig[idx] * w;
+      const m = midSig[idx] * w;
+      const h = highSig[idx] * w;
+      const t = samples[idx] * w;
+      le += l*l; me += m*m; he += h*h; te += t*t;
+    }
+    low[f] = Math.sqrt(le / frame);
+    mid[f] = Math.sqrt(me / frame);
+    high[f] = Math.sqrt(he / frame);
+    total[f] = Math.sqrt(te / frame);
+  }
+  return { low, mid, high, total };
+}
+
+function spectralFlux(energy) {
+  const flux = new Float32Array(energy.length);
+  for (let i = 1; i < energy.length; i++) {
+    flux[i] = Math.max(0, energy[i] - energy[i - 1]);
+  }
+  return smooth(flux, 3);
+}
+
+function estimateBpm(onset, frameRate, minBpm, maxBpm) {
+  let bestBpm = 120;
+  let bestScore = -Infinity;
+  const start = Math.floor(frameRate * 2);
+  const end = onset.length;
+
+  for (let bpm = minBpm; bpm <= maxBpm; bpm += 0.5) {
+    const period = frameRate * 60 / bpm;
+    let score = 0;
+    for (let i = start; i < end; i++) {
+      const j = Math.round(i - period);
+      const k = Math.round(i - period * 2);
+      if (j >= 0) score += onset[i] * onset[j];
+      if (k >= 0) score += onset[i] * onset[k] * 0.5;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestBpm = bpm;
+    }
+  }
+
+  while (bestBpm < 80 && bestBpm * 2 <= maxBpm) bestBpm *= 2;
+  while (bestBpm > 180 && bestBpm / 2 >= minBpm) bestBpm /= 2;
+  return Math.round(bestBpm);
+}
+
+function pickBandHits(primary, otherA, otherB, sr, hop, sensitivity, minGap, type) {
+  const flux = spectralFlux(primary);
+  const med = median(Array.from(flux));
+  const max = Math.max(...flux);
+  const threshold = med + (max - med) * (0.18 + (1 - sensitivity) * 0.55);
+  const hits = [];
+  let lastTime = -999;
+
+  for (let i = 2; i < flux.length - 2; i++) {
+    if (flux[i] > threshold && flux[i] >= flux[i - 1] && flux[i] >= flux[i + 1]) {
+      const time = i * hop / sr;
+      if (time - lastTime < minGap) continue;
+
+      const p = primary[i] || 0.000001;
+      const a = otherA[i] || 0.000001;
+      const b = otherB[i] || 0.000001;
+
+      let keep = true;
+      if (type === 'kick') keep = p > a * 0.75 && p > b * 1.05;
+      if (type === 'snare') keep = p > b * 0.42 && p > a * 0.42;
+      if (type === 'hat') keep = p > a * 0.55 && p > b * 0.65;
+      if (!keep) continue;
+
+      const velocity = clamp(Math.round(45 + 82 * (flux[i] / (max || 1))), 42, 127);
+      hits.push({ time, type, note: DRUMS[type].note, velocity });
+      lastTime = time;
+    }
+  }
+  return hits;
+}
+
+function mergeAndCleanHits(hits, gridDur, duration) {
+  const byKey = new Map();
+  for (const hit of hits) {
+    const q = Math.max(0, Math.min(duration, Math.round(hit.time / gridDur) * gridDur));
+    const key = hit.type + ':' + q.toFixed(4);
+    const existing = byKey.get(key);
+    const next = { ...hit, rawTime: hit.time, time: q };
+    if (!existing || next.velocity > existing.velocity) byKey.set(key, next);
+  }
+
+  let arr = Array.from(byKey.values());
+  arr.sort((a, b) => a.time - b.time);
+
+  const priority = { kick: 3, snare: 2, hat: 1 };
+  const cleaned = [];
+  for (const hit of arr) {
+    const nearby = cleaned.find(h => Math.abs(h.time - hit.time) < 0.018 && h.type !== hit.type);
+    if (nearby && priority[hit.type] > priority[nearby.type] && hit.velocity > nearby.velocity + 10) {
+      Object.assign(nearby, hit);
+    } else {
+      cleaned.push(hit);
+    }
+  }
+  return cleaned;
+}
+
+function smooth(arr, radius) {
+  const out = new Float32Array(arr.length);
+  for (let i = 0; i < arr.length; i++) {
+    let sum = 0, count = 0;
+    for (let j = -radius; j <= radius; j++) {
+      const idx = i + j;
+      if (idx >= 0 && idx < arr.length) { sum += arr[idx]; count++; }
+    }
+    out[i] = sum / count;
+  }
+  return out;
+}
+
+function median(values) {
+  if (!values.length) return 0;
+  values.sort((a, b) => a - b);
+  return values[Math.floor(values.length / 2)];
+}
+
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function downsampleWaveform(samples, points) {
+  const out = new Float32Array(points);
+  const block = Math.floor(samples.length / points);
+  for (let i = 0; i < points; i++) {
+    let sum = 0;
+    for (let j = 0; j < block; j++) {
+      const s = samples[i * block + j] || 0;
+      sum += Math.abs(s);
+    }
+    out[i] = sum / Math.max(1, block);
+  }
+  const max = Math.max(...out) || 1;
+  for (let i = 0; i < out.length; i++) out[i] /= max;
+  return out;
+}
+
+function renderAnalysis() {
+  clearOutputs();
+  bpmOut.textContent = analysis.bpm;
+  kickOut.textContent = analysis.hits.filter(h => h.type === 'kick').length;
+  snareOut.textContent = analysis.hits.filter(h => h.type === 'snare').length;
+  hatOut.textContent = analysis.hits.filter(h => h.type === 'hat').length;
+
+  const rows = analysis.hits.slice(0, 400).map((h, i) => {
+    const beat = h.time / (60 / analysis.bpm);
+    return `<tr><td>${i + 1}</td><td>${h.time.toFixed(3)}s</td><td>${beat.toFixed(2)}</td><td>${DRUMS[h.type].name}</td><td>${h.note}</td><td>${h.velocity}</td></tr>`;
+  }).join('');
+  hitsTable.innerHTML = rows || '<tr><td colspan="6">No hits detected.</td></tr>';
+  drawResult();
+}
+
+function drawEmpty() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#080a10';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#22283a';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += 80) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  }
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '18px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('Waveform and detected drum hits will appear here', canvas.width / 2, canvas.height / 2);
+}
+
+drawEmpty();
+
+function drawResult() {
+  drawEmpty();
+  const wf = analysis.waveform;
+  const midY = canvas.height / 2;
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < wf.length; i++) {
+    const x = i / (wf.length - 1) * canvas.width;
+    const y = midY - wf[i] * 115;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  for (let i = wf.length - 1; i >= 0; i--) {
+    const x = i / (wf.length - 1) * canvas.width;
+    const y = midY + wf[i] * 115;
+    ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = '#334155';
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  const lanes = { kick: 270, snare: 185, hat: 100 };
+  for (const type of ['hat', 'snare', 'kick']) {
+    ctx.strokeStyle = '#1f2937';
+    ctx.beginPath(); ctx.moveTo(0, lanes[type]); ctx.lineTo(canvas.width, lanes[type]); ctx.stroke();
+    ctx.fillStyle = DRUMS[type].color;
+    ctx.font = '13px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText(DRUMS[type].name, 12, lanes[type] - 10);
+  }
+
+  for (const hit of analysis.hits) {
+    const x = hit.time / analysis.duration * canvas.width;
+    const y = lanes[hit.type];
+    const r = 4 + hit.velocity / 28;
+    ctx.fillStyle = DRUMS[hit.type].color;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.22;
+    ctx.fillRect(x - 1, 18, 2, canvas.height - 36);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function previewMidiDrums(hits, duration) {
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  const now = audioCtx.currentTime + 0.05;
+  for (const hit of hits) {
+    const t = now + hit.time;
+    if (hit.type === 'kick') synthKick(t, hit.velocity / 127);
+    if (hit.type === 'snare') synthSnare(t, hit.velocity / 127);
+    if (hit.type === 'hat') synthHat(t, hit.velocity / 127);
+  }
+  setStatus('Playing synthesized MIDI preview...');
+}
+
+function synthKick(t, v) {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(120, t);
+  osc.frequency.exponentialRampToValueAtTime(45, t + 0.14);
+  gain.gain.setValueAtTime(0.001, t);
+  gain.gain.exponentialRampToValueAtTime(0.85 * v, t + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t); osc.stop(t + 0.25);
+}
+
+function synthSnare(t, v) {
+  const len = audioCtx.sampleRate * 0.16;
+  const buffer = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 900;
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0.45 * v;
+  noise.connect(hp).connect(gain).connect(audioCtx.destination);
+  noise.start(t);
+}
+
+function synthHat(t, v) {
+  const len = audioCtx.sampleRate * 0.055;
+  const buffer = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 5500;
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0.22 * v;
+  noise.connect(hp).connect(gain).connect(audioCtx.destination);
+  noise.start(t);
+}
+
+function buildMidiFile(hits, bpm, duration) {
+  const ppq = 480;
+  const usPerQuarter = Math.round(60000000 / bpm);
+  const events = [];
+  const secondsToTicks = s => Math.round(s * bpm / 60 * ppq);
+
+  events.push({ tick: 0, bytes: [0xFF, 0x51, 0x03, (usPerQuarter >> 16) & 255, (usPerQuarter >> 8) & 255, usPerQuarter & 255] });
+  events.push({ tick: 0, bytes: [0xFF, 0x58, 0x04, 4, 2, 24, 8] });
+  events.push({ tick: 0, bytes: [0xC9, 0x00] });
+
+  for (const h of hits) {
+    const tick = secondsToTicks(h.time);
+    const len = h.type === 'hat' ? 60 : 110;
+    events.push({ tick, bytes: [0x99, h.note, h.velocity] });
+    events.push({ tick: tick + len, bytes: [0x89, h.note, 0] });
+  }
+
+  events.push({ tick: secondsToTicks(duration) + ppq, bytes: [0xFF, 0x2F, 0x00] });
+  events.sort((a, b) => a.tick - b.tick);
+
+  let track = [];
+  let lastTick = 0;
+  for (const e of events) {
+    const delta = Math.max(0, e.tick - lastTick);
+    track.push(...varLen(delta), ...e.bytes);
+    lastTick = e.tick;
+  }
+
+  const header = [
+    ...strBytes('MThd'), 0,0,0,6,
+    0,0,
+    0,1,
+    (ppq >> 8) & 255, ppq & 255
+  ];
+  const trackHeader = [...strBytes('MTrk'), ...u32(track.length)];
+  return new Uint8Array([...header, ...trackHeader, ...track]);
+}
+
+function strBytes(s) { return [...s].map(c => c.charCodeAt(0)); }
+function u32(n) { return [(n>>>24)&255, (n>>>16)&255, (n>>>8)&255, n&255]; }
+function varLen(value) {
+  let buffer = value & 0x7F;
+  const bytes = [];
+  while ((value >>= 7)) {
+    buffer <<= 8;
+    buffer |= ((value & 0x7F) | 0x80);
+  }
+  while (true) {
+    bytes.push(buffer & 0xFF);
+    if (buffer & 0x80) buffer >>= 8;
+    else break;
+  }
+  return bytes;
+}
+</script>
+</body>
+</html>

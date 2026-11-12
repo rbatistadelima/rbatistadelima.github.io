@@ -1,0 +1,1487 @@
+<tw-storydata name="Marche" startnode="5" creator="Twine" creator-version="2.2.1" ifid="2DA5E0F4-6B61-43F4-A330-7D81D6A26744" zoom="0.6" format="Harlowe" format-version="1.2.4" options="" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css">*::selection {
+     background: #000000;
+     color: #FFFFFF;
+}
+ *::-moz-selection {
+     background: #000000;
+     color: #FFFFFF;
+}
+ *::-webkit-selection {
+     background: #000000;
+     color: #FFFFFF;
+}
+ #title {
+     font-size:2em;
+}
+ #author {
+     font-size:0.8em;
+}
+ tw-passage {
+     font-family: lucida console;
+     font-size: 16px;
+     line-height: 1.0em;
+}
+ tw-story {
+    /* color:#000000;
+     width:100%;
+     margin-right: auto;
+     margin-left: auto;
+     */
+}
+ .visited {
+     color: #000000;
+}
+ .visited:hover {
+     color: #000000;
+}
+ tw-link {
+     color:#000000;
+     font-weight:normal;
+}
+ tw-link:hover {
+     color:#000000;
+     font-weight:normal;
+}
+ tw-link:active {
+     color:#000000;
+     font-weight:normal;
+}
+ tw-link:visited {
+     color:#000000;
+     font-weight:normal;
+}
+ tw-sidebar tw-icon.redo {
+     display: none;
+}
+ tw-sidebar tw-icon.undo {
+     display: none;
+}
+ .link {
+     color: black;
+     font-weight: normal;
+}
+ .link:hover {
+     color: black;
+     font-weight: normal;
+}
+ .menu{
+     text-decoration: overline underline;
+}
+ html.black {
+     background-color: black;
+     color:white;
+}
+ tw-passage a 
+/* unvisited link */
+ {
+     color:#000000;
+}
+ tw-passage a:visited 
+/* visited link */
+ {
+     color:#000000;
+}
+ tw-passage a:hover 
+/* mouse over link */
+ {
+     color:#000000;
+}
+ tw-passage a:active 
+/* selected link */
+ {
+     color:#000000;
+}
+ .enchantment-link:visited, tw-link:visited {
+     color: #000000;
+}
+ tw-passage span.red {
+     color: red;
+}
+ .blink {
+     animation: blinker 1.5s linear infinite;
+}
+ @keyframes blinker {
+     50% {
+         opacity: 0.5;
+    }
+}
+ .unselectable {
+     -webkit-touch-callout: none;
+     -webkit-user-select: none;
+     -khtml-user-select: none;
+     -moz-user-select: none;
+     -ms-user-select: none;
+     user-select: none;
+}
+ .transition-in[data-t8n^=dissolve] {
+     -webkit-animation:appear 0ms step-start;
+     animation:appear 0ms step-start 
+}
+ textarea {
+     outline: none;
+     overflow: hidden;
+     font-family: lucida console;
+     font-size: 16px;
+     line-height: 1.1em;
+}
+ html,body {
+    /* overflow: hidden;
+     */
+}
+ tw-sidebar tw-icon.redo {
+     display: none;
+}
+ tw-sidebar tw-icon.undo {
+     display: none;
+}
+ tw-passage span.reverse {
+     background-color:black;
+     color:white;
+}
+ html.shake {
+     animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+     transform: translate3d(0, 0, 0);
+     backface-visibility: hidden;
+     perspective: 1000px;
+     animation-iteration-count: infinite;
+}
+
+ html.noise {
+     background-image:url(https://i.pinimg.com/originals/66/7c/41/667c414315bc8428b2d85e9928314c09.png);
+}
+
+ #test {
+    width:120%;
+     filter:blur(1px);
+     font-size:50px;
+     color:blue;
+     background:NONE;
+     margin: auto;
+     width: 50%;
+}
+ #test:before, #test:after {
+     content:"it is here";
+     visibility: visible;
+     display: block;
+     position: absolute;
+}
+ #test:before {
+     margin-left: -4px;
+     top:-2px;
+     color:red;
+     animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+     transform: translate3d(0, 0, 0);
+     backface-visibility: hidden;
+     perspective: 1000px;
+     animation-iteration-count: infinite;
+}
+ #test:after {
+     margin-left: -2px;
+     top:2px;
+     color:black;
+     animation: shake 0.5s;
+     animation-iteration-count: infinite;
+}
+ @keyframes shake {
+     10%, 90% {
+         transform: translate3d(-1px, 0, 0);
+    }
+     20%, 80% {
+         transform: translate3d(2px, 0, 0);
+    }
+     30%, 50%, 70% {
+         transform: translate3d(-4px, 0, 0);
+    }
+     40%, 60% {
+         transform: translate3d(4px, 0, 0);
+    }
+}
+ #test:hover span{
+     background-color:red;
+     color:white;
+     animation:none;
+}
+ .hidden{
+     color:white;
+     position: absolute;
+     background-color: rgba(0,0,0,0) ;
+}
+ .hidden::selection {
+     background: black;
+     background-color: rgba(0,0,0,1);
+}
+ .hidden::before {
+     content:'the owls';
+     position: absolute;
+     padding-left: -10px;
+     top:0px;
+     color:black;
+}</style><script role="script" id="twine-user-script" type="text/twine-javascript">
+
+</script><tw-passagedata pid="1" name="forest01" tags="" position="62,137" size="100,100">&lt;center&gt;▓▓▓▓█▓▓▓▓█▓▓█▓████▓█▓▓█▓▓▓▓█▓▓▓▓
+▓▓▓▓▓█▓▓▓▓▓▓█▓████▓█▓▓▓▓▓▓█▓▓▓▓▓
+▓▓▓▓██▓▓▓█▓▓▓▓████▓▓▓▓█▓▓▓██▓▓▓▓
+▓▓▓▓██▓▓▓█▓▓█▓████▓█▓▓█▓▓▓██▓▓▓▓
+▓▓▓▓▓█▓▓▓▓▓▓█▓████▓█▓▓▓▓▓▓█▓▓▓▓▓
+▓▓▓▓█▓▓▓▓█▓▓█▓█▒▒█▓█▓▓█▓▓▓▓█▓▓▓▓
+▓▓▓▓██▓▓▓█▓▓█▓▒▒▒▒▓█▓▓█▓▓▓██▓▓▓▓
+▓▓▓▓██▓▓▓█▓▓█▓▒[[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]][[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]]▒▓█▓▓█▓▓▓██▓▓▓▓
+▓▓▓▓██▓▓▓█▓▓█▓[[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]][[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]][[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]][[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]]▓█▓▓█▓▓▓██▓▓▓▓
+▓▓▓▓██▓▓▓█▓▓█▓[[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]][[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]][[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]][[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]]▓█▓▓█▓▓▓██▓▓▓▓
+▓▓▓▓██▓▓▓█▓▓█▒▒[[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]][[&lt;span class=&quot;blink&quot;&gt;░&lt;/span&gt;-&gt;forest02]]▒▒█▓▓█▓▓▓██▓▓▓▓
+▓▓▓▓██▓▓▓█▓▓▒▒░▒▒░▒▒▓▓█▓▓▓██▓▓▓▓
+▓▓▓▓██▓▓▓█▒▒▒░░░░░░▒▒▒█▓▓▓██▓▓▓▓
+▓▓▓▓██▓▓▓▒▒░░░░░░░░░░▒▒▓▓▓██▓▓▓▓
+▓▓▓▓██▒▒▒░░░░░░░░░░░░░░▒▒▒██▓▓▓▓
+▓▓▓▓▒▒▒░░░░░░░░░░░░░░░░░░▒▒▒▓▓▓▓
+▓▓▓▓▒░░░░░░░░░░░░░░░░░░░░░░▒▓▓▓▓
+▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓
+
+(if: $loop is 0)[Você está fugindo pela noite em uma floresta densa e escura. Você então olha para o lado e vê uma trilha.
+
+Os olhos famintos atrás de você sugerem que é melhor [[seguir em frente-&gt;trees]] o mais rápido possível.](if: $loop is 1)[Você está fugindo pela noite em uma floresta densa e escura. Você então olha para o lado e vê uma trilha.
+
+Os olhos famintos atrás de você sugerem que é melhor [[seguir em frente-&gt;trees]] o mais rápido possível.
+
+
+(font:&quot;Skia&quot;)[//a resposta está no fim//]](if: $loop is 2)[Você está fugindo pela noite em uma floresta densa e escura. Você então olha para o lado e vê uma trilha.
+
+Os olhos famintos atrás de você sugerem que é melhor [[seguir em frente-&gt;trees]] o mais rápido possível.
+
+
+(font:&quot;Skia&quot;)[//a saída está acima//]](if: $loop &gt; 2)[Você está fugindo pela noite em uma floresta densa e escura. Você então olha para o lado e vê uma trilha.
+
+Os olhos famintos atrás de você sugerem que é melhor //[[seguir em frente-&gt;trees]]// o mais rápido possível.
+
+
+(font:&quot;Skia&quot;)[//em meio à confusão por andar em cículos, a resposta se revela//]]
+&lt;/center&gt;</tw-passagedata><tw-passagedata pid="2" name="forest02" tags="" position="196,143" size="100,100">&lt;center&gt;▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓▓▓█▓▓▓▓█▓▓▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓█▓▓██▓▓▓▓██▓▓█▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓█▓▓██▓▓█▓▓██▓▓█▓▓██▓▓█▓▓▓▓▓
+▓▓▓▓██▓▓█▓▓▓█▓████▓█▓▓▓█▓▓██▓▓▓▓
+▓▓▓▓██▓▓▓█▓▓▓▓█▒▒█▓▓▓▓█▓▓▓██▓▓▓▓
+▓▓▓██▓▓▓██▓▓█▓▒▒▒▒▓█▓▓██▓▓▓██▓▓▓
+▓▓▓█▓█▓▓▓█▓▓█▓▒[[░-&gt;forest03]][[░-&gt;forest03]]▒▓█▓▓█▓▓▓█▓█▓▓▓
+▓▓▓▓██▓▓██▓▓█▓[[░-&gt;forest03]][[░-&gt;forest03]][[░-&gt;forest03]][[░-&gt;forest03]]▓█▓▓██▓▓██▓▓▓▓
+▓▓▓██▓▓▓██▓▓█▓[[░-&gt;forest03]][[░-&gt;forest03]][[░-&gt;forest03]][[░-&gt;forest03]]▓█▓▓██▓▓▓██▓▓▓
+▓▓▓███▓▓██▓▓█▒▒[[░-&gt;forest03]][[░-&gt;forest03]]▒▒█▓▓██▓▓███▓▓▓
+▓▓▓▓██▓▓██▓▓▒▒░▒▒░▒▒▓▓██▓▓██▓▓▓▓
+▓▓▓███▓▓██▒▒▒░░░░░░▒▒▒██▓▓███▓▓▓
+▓▓▓███▓▓▒▒▒░░░░░░░░░░▒▒▒▓▓███▓▓▓
+▓▓▓███▒▒▒░░░░░░░░░░░░░░▒▒▒███▓▓▓
+▓▓▓█▒▒▒░░░░░░░░░░░░░░░░░░▒▒▒█▓▓▓
+▓▓▓▒▒░░░░░░░░░░░░░░░░░░░░░░▒█▓▓▓
+▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓
+
+Eles sentem seu cheiro. O medo.
+
+E você pode quase senti-los.&lt;/center&gt;
+
+(set: $start to 0)
+</tw-passagedata><tw-passagedata pid="3" name="forest03" tags="" position="328,146" size="100,100">&lt;center&gt;██▓▓█▓▓▓▓██▓███████▓▓▓▓▓█▓▓█▓▓██
+██▓▓█▓▓███▓▓▓▓▓▓▓▓███▓▓▓██▓▓▓▓██
+██▓▓█▓██▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓█▓█▓▓██
+██▓▓███▓▓▓▓███▓███▓▓▓██▓▓███▓▓██
+▓██▓▓██▓▓▓██▓▓▓▓▓██▓▓▓█▓▓██▓▓██▓
+▓██▓▓█▓▓▓██▓▓▓▓▓▓▓██▓▓█▓▓██▓▓██▓
+▓██▓▓▓▓▓▓█▓▓▓▓████▓█▓▓█▓▓██▓▓██▓
+▓▓█▓▓█▓▓▓█▓▓▓██[[░-&gt;forest04]][[░-&gt;forest04]]███▓██▓███▓▓█▓▓
+█▓█▓▓██▓▓█▓▓▓█[[░-&gt;forest04]][[░-&gt;forest04]][[░-&gt;forest04]][[░-&gt;forest04]]██▓█▓▓███▓▓█▓█
+█▓██▓▓█▓▓█▓▓▓█[[░-&gt;forest04]][[░-&gt;forest04]][[░-&gt;forest04]][[░-&gt;forest04]]█▓██▓███▓▓██▓█
+█▓▓▓▓▓█▓▓██▓▓██[[░-&gt;forest04]][[░-&gt;forest04]]███▓▓██▓█▓▓█▓▓█
+██▓█▓▓██▓▓█▓▓█▓▓▓▓█▓███▓██▓▓▓▓██
+██▓██▓▓█▓▓██▓▒▒▒▒▒▒██▓▓▓█▓▓██▓██
+██▓▓█▓▓██▓█▒░░▒▒▒▒░░▒▓▓██▓▓█▓▓██
+▓██▓█▓▓▓█▒░░░░░░░░░░░░▒█▓▓▓█▓██▓
+▓██▓██▓▒░░░░░░░░░░░░░░░░▒▓██▓██▓
+▓██▓▓▒░░░░░░░░░░░░░░░░░░░░▒▓▓██▓
+▓▓█▒░░░░░░░░░░░░░░░░░░░░░░░░▒█▓▓
+
+Conforme você avança, a floresta se fecha sobre você.
+
+Esta floresta apenas o levará à morte.&lt;/center&gt;</tw-passagedata><tw-passagedata pid="4" name="forest04" tags="" position="461,152" size="100,100">&lt;center&gt;████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+███████████████[[░-&gt;end01]][[░-&gt;end01]]███████████████
+██████████████[[░-&gt;end01]][[░-&gt;end01]][[░-&gt;end01]][[░-&gt;end01]]██████████████
+██████████████[[░-&gt;end01]][[░-&gt;end01]][[░-&gt;end01]][[░-&gt;end01]]██████████████
+███████████████[[░-&gt;end01]][[░-&gt;end01]]███████████████
+██████████████▓▓▓▓██████████████
+█████████████▒▒▒▒▒▒█████████████
+███████████░░░▒▒▒▒░░░███████████
+█████████░░░░░░░░░░░░░░█████████
+███████░░░░░░░░░░░░░░░░░░███████
+█████░░░░░░░░░░░░░░░░░░░░░░█████
+███░░░░░░░░░░░░░░░░░░░░░░░░░░███
+
+Talvez se você se apressar tudo isso acabe logo.
+
+Apenas mais alguns passos e...&lt;/center&gt;</tw-passagedata><tw-passagedata pid="5" name="titlescreen" tags="" position="66,1" size="100,100">&lt;center&gt;
+
+
+
+
+
+
+
+
+
+
+&lt;div id=&quot;title&quot;&gt;{(live: 0.9s)[(either: &quot;M&quot;, &quot;m&quot;)]}   {(live: 0.9s)[(either: &quot;A&quot;, &quot;a&quot;)]}   {(live: 0.9s)[(either: &quot;R&quot;, &quot;r&quot;)]}   {(live: 0.9s)[(either: &quot;C&quot;, &quot;c&quot;)]}   {(live: 0.9s)[(either: &quot;H&quot;, &quot;h&quot;)]}   {(live: 0.9s)[(either: &quot;E&quot;, &quot;e&quot;)]}&lt;/div&gt;&lt;div id=&quot;author&quot;&gt;(live:1s)[//por Rafael Batista de Lima//]&lt;/div&gt;
+
+
+
+
+&lt;div class=&quot;menu&quot;&gt;[[INÍCIO-&gt;quote]]
+[[CRÉDITOS-&gt;forest01]]&lt;/div&gt;
+
+
+
+
+
+2018&lt;/center&gt;
+
+(set: $loop to 0)</tw-passagedata><tw-passagedata pid="6" name="end01" tags="" position="595,160" size="100,100">(if: $loop &gt; 0)[&lt;center&gt;████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████░░░░░░░█████████████
+██████████▒░░░░░░░░░▒███████████
+█████████▓▒░░░░░░░░░▒▓██████████
+█████████▓▒▒░░░░░░░▒▒▓██████████
+█████████▒░░░░░▒░░░░░▒██████████
+█████████▒████▓▒▓████▒██████████
+█████████▓████▒░▒████▓██████████
+█████████░▒▓▓▒░█░▒▓▓▒░██████████
+██████████▓░░░███░░░▓███████████
+███████████▓▓░░▒░░▓▓████████████
+███████████▓█░█░█░█▓████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+
+Aqui as bestas o encurralam e dilaceram seu corpo inteiro. Esse é o fim.
+
+A menos que você retorne ao //[[início-&gt;forest01]]// e tente outro caminho, como por exemplo, apenas //seguir em frente//.&lt;/center&gt;](if: $loop is 0)[&lt;center&gt;████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████░░░░░░░█████████████
+██████████▒░░░░░░░░░▒███████████
+█████████▓▒░░░░░░░░░▒▓██████████
+█████████▓▒▒░░░░░░░▒▒▓██████████
+█████████▒░░░░░▒░░░░░▒██████████
+█████████▒████▓▒▓████▒██████████
+█████████▓████▒░▒████▓██████████
+█████████░▒▓▓▒░█░▒▓▓▒░██████████
+██████████▓░░░███░░░▓███████████
+███████████▓▓░░▒░░▓▓████████████
+███████████▓█░█░█░█▓████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+
+Aqui as bestas o encurralam e dilaceram seu corpo inteiro. Esse é o fim.
+
+A menos que você retorne ao //[[início-&gt;forest01]]// e tente outro caminho, como por exemplo, apenas seguir em frente.&lt;/center&gt;]
+(set: $loop to $loop+1)</tw-passagedata><tw-passagedata pid="7" name="trees" tags="" position="66,278" size="100,100">&lt;center&gt;▒▓▓▒▒▒▓▓░░░▓▓▓░░░░▓▓▓░░░▓▓▒▒▒▓▓▒
+▒▒▒▒▒▓▓▓▓░░░░░░░░░░░░░░▓▓▓▓▒▒▒▒▒
+▒▒▒▒▓▓▓▓▓▓▓░░░░░░░░░░▓▓▓▓▓▓▓▒▒▒▒
+▒▒▓▓▓▓▓▓▓▓▓▓▓░░░░░░▓▓▓▓▓▓▓▓▓▓▓▒▒
+▒███▓▓▓▓▓▓▓███░░░░███▓▓▓▓▓▓▓███▒
+▒█████▓▓▓█████░░░░█████▓▓▓█████▒
+▒█████▓▓▓████░░░░░█████▓▓▓████▒▒
+▒████▓▓▓▓████░░░░░████▓▓▓▓████▒▒
+▒▒████▓▓▓▓████░░░░░████▓▓▓▓████▒
+▒▒████▓▓▓█████░░░░░████▓▓▓█████▒
+▒█████▓▓▓█████░░░░█████▓▓▓█████▒
+▒█████▓▓▓█████░░░░█████▓▓▓█████▒
+▒█████▓▓▓█████░░░░█████▓▓▓█████▒
+▒█████▓▓▓█████░░░░█████▓▓▓█████▒
+▒▓█▓█▓▓▓▓▓█▓█▓░░░░▓█▓█▓▓▓▓▓█▓█▓▒
+▒▒▓▓▓▓▓▓▓▓▓▓▓░░░░░░▓▓▓▓▓▓▓▓▓▓▓▒▒
+▒▒▒▒▓▒▓▒▓▒▓░░░░░░░░░░▓▒▓▒▓▒▓▒▒▒▒
+▒▒▒▒▒▒▒▒▒▒░▒░▒░░░░▒░▒░▒▒▒▒▒▒▒▒▒▒
+
+Ao invés de adentrar a floresta, você a cerca por fora.
+
+Após caminhar por um tempo, você respira aliviado brevemente, até vislumbrar [[algo-&gt;hollowtree]] em meio às sombras.&lt;/center&gt;</tw-passagedata><tw-passagedata pid="8" name="hollowtree" tags="" position="207,282" size="100,100">&lt;center&gt;██████████▓▓▓▓█▓▓█▓▓█▓██████████
+████████▓█▓█▓▓█▓▓▓▓▓█▓█▓████████
+████████▓█▓█▓▓▓▓▓█▓▓█▓█▓████████
+████████▓█▓▓▓▓█▓▓█▓▓▓▓█▓████████
+████████▓█▓▓▓▓█▓▓▓▓██▓█▓████████
+████████▓▓▓██▓▓▓▓▓█████▓████████
+████████▓▓████▓▓▓▓█████▓████████
+████████▓█████▓▓▓▓▓███▓▓████████
+████████▓▓███▓▓██▓▓▓█▓▓▓████████
+████████▓▓▓█▓▓████▓▓█▓▓▓████████
+████████▓█▓█▓▓████▓▓▓▓█▓████████
+████████▓█▓█▓██████▓▓▓█▓████████
+████████▓▓▓█▓██████▓▓▓█▓████████
+████████▓▓▓▓▓██████▓▓▓▓▓████████
+████████▓▓▓█▓██████▓█▓▓▓████████
+████████▓█▓█▓██████▓█▓█▓████████
+████████▓▓▓▓▓▓████▓▓█▓█▓████████
+████████▓█▓▓▓▓▓▓▓▓▓▓█▓▓▓████████
+████████▓█▓█▓▓█▓▓█▓▓▓▓█▓████████
+██████████▓█▓▓█▓▓▓▓▓█▓██████████
+
+O rosto de pura agonia estampado em uma árvore diz para você-
+
+&quot;Ele vai achá-lo, te mastigar, e então plantá-lo nessa floresta como nós. Se você me [[dar a sua mão-&gt;handdecepated]], e eu te darei uma maneira para sair daqui.&quot;&lt;/center&gt;</tw-passagedata><tw-passagedata pid="9" name="handdecepated" tags="" position="341,281" size="100,100">&lt;center&gt;▓▓▓▓▓▓▓▓█▓▓▓█▓█▓▓▓▓█▓▓█▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓█▓▓██▓██▓▓█▓▓█▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓█▓██▓█▓▓▓██▓█▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓█▓█░▓▓░█▓█▓▓█▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓██▓▓▓█▒▓█▓▒▓█▓█▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓█░▓▒▓█░▓█▓░▒▓▓█▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓░▓█░▒█░▒█▓▒█▓██▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓░░░░░░▓░▒█▓▓█▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓░░▒░░▒░░▒░▒▓▓░▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓█░░░▒░▒░░▒░▒█░▒█▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▒░░▒░░▒░░▒░░░░█▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓█▒░░░░▒░░░░░▒█▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓█▒░░░░░░░░▒██▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓██▒░░░░░░░██▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓█▒▒░░░░▒▒██▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓█▒▒░░░░▒▒█▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓██░▓░▒▓███▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓█▒▒░░░░▓██▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒░░░░▒█▓▓▓▓▓▓▓▓▓▓▓
+
+Você concorda, e então enfia a sua mão no orifício que você identifica como a boca da árvore.
+
+Você sente um apertão e algo puxando sua mão e você tenta evitar, mas não há muito como segurar após suas unhas serem arrancadas com tanta força pela luta e então a pele próxima ao seu pulso começa a rasgar, seguido dos músculos e nervos, até que não sobra nada além de dor no lugar da sua mão esquerda.
+
+Agora, me [[dê sua outra mão-&gt;treesreverse]] para que eu o pague com o que restou de mim.
+&lt;/center&gt;</tw-passagedata><tw-passagedata pid="10" name="treesreverse" tags="" position="470,280" size="100,100">&lt;center&gt;██▓▓▓██▓▓▓██▓▓▓█▓▓▓██▓▓▓██▓▓▓██▓
+█▓▓▓▓█▓▓▓▓█▓▓▓▓█▓▓▓▓█▓▓▓▓█▓▓▓▓█▓
+█▓▓███▓▓███▓▓▓████▓▓▓███▓▓███▓▓█
+█████▓▓▓▓██████████████▓▓▓▓█████
+████▓▓▓▓▓▓▓██████████▓▓▓▓▓▓▓████
+██▓▓▓▓▓▓▓▓▓▓▓██████▓▓▓▓▓▓▓▓▓▓▓██
+█▒▒▒▓▓▓▓▓▓▓▒▒▒████▒▒▒▓▓▓▓▓▓▓▒▒▒█
+█▒▒▒▒▒▓▓▓▒▒▒▒▒████▒▒▒▒▒▓▓▓▒▒▒▒▒█
+█▒▒▒▒▒▓▓▓▒▒▒▒█████▒▒▒▒▒▓▓▓▒▒▒▒██
+█▒▒▒▒▓▓▓▓▒▒▒▒█████▒▒▒▒▓▓▓▓▒▒▒▒██
+██▒▒▒▒▓▓▓▓▒▒▒▒████▒▒▒▒▒▓▓▓▓▒▒▒▒█
+██▒▒▒▒▓▓▓▒▒▒▒▒█████▒▒▒▒▓▓▓▒▒▒▒▒█
+█▒▒▒▒▒▓▓▓▒▒▒▒▒█████▒▒▒▒▓▓▓▒▒▒▒▒█
+█▒▒▒▒▒▓▓▓▒▒▒▒▒████▒▒▒▒▒▓▓▓▒▒▒▒▒█
+█▒▒▒▒▒▓▓▓▒▒▒▒▒████▒▒▒▒▒▓▓▓▒▒▒▒▒█
+█▒▒▒▒▒▓▓▓▒▒▒▒▒████▒▒▒▒▒▓▓▓▒▒▒▒▒█
+█▓▒▓▒▓▓▓▓▓▒▓▒▓████▓▒▓▒▓▓▓▓▓▒▓▒▓█
+██▓▓▓▓▓▓▓▓▓▓▓██████▓▓▓▓▓▓▓▓▓▓▓██
+████▓█▓█▓█▓██████████▓█▓█▓█▓████
+████████████████████████████████
+
+Você, provavelmente desnorteado pela dor que o consome, insere a sua mão direita no orifício.
+
+A voz pede:
+
+[[Mais fundo.-&gt;handhole]]
+
+&lt;/center&gt;</tw-passagedata><tw-passagedata pid="11" name="handhole" tags="" position="600,296" size="100,100">&lt;center&gt;████████████████████████████████
+████████████▓▓█▓▓▓██████████████
+██████▓██▓███▓░░▓▓▓██▓██████████
+████▓▓▓▓███░░▓░░▓▓░░█▓▓█████████
+████▓▓▓██▓▓░▒▓░▒▓▓░░████████████
+██████▓▓░░▓░░▓░░▓░▒██▓▓█████████
+███▓▓██▓░▒▓░░▓░░▓░░▓██▓▓████████
+████▓█▓▓▒░░░░░▒▒▒▒▒▓▓░░█████████
+██████▓▓▒░░▒▒▒▓▓█▒▒▒▓░░▓████████
+████▓█▓▓▓▒░▒██▓█▓██▒▓▒░▓▓▓██████
+███▓▓▓▓▓▓▒░░▓▓█▓▓░░░▒░░▓▓███████
+████▓▓▓▓▓█▓▓▓▓▓░░░░░░░▓▓████████
+████▓▓▓▓▓▓█▓▓░░░░░░░░▓██████████
+██▓██▓▓▓▓▓██▓░░░░▒▒▒▓█▓█▓███████
+█████▓█▓▓▓▓█▒▒▒▒▒▒░░▓███▓███████
+████▓████▓▓█▒▒░▒░▒░░██▓█████████
+█▓████▓█▓▓█▓▒▒░▒░░░░████████████
+███████████▓▒▒░░░░░░████████████
+███▓████▓███▒▒░░░░░░████████████
+
+Você sente uma dor perfurante na palma da sua mão direita, e remove ela do buraco na árvore, surpreendentemente, sem resistência.
+
+[[Há algo dentro de sua mão.-&gt;eye]]
+&lt;/center&gt;</tw-passagedata><tw-passagedata pid="12" name="eye" tags="" position="77,415" size="100,100">&lt;center&gt;████████████████████████████████
+████████████████████████████████
+██████████▒░░░░▒▒███████████████
+████████▒░▓▓▓░░░░▒▓█████████████
+███████▒░▓███▓░░▒▒▒▓████████████
+███████░░▓███▓░░░▒▒▓▓███████████
+███████░░░▓▓▓░░▒▓▓▒▓████████████
+███████▒░░░░░░░▓▒▓▓▓▓███████████
+████████▒░▒░░▒▒▒▒▓▓▓████████████
+██████████▒▓▒▒▓▓▓▓▓█████████████
+███████████▓▓██▓▓▓▓▓████▓▓▓█████
+██████████████▓▓▓█▓███▓▓▓██▓████
+█████████████▓▓▓█████▓▓▓██▓█████
+█████████████▓▓▓▓███▓▓▓█████████
+██████████████▓▓▓▓▓▓▓▓██████████
+███████████████▓▓▓▓▓████████████
+████████████████████████████████
+████████████████████████████████
+
+Você puxa o objeto com a sua boca e cospe no chão.
+
+Você então vê um olho que se vira até apontar para [[uma determinada direção.-&gt;c01]]
+
+&lt;/center&gt;</tw-passagedata><tw-passagedata pid="13" name="monsterwhite" tags="end" position="203,539" size="100,100">&lt;center&gt;
+(text-color:white)[
+ 
+░░░░░░░░
+▒░░░░▒▒░░░░▒
+▒▒░░▒▒▒▒▒▒░░▒▒
+▒▒░░░▒▒▒▒░░░▒▒
+▒▒▒░░░▒▒░░░▒▒▒
+▓▒░░░░░░░░░░▒▓
+▓▓█▒█▓░░▓█▒█▓▓
+▒▓▒▓▓▓▒░░▒▓▓▓▒▓▒
+▒▒░░░░▒░░▒░░░░▒▒
+▒▓▒░░▒▒░░▒▒░░▒▓▒
+▓▓▒▒▒▓▓▓▓▒▒▒▓▓
+▓█▒░░░░░░▒█▓
+▓▓▓██████▓▓▓
+█▓▒▒░░░░▒▒▓█
+▓█▒▒▒▒▒▒▒▒█▓
+▒▓█▒░░░░▒█▓▒
+▒▓▓██████▓▓▒
+▒▓▒▓▓▓▓▓▓▒▓▒]
+
+Você sente um sorriso e [[tudo acaba.-&gt;fim]]
+&lt;/center&gt;</tw-passagedata><tw-passagedata pid="14" name="credits" tags="" position="1133,135" size="100,100">&lt;center&gt;
+
+
+
+
+
+
+
+
+{(live: 0.9s)[(either: &quot;M&quot;, &quot;m&quot;)]}   {(live: 0.9s)[(either: &quot;A&quot;, &quot;a&quot;)]}   {(live: 0.9s)[(either: &quot;R&quot;, &quot;r&quot;)]}   {(live: 0.9s)[(either: &quot;C&quot;, &quot;c&quot;)]}   {(live: 0.9s)[(either: &quot;H&quot;, &quot;h&quot;)]}   {(live: 0.9s)[(either: &quot;E&quot;, &quot;e&quot;)]}        
+
+
+(font:&quot;Comic Sans MS&quot;)[
+ºO•❤.✿.Ƹ̵̡Ӝ̵̨̄ƷTHANK U 4 PLAYNƸ̵̡Ӝ̵̨̄Ʒ.✿.❤•Oº]
+
+
+( ͡° ͜ʖ﻿ ͡°)
+
+&lt;!--
+&lt;div class=&quot;link&quot;&gt;FIM&lt;/div&gt;
+
+
+Obrigado por jogar
+
+Agradecimentos:
+
+Gabu, Guilherme, Henrique
+greyelf, Britne Jenke, tutoriais twine--&gt;
+
+&lt;/center&gt;</tw-passagedata><tw-passagedata pid="15" name="well" tags="" position="785,393" size="100,100">&lt;center&gt;▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓▓▓█▓▓
+▓▓▓█▓▓▓▓▓▓████████████▓▓▓▓▓▓▓██▓
+██▓██▓███▓█&lt;span class=&quot;reverse&quot;&gt; Um poço &lt;/span&gt;███▓███▓████
+▓▓▓▓▓▓▓▓█▓███████████▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓█▓▓▓▓▓▓▓██▓▓▓▓▓
+█▓██▓█▓██▓██████▓██████▓████████
+▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓
+▓▓▓▓▓▓▓▓▓▓▓█▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓
+█▓████▓█████▓██▓██████▓██████▓██
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓
+▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█▓▓▓▓▓▓
+██████▓█████████████████▓███████
+▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓█▓▓▓▓▓▓▓██▓
+▓▓█▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓▓▓██▓
+█████████▓██████████████████████
+▓▓▓▓▓▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓
+▓▓▓▓▓▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓▓▓█▓▓▓▓▓▓
+█▓█████████████▓████████████████
+▓▓█▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓████████████████████████▓██▓
+███▓█&lt;span class=&quot;reverse&quot;&gt; tão, mas tão escuro, &lt;/span&gt;█████
+▓▓▓▓████████████████████████▓▓▓▓
+▓█▓▓▓▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓
+██████████▓█████████████████████
+▓▓██▓▓█▓▓▓▓██▓▓▓▓▓▓▓██▓▓▓▓▓▓▓██▓
+▓▓██▓▓▓▓▓▓▓██▓▓▓█▓▓▓▓▓▓▓▓█▓▓▓██▓
+████████████████████████████████
+▓▓▓█▓▓▓██▓▓▓▓██▓██▓▓▓█▓▓▓██▓▓▓▓█
+▓█▓▓▓▓▓███▓█▓▓▓▓██▓▓▓▓▓█▓██▓█▓▓▓
+████████████████████████████████
+▓▓██▓█▓█▓▓▓██▓█▓▓▓▓▓██▓█▓█▓▓▓██▓
+▓▓██▓▓▓▓▓█▓██▓▓█▓▓████▓▓▓▓█▓▓██▓
+████████████████████████████████
+▓█▓▓█▓▓██▓██▓▓█▓██▓▓▓▓▓▓▓██▓▓▓▓▓
+▓█▓▓█▓▓██▓▓▓▓▓█▓██▓▓▓██▓▓██▓█▓█▓
+████████████████████████████████
+█▓██▓▓▓▓█▓▓██▓▓▓▓▓▓▓██▓▓▓▓█▓▓██▓
+▓▓██▓███████████████████████▓██▓
+██████&lt;span class=&quot;reverse&quot;&gt; tão, mas tão fundo, &lt;/span&gt;█████
+▓▓▓▓████████████████████████▓▓▓█
+▓██▓▓▓▓██▓▓▓▓█▓▓██▓▓▓▓█▓▓██▓▓█▓▓
+████████████████████████████████
+▓███▓▓▓█▓▓▓███▓▓▓█▓███▓▓█▓▓▓▓███
+█▓██▓█▓▓▓████▓▓█▓▓▓▓██▓█▓▓█▓▓██▓
+████████████████████████████████
+█▓█▓█▓▓██▓█▓█▓▓▓███▓█▓█▓▓██▓███▓
+███▓▓▓███▓█▓▓██▓██▓▓█▓▓█▓█████▓▓
+████████████████████████████████
+█▓████▓█▓▓█████▓█▓▓▓███▓██▓▓███▓
+████▓█▓██▓▓██▓██▓▓█▓████▓▓▓█▓███
+████████████████████████████████
+▓▓██▓▓▓██▓▓█▓▓█▓███▓▓▓█▓▓██▓██▓▓
+█▓▓██████▓███▓▓▓██▓▓███████▓▓██▓
+████████████████████████████████
+▓███▓████▓▓██▓▓███▓▓██▓█▓▓▓████▓
+█▓█████████████████████████████▓
+███&lt;span class=&quot;reverse&quot;&gt; que poderia até alcançar &lt;/span&gt;███
+██████████████████████████████▓▓
+▓██▓▓████▓███▓████▓▓█▓▓████▓▓█▓█
+████████████████████████████████
+█▓███▓███▓▓█████▓▓███████▓▓█████
+█████▓▓██████▓█████████▓███▓████
+████████████████████████████████
+██▓███████▓███▓█████████████▓███
+█████████████████████▓██▓███████
+████████████████████████████████
+██████▓█████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+█████████&lt;span class=&quot;reverse&quot;&gt; o outro lado. &lt;/span&gt;████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████</tw-passagedata><tw-passagedata pid="16" name="Header" tags="header" position="718,13" size="100,100">{
+(print: &quot;&lt;script&gt;$(&#39;html&#39;).removeClass(\)&lt;/script&gt;&quot;)
+(if: (passage:)&#39;s tags&#39;s length &gt; 0)[
+(print: &quot;&lt;script&gt;$(&#39;html&#39;).addClass(&#39;&quot; + (passage:)&#39;s tags.join(&#39; &#39;) + &quot;&#39;\)&lt;/script&gt;&quot;)
+]
+}</tw-passagedata><tw-passagedata pid="17" name="ideas" tags="" position="854,13" size="100,100">letras em negrito em páginas soltas, como se fossem itens
+
+negritar um trecho em branco, como se suas mãos estivessem sujas de sangue
+
+camada falsa, nem tudo é o que parece, fundo inselecionável, como se fosse uma prisão
+
+iframe
+
+letras subtstituidas pelos blocos, tipo  &quot;que po░eri█ █té █l▒█nç█r&quot;
+
+texto em uma linha sem wrap
+
+copiar e colar em uma caixa
+
+forest &gt; beasts &gt; eye &gt; rose &gt; key
+
+ponta cabeça
+
+negative
+
+turn letters red
+
+Um modesto feixe de luz passa entre as árvores. Uma brisa refrescante que representa mudanças. Um fim súbito para uma 
+história longa demais por não haver necessidade de existir.
+
+Você encontra um mecanismo absurdo e impossível - semelhante à você.
+
+Você tem uma tocha, uma chave, e uma pequena caixa. Além de inúmeros sentimentos horríveis.
+
+Além disso, você está sozinho. Não que apenas haja você ali, mas você está sozinho.
+
+Eu não era crente em amor, de maneira que quando este surgiu diante de mim, deixou-me estupefato.
+
+trick endings
+
+O homem pálido, mesmo distante, susurra, ecoando dentro de todo vazio ao seu redor, e também dentro de você.
+
+Respeito e resistência
+
+{(live: 0.3s)[(either: &quot;█&quot;, &quot;▓&quot;)]}
+
+página como se fosse um livro real, com costura
+
+&quot;sound cue ou dicas&quot;
+if: $ x is 2 [This text is only displayed if $ x is 2.]&quot;
+
+parallax
+
+hide image, need to blow up exposure to see
+
+redacted text span {    background-color: #f18973;}
+
+inspect word by word to find the lie - hover
+
+secret image out of screen
+
+zoom out image
+
+image outbound???</tw-passagedata><tw-passagedata pid="18" name="text fx examples" tags="" position="1113,5" size="100,100">&lt;style&gt; 
+
+p.test1 {
+    white-space: nowrap; 
+    width: 200px; 
+    border: 1px solid #000000;
+    overflow: hidden;
+    text-overflow: clip;
+}
+
+p.test2 {
+    white-space: nowrap; 
+    width: 200px; 
+    border: 1px solid #000000;
+    overflow: hidden;
+    text-overflow: ellipsis;}
+	
+	p.wrap {
+    width: 140px; 
+    
+    word-break: keep-all;}
+
+
+    p.nowrap {
+    width: 140px; 
+  
+    word-break: break-all;
+
+&lt;/style&gt;&lt;mark&gt;mark&lt;/mark&gt;
+&lt;div class=&quot;unselectable&quot;&gt;unselectable&lt;/div&gt;//italic//	
+&#39;&#39;bold&#39;&#39;	
+~~striked~~	
+*emphased*	
+**strong**	
+(font:&quot;arial&quot;)[R](font:&quot;helvetica&quot;)[a](font:&quot;times new roman&quot;)[M](font:&quot;courier&quot;)[S](font:&quot;arial&quot;)[o](font:&quot;times&quot;)[n] (font:&quot;verdana&quot;)[n](font:&quot;courier new&quot;)[o](font:&quot;georgia&quot;)[T](font:&quot;bookman&quot;)[E]
+[click to ]&lt;c1| [add text ]&lt;c2|(click: ?c1)[ just like](click: ?c2)[ this]
+(css: &quot;background-color:gray&quot;)[backgrounded]
+(link:&quot;substitute&quot;)[substitued]
+(text-rotate:45)[Tilted]
+(colour: &quot;#696969&quot;)[Gray]
+(text-style: &quot;shadow&quot;)[shadow]
+(text-style: &quot;superscript&quot;)[superscript]
+(text-style: &quot;subscript&quot;)[subscript]
+(text-style: &quot;mark&quot;)[mark]
+(text-style: &quot;outline&quot;)[outline]
+(text-style: &quot;expand&quot;)[expand]
+(text-style: &quot;blurrier&quot;)[blurrier]
+(text-style: &quot;mirror&quot;)[mirror]
+(text-style: &quot;fade-in-out&quot;)[fade-in-out]
+(text-style: &quot;shudder&quot;)[shudder]
+(set: $robotic to (font:&#39;Courier New&#39;))$robotic[The Hermit - make tarot and use shuffle]
+(link:&quot;wait to click&quot;)[(if: time &gt; 5s)[...]]&lt;p class=&quot;test1&quot;&gt;This is some long text that will not fit in the box&lt;/p&gt;&lt;p class=&quot;test2&quot;&gt;This is some long text that will not fit in the box&lt;/p&gt;
+&lt;marquee&gt;They see me rolling...&lt;/marquee&gt;
+&lt;p class=&quot;wrap&quot;&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas at turpis fermentum, convallis risus vel, rutrum metus. Nulla luctus volutpat risus, a semper ex efficitur a. Nullam lacus lorem, condimentum sed elit sit amet, cursus luctus mauris. In finibus, purus id egestas volutpat, nulla ex fermentum odio, nec convallis felis est at justo. Donec fringilla convallis diam, mattis faucibus diam sagittis quis. Etiam sagittis consequat sodales. Donec eget ullamcorper quam, dapibus molestie nibh. Ut gravida lacinia elit, quis accumsan eros viverra et.&lt;/p&gt;
+&lt;p class=&quot;nowrap&quot;&gt;Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas at turpis fermentum, convallis risus vel, rutrum metus. Nulla luctus volutpat risus, a semper ex efficitur a. Nullam lacus lorem, condimentum sed elit sit amet, cursus luctus mauris. In finibus, purus id egestas volutpat, nulla ex fermentum odio, nec convallis felis est at justo. Donec fringilla convallis diam, mattis faucibus diam sagittis quis. Etiam sagittis consequat sodales. Donec eget ullamcorper quam, dapibus molestie nibh. Ut gravida lacinia elit, quis accumsan eros viverra et.&lt;/p&gt;
+
+&lt;textarea placeholder=&quot;Remember, be nice!&quot; cols=&quot;30&quot; rows=&quot;5&quot;&gt;&lt;/textarea&gt;
+</tw-passagedata><tw-passagedata pid="19" name="align examples" tags="" position="1241,15" size="100,100">==&gt;
+This is right-aligned
+=&gt;&lt;=
+This is centered
+&lt;==&gt;
+This is justified
+&lt;==
+This is left-aligned (undoes the above)
+===&gt;&lt;=
+This has margins 3/4 left, 1/4 right
+=&gt;&lt;=====
+This has margins 1/6 left, 5/6 right.</tw-passagedata><tw-passagedata pid="20" name="tests" tags="" position="986,14" size="100,100">(align: &quot;=&gt;&lt;==&quot;)[center aligned
+(font:&quot;Skia&quot;)[different font?]
+(prepend: &quot;word&quot;)[before ] adds something before word
+replace parts
+(replace: &quot;parts&quot;)[**parties**]
+{(display:&quot;quote&quot;)}
+$array (a:&quot;either words&quot;, &quot;either words&quot;, &quot;either words&quot;;)
+(either: a)
+(print: (shuffled: ...$a))
+
+E com isso, concluo minhas memórias.
+(current-date:).
+
+Está sol The time is (current-time:).
+
+(history:)
+find
+
+(link: &quot;Stake&quot;)[The dracula crumbles to dust.]
+(mouseover-replace: &quot;Stake&quot;)[The dracula crumbles to dust.]
+(mouseout: &quot;Stake&quot;)[The dracula crumbles to dust.]
+(link-reveal: &quot;Heart&quot;)[broken]
+
+(link-repeat: &quot;Add cheese&quot;)[(set:$cheese to it + 1)]
+
+There is a small dish of water. (click: &quot;dish&quot;)[Your finger gets wet.] 
+[Fie and fuggaboo!]&lt;shout| (click: ?shout)[Blast and damnation!]
+
+My deepest secret.
+(click-replace: &quot;secret&quot;)[longing for you].
+
+(link-undo:&quot;Retreat&quot;)
+
+go-to: either: &quot;Win&quot;, &quot;Lose&quot;, &quot;Draw&quot;
+
+You scurry back whence you came... (live:2s)[(undo:)] will undo the current turn after 2 seconds.
+
+{(live: 0.5s)[
+    (either: &quot;Bang!&quot;, &quot;Kaboom!&quot;, &quot;Whammo!&quot;, &quot;Pow!&quot;)
+]}
+
+]</tw-passagedata><tw-passagedata pid="21" name="transitions" tags="" position="1478,23" size="100,100">(transition: &quot;pulse&quot;)[pulse]
+
+(transition: &quot;dissolve&quot;)[dissolve]
+
+(transition: &quot;shudder&quot;)[shudder]</tw-passagedata><tw-passagedata pid="22" name="links" tags="" position="1375,15" size="100,100">https://lingojam.com/WeirdTextGenerator
+https://lingojam.com/ZalgoText
+https://lingojam.com/GlitchTextGenerator
+http://www.eeemo.net/
+http://www.marlborotech.com/Zalgo.html
+http://www.messletters.com/en/stacked/
+https://codepen.io/natewiley/full/xGyZXp/
+https://codepen.io/natewiley/full/PPyBJg/
+http://picascii.com/
+https://www.reddit.com/r/ANSIart/</tw-passagedata><tw-passagedata pid="23" name="quote" tags="" position="194,0" size="100,100">
+
+
+
+
+
+
+
+
+
+
+(font: &quot;Courier&quot;)[(css: &quot;font-size: 125%;&quot;)[//Somebody once told me the world is gonna roll me//
+]
+
+&lt;div align=&quot;right&quot;&gt;
+(css: &quot;font-size: 75%;&quot;)[- All Star, performed by Smash Mouth]
+&lt;/div&gt;]
+
+(live: 5s)[(goto:&quot;forest01&quot;)]
+</tw-passagedata><tw-passagedata pid="24" name="monsterbox" tags="black" position="375,535" size="100,100">&lt;center&gt;&lt;textarea rows=&quot;4&quot; cols=&quot;20&quot;&gt;████████████░░░░░░░░██████████████████████▒░░░░▒▒░░░░▒███████████████████▒▒░░▒▒▒▒▒▒░░▒▒██████████████████▒▒░░░▒▒▒▒░░░▒▒██████████████████▒▒▒░░░▒▒░░░▒▒▒██████████████████▓▒░░░░░░░░░░▒▓██████████████████▓▓█▒█▓░░▓█▒█▓▓█████████████████▒▓▒▓▓▓▒░░▒▓▓▓▒▓▒████████████████▒▒░░░░▒░░▒░░░░▒▒████████████████▒▓▒░░▒▒░░▒▒░░▒▓▒█████████████████▓▓▒▒▒▓▓▓▓▒▒▒▓▓███████████████████▓█▒░░░░░░▒█▓████████████████████▓▓▓██████▓▓▓█████████████████████▓▒▒░░░░▒▒▓█████████████████████▓█▒▒▒▒▒▒▒▒█▓████████████████████▒▓█▒░░░░▒█▓▒████████████████████▒▓▓██████▓▓▒████████████████████▒▓▒▓▓▓▓▓▓▒▓▒██████████&lt;/textarea&gt;&lt;/center&gt;</tw-passagedata><tw-passagedata pid="25" name="easter" tags="" position="1243,145" size="100,100">&lt;center&gt;
+
+
+
+
+
+
+
+
+C (color:white)[.]
+r b
+e y
+a .
+t B
+e .
+d d
+R e
+a .
+f L
+a i
+e m
+l a
+</tw-passagedata><tw-passagedata pid="26" name="blind" tags="shake" position="538,620" size="100,100">&lt;center&gt;
+(css:&quot;filter:blur(3px)&quot;)[
+ 
+░░░░░░░░
+▒░░░░▒▒░░░░▒
+▒▒░░▒▒▒▒▒▒░░▒▒
+▒▒░░░▒▒▒▒░░░▒▒
+▒▒▒░░░▒▒░░░▒▒▒
+▓▒░░░░░░░░░░▒▓
+▓▓█▒█▓░░▓█▒█▓▓
+▒▓▒▓▓▓▒░░▒▓▓▓▒▓▒
+▒▒░░░░▒░░▒░░░░▒▒
+▒▓▒░░▒▒░░▒▒░░▒▓▒
+▓▓▒▒▒▓▓▓▓▒▒▒▓▓
+▓█▒░░░░░░▒█▓
+▓▓▓██████▓▓▓
+█▓▒▒░░░░▒▒▓█
+▓█▒▒▒▒▒▒▒▒█▓
+▒▓█▒░░░░▒█▓▒
+▒▓▓██████▓▓▒
+▒▓▒▓▓▓▓▓▓▒▓▒]
+
+EU VEJO VOCÊ
+&lt;/center&gt;
+</tw-passagedata><tw-passagedata pid="27" name="hanging1" tags="" position="969,717" size="100,100">█████▓▓▓▓▒▒▒▒▒▒▓▓▒▒▒▒▒▒▓▓▓▓█████
+█████▓▓▓▓▒▒▒▒▒▒▓▓▒▒▒▒▒▒▓▓▓▓█████
+█████▓▓▓▓▒▒▒▒▒▒▓▓▒▒▒▒▒▒▓▓▓▓█████
+█████▓▓▓▓▒▒▒▒▒▒▓▓▒▒▒▒▒▒▓▓▓▓█████
+█████▓▓▓▓▒▒▒▒▒▒▓▓▒▒▒▒▒▒▓▓▓▓█████
+█████▓▓▓▓▒▒▒▒▒▒▓▓▒▒▒▒▒▒▓▓▓▓█████
+█████▓▓▓▓▒▒▒▒▒▒▓▓▒▒▒▒▒▒▓▓▓▓█████
+█████▓▓▓▓▓░░░▓▓▓▓▓░░░▓▓▓▓▓▓█████
+█████▓▓▓▓▓████▓▓▓▓████▓▓▓▓▓█████
+█████▓▓▓▓▓█████▓▓▓█████▓▓▓▓█████
+█████▓▓▓▓▓▓█████▓▓▓█████▓▓▓█████
+█████▓▓▓▓▓▓▓▓████▓▓▓▓████▓▓█████
+█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████
+█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████
+█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████
+█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████
+█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████
+█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████
+</tw-passagedata><tw-passagedata pid="28" name="hanging2" tags="" position="1086,713" size="100,100">▓▓▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓
+▓▓▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓
+▓▓▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓
+▓▓▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓
+▓▓▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓
+▓▓▓░░░░░░▓▓▓▓▓▓▓▓▓░░░░░░▓▓▓▓▓▓▓▓
+▓▓▓░░░░░░▓▓▓▓▓▓▓▓▓░░░░░░▓▓▓▓▓▓▓▓
+▓▓▓░░████▓▓▓▓▓▓▓▓▓░░████▓▓▓▓▓▓▓▓
+▓▓▓███████▓▓▓▓▓▓▓▓███████▓▓▓▓▓▓▓
+▓▓▓████████▓▓▓▓▓▓▓████████▓▓▓▓▓▓
+▓▓▓█████████▓▓▓▓▓▓█████████▓▓▓▓▓
+▓▓▓▓█████████▓▓▓▓▓▓█████████▓▓▓▓
+▓▓▓▓▓▓████████▓▓▓▓▓▓▓████████▓▓▓
+▓▓▓▓▓▓▓▓██████▓▓▓▓▓▓▓▓▓██████▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓</tw-passagedata><tw-passagedata pid="29" name="sidemonster" tags="" position="326,722" size="100,100">████████████████████████████████
+█████████▒▒▒▒▒▒█████████████████
+▒▒▒▒▒▓▓▓▓▓▓▒▒▓▓▓▓███████████████
+▒▒▒▒▒▒▒▓▓██░░░▒▒▒▓▓▓▓▓▓███▓▓▒▒▒▒
+░░░▒▒░░██▓▓░░░░░▒▒▒██▓▓▓▓▓██▓▓▓▓
+░░░░░░░▒▒▓▓░░░░░░▒▒▒▒▓▓▒▒▒▒▒██▓▓
+░░░░░░░██▓▓░░░░▒▒▒▒░░██▒▒▒▒▒▒▒██
+▒▒░░░░░▓▓▒▒▒▒▒▒▒▒▓▓░░██░░▒▒▒░░██
+▒▒░░░░░░░░░░░░░░░▓▓░░██░░░▒▒░░██
+▒▒░░░░░░░░░░░░░░░▓▓░░██░░░▒▒░░██
+▒▒░░░░░▓▓▒▒▒▒▒▒▒▒▓▓░░██░░▒▒▒░░██
+░░░░░░░██▓▓░░░░▒▒▒▒░░██▒▒▒▒▒▒▒██
+░░░░░░░▒▒▓▓░░░░░░▒▒▒▒▓▓▒▒▒▒▒██▓▓
+░░░▒▒░░██▓▓░░░░░▒▒▒██▓▓▓▓▓██▓▓▓▓
+▒▒▒▒▒▒▒▓▓██░░░▒▒▒▓▓▓▓▓▓███▓▓▒▒▒▒
+▒▒▒▒▒▓▓▓▓▓▓▒▒▓▓▓▓███████████████
+█████████▒▒▒▒▒▒█████████████████
+████████████████████████████████</tw-passagedata><tw-passagedata pid="30" name="mouth" tags="" position="733,773" size="100,100">▒░░▒░░░░░░░░███████░░░░░░░░▒░░░▒
+░░▒░░░░░░███░░░█░░░████░░░░░▒░░░
+░░▒░░░░█░░░█░░░█░░░█░░░█░░░░▒░░░
+░▒░░░▒██░░██▓▓▓▓▓▓▓██░░██▒░░░▒░░
+░░░░░█░███▓▓▓▓▓▓▓▓▓▓▓███░█░░░░░░
+░░░░░███▓▓▓██▓▓▓▓▓██▓▓▓███░░░░░░
+░░░░▒███▓▓████▓▓▒████▓▓███▒░░░░░
+░░░░▒██▓▓▓████▓▒▒████▓▓▓██▒░░░░░
+░░░▒████▓▓███████████▓▓████▒░░░░
+░░░▒███████████████████████▒░░░░
+░░░▒█████▓▒▒▒▓███▓▒▒▒▓█████▒░░░░
+░░░░███▓▓▓▒▒▒▒▓▓▓▒▒▒▒▓▓▓███░░░░░
+░░░░░██▓▓▓▓▓▒▒▒▒▒▒▒▓▓▓▓▓██░░░░░░
+░░░░░█░▒█▓▓▓▓▓▓▓▓▓▓▓▓▓█▒░█░░░░░░
+░░░░░░█▒░█████████████░▒█░░░░░░░
+░░░░░░░███░░█░░█░░█░░███░░░░░░░░
+▒░░░░░░░▒█▒░█░░█░░█░▒█▒░░░░░░░░▒
+▒▒░░░▒░░░░███████████░░░░▒░░░░▒▒</tw-passagedata><tw-passagedata pid="31" name="kanji" tags="" position="1218,398" size="100,100">垉垈墸壥 妛岾鵈
+彁恷挧暃椦橸汢駲
+熕碵 穃粐粭粫靹
+糘膤蟐袮 軅鍄閠</tw-passagedata><tw-passagedata pid="32" name="hand" tags="" position="1144,655" size="100,100">████████████████████████████████
+█████████████▒▒▒████████████████
+█████████████▒▒▒█████▒▒▒████████
+████████▒▒▒███▒▒█████▒▒▒████████
+████████▒▒▒███▒▒▒████▒▒▒████████
+█████████▒▒▒██▒▒▒████▒▒█████████
+██████████▒▒███▒▒▒██▒▒▒█████████
+█████▒▒▒██▒▒▒██▒▒▒██▒▒▒████▒▒███
+█████▒▒▒▒▒█▒▒▒▒▒▒▒▒▒▒▒▒███▒▒▒███
+████████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒█▒▒▒▒███
+█████████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒████
+██████████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒████
+██████████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒█████
+███████████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒██████
+███████████▒▒▒▒▒▒▒▒▒▒▒▒▒▒███████
+████████████▒▒▒▒▒▒▒▒▒▒▒▒████████
+█████████████▒▒▒▒▒▒▒▒▒▒▒████████
+██████████████▒▒▒▒▒▒▒▒▒▒▒███████</tw-passagedata><tw-passagedata pid="33" name="grap" tags="" position="1265,650" size="100,100">████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+███████████▒▒▒▒█████████████████
+███████████▒▒▒▒████▒▒▒▒█████████
+█████▒▒▒▒███▒▒▒████▒▒▒▒█████████
+█████▒▒▒▒███▒▒▒████▒▒▒██████████
+███████▒▒▒▒██▒▒▒██▒▒▒▒██████████
+████████▒▒▒▒▒▒▒▒▒▒▒▒▒▒██████████
+███▒▒▒▒██▒▒▒▒▒▒▒▒▒▒▒▒████▒▒▒████
+███▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒██▒▒▒▒████
+███████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒█████
+████████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒██████
+███████████▒▒▒▒▒█▒▒▒▒▒▒▒████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████</tw-passagedata><tw-passagedata pid="34" name="cave" tags="" position="1050,407" size="100,100">&lt;center&gt;
+█████▓███████▓██▓██████▓████████
+██▓██▓█▓████▓▓▓█▓▓████▓██▓███▓██
+▓█▓▓█▓▓▓█▓▓█▓█▓▓█▓█▓█▓█▓▓▓█▓█▓█▓
+▓██▓▓█▓████▓▓███████▓███▓▓██▓██▓
+█▓▓██▓▓█████▓██████▓█████▓▓██▓▓█
+▓▓████▓████████▓▓████████▓████▓▓
+█▓████████████▓▒▒▓████████████▓█
+██████████████▓▒▒▓██████████████
+█████████████▓▓░░▓▓█████████████
+█████████████▓▒░░▒▓█████████████
+███▓███▓█████▓▒░░▒▓█████▓███▓███
+█▓███▓█▓▓███▓▒░░░░▒▓███▓▓█▓███▓█
+█▓██▓▓████▓▓▓▒░░░░▒▓▓▓████▓▓██▓█
+█▓▓█▓▓███▓▓▓▒▒▒░░▒▒▒▓▓▓███▓▓█▓▓█
+███▓▓▓▓▓█▓▓▓▒▒░░░░▒▒▓▓▓█▓▓▓▓▓███
+▓██▓▓▓█▓▓▓█▒▒░░░░░░▒▒█▓▓▓█▓▓▓██▓
+██▓██▓▓██▓▒░░░░░░░░░░▒▓██▓▓██▓██
+█▓▓▓██▓▒▒░░░░░░░░░░░░░░▒▒▓██▓▓▓█</tw-passagedata><tw-passagedata pid="35" name="gun1" tags="" position="1110,275.6666666666667" size="100,100">&lt;center&gt;
+
+░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒░░░░░░░
+░░░░░░░░░░░░░░░░░░░░▒▒▒▒░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░▒▒▒▒░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░▓▒▒▒▒▓▓▓▒▒░░
+░░░░░░░░░░░░░░░░░░░░▓▓░▓▓▓▓▓▓▒▒░
+░░░░░░░░░░░░░░░░░░▒▒▓▓▒▒▒▒▒▓▓▓▒░
+░████████████████████▓▓▓░░▒▒▓▓▒▒
+█████████████████████▓▓▓▓▓▓▓▓▓▒▒
+██████████░░░░░░░▒▓▓▓▓░░░░▒▒▓▓▒░
+█████░░░░░░░░░░░░▒▓▓▓░░░░░░░▒▓░░
+███░░░░░░░░░░░░░░░▒▓▓░░░░░░░▒▒░░
+░░░░░░░░░░░░░░░░░░▒▒▓▒░░░░░░▒▓░░
+░░░░░░░░░░░░░░░░░░░▒▓▓▒░░░░▒▓▓░░
+░░░░░░░░░░░░░░░░░░░░▓▓▓▒▒▒▒▓▓▓░░
+░░░░░░░░░░░░░░░░░░░░▓▓▓▓▒▒▒▒▓▓▓▓
+░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▒▒▒▓▓▓
+░░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓</tw-passagedata><tw-passagedata pid="36" name="gun2" tags="" position="1220,272" size="100,100">
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░████████████████████░░░
+░░░██░░██████████████████████░░░
+░░░░███████████████░░░░░░░░░░░░░
+░░▒▒▒▒▒▒▒▒▒████░░░░░░░░░░░░░░░░░
+▒▒▒▒▒▒▒▒▒▒▒███░░░░░░░░░░░░░░░░░░
+▒▒▒▒▒▒▓█████░░░░░░░░░░░░░░░░░░░░
+▒▒▒▒▒▒▒▒██░░░░░░░░░░░░░░░░░░░░░░
+▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░
+▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░
+▒▒▒▒▒▒▓▓░░░░░░░░░░░░░░░░░░░░░░░░
+▒▒▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░
+▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░</tw-passagedata><tw-passagedata pid="37" name="light" tags="" position="923,282" size="100,100">&lt;center&gt;
+████████████████████████████████
+████████████████████████████████
+██████████████████▓▓▓▓▓▓▓░░░████
+██████████▓▓▓▓▓▓▓▓▓▓▓▓▒▒░░░░████
+██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░▒▓████
+▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒░░░░░░▒▒▓████
+▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒░░░░░░░░▒▒▓▓████
+▓▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░▒▒▒▓▓▓███
+▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░▒▒▒▓▓▓▓███
+▒▒▒▒▒▒▒░░░░░░░░░░░░░░▒▒▒▒▓▓▓▓███
+▒▒▒▒░░░░░░░░░░░░░░░░▒▒▒▒▓▓▓▓▓███
+▒░░░░░░░░░░░░░░░░░░▒▒▒▒▒▓▓▓▓▓▓██
+░░░░░░░░░░░░░░░░░░▒▒▒▒▒▓▓▓▓▓▓▓██
+░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▓▓▓▓▓▓▓██
+░░░░░░░░░░░░░░░░▒▒▒▒▒▒▓▓▓▓▓▓▓▓██
+░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓█
+░░░░░░░░░░░░░░▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓█</tw-passagedata><tw-passagedata pid="38" name="moon" tags="" position="802.6666666666666,277.3333333333333" size="100,100">&lt;center&gt;
+
+▓███▓▓███▓██▓██▓▓██▓█▓▓█████▓▓▓▓
+▓▓▓▓██▓▓▓██████▓███▓███▓██▓▓▓▓▓█
+▓▓██▓▓███████▒▒▒▓▒▒▒████▓▓▓█▓███
+█▓█▓▓█▓▓██▓▓░░░░░░▓▓▓▒▒▓█████▓██
+███▓████▓▓░░░░░░░▓░░▒▓▓▒▓███▓███
+▓██▓███▓▓░▓░░░░░░░░░▓░▓▒▓▒█▓▓███
+▓▓██▓█░▓░░░▓▓░░░░░░▓░░▓░▒▒▓█████
+▓█▓███░░▓▓░░░▓░░░░░░░░░░░▒▒██▓▓▓
+▓████░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓
+█▓███░▓░░▓░░░░░░░░░░░░▓▓▓▒▒▓▓██▓
+▓█▓█▓░▓░░▓▓░░▓░░░░░▓░░░░░░▒▓████
+██▓███░▓░░▓▓▓░░░░░░░▓▓░░░░▓█████
+██▓▓▓▓░▓▓▓▓░░░▓▓░░▓░░▓▓▓░▓▒▓████
+█▓█▓█▓█░▓▓░▓▓▓░░░▓░▓▓░░▓▓▓█▓███▓
+▓▓█▓▓█▓▓▓░▓░░░░░▓▓░░░░░░░▓▓▓██▓█
+▓▓██▓▓▓▓██░▓▓▓░░░▓▓░▓▓▓▓▓█▓▓▓█▓█
+▓█▓▓▓▓▓█▓▓▓███░░░▓▓░░▓█▓▓█▓▓▓▓██
+▓▓▓▓▓█▓██▓▓▓█████▓▓██████▓██▓▓▓█
+▓▓▓▓█▓▓▓██▓▓█▓▓▓██▓▓▓██▓▓▓▓██▓▓▓
+
+O pouco céu entre as folhas</tw-passagedata><tw-passagedata pid="39" name="animal" tags="" position="1553,477" size="100,100">&lt;center&gt;
+████████████████████████████████
+████████████▓▓▒▓▒▓▓█████████████
+█████████▓▓▒▓▒▒▒▒▒▓▒▓▓██████████
+████████▓▒█▓▒▓▓▒▓▓▒▓█▒▓█████████
+████████▓██▒░░███░░▒██▓█████████
+████████▒▓░▒▒▒▓█▓▒▒▒░▓▒█████████
+███████▒▓░▒▓███████▓▒░▓▒████████
+███████▒░▒▒█████████▒▒░▒████████
+███████▓▒███░█████░███▓▓████████
+█████████▓██▒░░░░░▒██▓██████████
+██████▓██▓▒▒███████▒▒▓██▓███████
+███████▓██▓▒▓▒▒▒▒▒▓▒▓██▓████████
+██████▓▓████▓▓▒█▒▓▓████▓▓███████
+██████▒▓▓▓███████████▓▓▓▒███████
+███████▓▒▓▓██▓███▓██▓▓▒▓████████
+█████▓▓██▓▒▒▓▓▓▒▓▓▓▒▒▓██▓▓██████
+█████▓▓▒▓███▓▒▒▒▒▒▓███▓▒▓▓██████</tw-passagedata><tw-passagedata pid="40" name="rope" tags="" position="1505,559" size="100,100">&lt;center&gt;
+████████████████████████████████
+████████████████████████████████
+███▓▓███████████████████████████
+███▓▓███████████████████████████
+████▓▓██████▒▓▒▒▒▓▒▒████████████
+████▓▓███▒▒▓▓▓▓▓▓▓▓▓▓▒▒█████████
+█████▓▓█▒▓▓▓████████▓▓▒▒████████
+█████▓██▒▓██▓▓████████▓▓████████
+███████▒▒████▓▓████████▒▓███████
+███████▓▒█████▓▓███████▒▒███████
+███████▒▓█████▓▓███████▓▒███▓▒██
+███████▒▒██████▓▓██████▒▓███▓▒██
+████████▒▒██████▓▓████▒▒███▓▒███
+████████▓▓▒▒████████▒▓▒░█▓▒▒▒███
+█████████░░░▒▓▒▒▒▓▒▒▓░░█▒▒██████
+████████████▓░░░▓░░░████████████
+████████████████████████████████
+████████████████████████████████</tw-passagedata><tw-passagedata pid="41" name="key" tags="" position="1375,552" size="100,100">&lt;center&gt;████████████████████████████████
+████▓▓▓▓▓▓██████████████████████
+███░▒▒▓░░▒▓▓████████████████████
+██░▒▒▓███░▒▓████████████████████
+██░▒▓█████░▓████████████████████
+██░░▒▓███░▒▒▓███████████████████
+████░░░▓▓▒▒▒▓███████████████████
+███████░░░░▒▒▓▓█████████████████
+███████████░▒▒▒▓████████████████
+████████████░░░▒▓▓██████████████
+███████████████░░▒▓▓████████████
+█████████████████░░▒▓▓██████████
+███████████████████░▒▒▓▓████████
+█████████████████░░░▓▒▒▒▓░██████
+█████████████████░██░░▓▓▓░░█████
+███████████████████░░██░░███████
+██████████████████████░░████████
+████████████████████████████████</tw-passagedata><tw-passagedata pid="42" name="dagger" tags="" position="1635,580.6666666666667" size="100,100">&lt;center&gt;████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+██████░▒████████████████████████
+█████▓░▒▓███████████████████████
+█████░▓▒▓▓██████████████████████
+██████░░▒▒▒█████████████████████
+████████░░▓▓▓███████████████████
+█████████▓▓▓▒▒▓█████████████████
+███████████░▓▒▓▓▒███████████████
+████████████░░░▒▒▓▒█████████████
+██████████████▓░▒▒▒█████████████
+███████████████░░███▓███████████
+██████████████████▓▓▓▓██████████
+████████████████████▓▓▓█████████
+██████████████████████▓▓████████
+███████████████████████▓▓███████
+████████████████████████████████  
+████████████████████████████████</tw-passagedata><tw-passagedata pid="43" name="body" tags="" position="858.3333333333333,722" size="100,100">&lt;center&gt;████████████████████████████████
+███████████████░░███████████████
+███████████████░░███████████████
+███████████████▓▓███████████████
+█████████████▓░░░░▓█████████████
+█████████████▒░░░░▒█████████████
+█████████████▒▓░░▓▒█████████████
+█████████████▓▓░░▓▓█████████████
+█████████████▒▓░░▓▒█████████████
+█████████████▒▓▒▒▓▒█████████████
+█████████████░▒▓▓▒░█████████████
+██████████████▒██▒██████████████
+██████████████▒██▒██████████████
+██████████████▒██▒██████████████
+██████████████▒██▒██████████████
+██████████████▒██▒██████████████
+██████████████░██░██████████████
+████████████████████████████████</tw-passagedata><tw-passagedata pid="44" name="hollowtree2" tags="" position="1080,552" size="100,100">&lt;center&gt;
+▓▓██▒█▒█▓▓█▓█▓▓▓█▓▓▓█▓█▒█▒█▓▓▓▓
+█▓█▒█▒███▓█▓██▓▓█▓█▓█▓██▒▓▓█▓▓█
+▓██▓▓▓▓█▓▓█▓▓▓█▓█▓█▓▓▓▓▓▓▓█▓██▓
+▓▓▓██▓▓█▓▓███▓█▓█▓█▓█▓█▓▓█▓▓█▓█
+████▓▓█▓█▓█▓█▓█▓▓▓███▓█▓▓█▓████
+▒█▒████▓▓▓███▓█▓█▓█▓█▓▓▓████▒█▒
+█▒█▒█▒███▓█▓███▓█▓▓▓█▓▓██▒█▒█▒█
+██▒█▒█▒█▓█▓▓▓▓█▓█▓███▓██▒█▒█▒█▒
+███▒████▓▓▓██▓█▓▓████▓▓██▒█████
+███████▓▓▓███▓▓▓█▓▓██▓█████████
+███████▓█▓██▓█▓█▓█▓█▓▓▓████████
+███████▓█▓█▓▓▓███▓▓█▓█▓▓███████
+███████▓███▓▓▓███▓█▓▓█▓████████
+███████▓█▓█▓▓█████▓█▓█▓▓███████
+████████▓▓▓▓▓██████▓▓█▓▓███████
+████████▓▓▓█▓█████▓█▓█▓████████
+████████▓███▓▓███▓▓█▓▓▓████████
+████████▓█▓█▓▓▓█▓▓▓█▓██████████</tw-passagedata><tw-passagedata pid="45" name="treetop" tags="" position="911,535" size="100,100">&lt;center&gt;
+▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+▒▒▒▒▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▒▒▒▒
+▒▒▒▒▓▒▒▒▒▒▒▒▒▒▒▓▓▒▒▒▒▒▒▒▒▒▒▓▒▒▒▒
+▒▒▒▓▓▓▒▒▒▒▒▒▒▒▒▓▓▒▒▒▒▒▒▒▒▒▓▓▓▒▒▒
+▒▒▒▓▓▓▒▒▒▒▒▒▒▒▓▓▓▓▒▒▒▒▒▒▒▒▓▓▓▒▒▒
+█▒▓▓▓▓▓▒▒█▒▒▒▒▓▓▓▓▒▒▒▒█▒▒▓▓▓▓▓▒█
+██▓▓▓▓▓▒███▒▒▓▓▓▓▓▓▒▒███▒▓▓▓▓▓██
+█▓▓▓▓▓▓█████▒▓▓▓▓▓▓▒█████▓▓▓▓▓▓█
+█▓▓▓▓▓▓▓████▓▓▓▓▓▓▓▓████▓▓▓▓▓▓▓█
+▓▓▓▓▓▓▓▓████▓▓▓▓▓▓▓▓████▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+</tw-passagedata><tw-passagedata pid="46" name="maze" tags="" position="816.3333333333334,128.66666666666666" size="100,100">&lt;center&gt;&lt;center&gt;░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░
+░░░░████░░▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░
+░░░░████░░░░▒▒▒▒▒▒▒▒░░░░░░░░░░░░
+░░░░████░░░░████████░░░░░░░░░░░░
+░░░░████░░░░████████░░░░░░░░░░░░
+░░░░████░░░░████████░░░░░░░░░░░░
+░░░░████░░░░████████░░░░░░░░░░░░
+░░░░████░░░░████████░░░░░░░░░░░░
+░░░░████░░░░████████░░░░░░░░░░░░
+░░░░████░░░░▒▒▒▒▒▒▒▒░░░░░░░░░░░░
+░░░░████░░▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░
+
+░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒░░████░░░░
+░░░░░░░░░░░░▒▒▒▒▒▒▒▒░░░░████░░░░
+░░░░░░░░░░░░████████░░░░████░░░░
+░░░░░░░░░░░░████████░░░░████░░░░
+░░░░░░░░░░░░████████░░░░████░░░░
+░░░░░░░░░░░░████████░░░░████░░░░
+░░░░░░░░░░░░████████░░░░████░░░░
+░░░░░░░░░░░░████████░░░░████░░░░
+░░░░░░░░░░░░▒▒▒▒▒▒▒▒░░░░████░░░░
+░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒░░████░░░░
+░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░
+
+░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░████░░▒▒▒▒▒▒▒▒▒▒▒▒░░████░░░░
+░░░░████░░░░▒▒▒▒▒▒▒▒░░░░████░░░░
+░░░░████░░░░████████░░░░████░░░░
+░░░░████░░░░████████░░░░████░░░░
+░░░░████░░░░████████░░░░████░░░░
+░░░░████░░░░████████░░░░████░░░░
+░░░░████░░░░████████░░░░████░░░░
+░░░░████░░░░████████░░░░████░░░░
+░░░░████░░░░▒▒▒▒▒▒▒▒░░░░████░░░░
+░░░░████░░▒▒▒▒▒▒▒▒▒▒▒▒░░████░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░
+
+░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░
+░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░
+░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░
+░░░░░░░░░░░░▒▒▒▒▒▒▒▒░░░░░░░░░░░░
+░░░░░░░░░░░░████████░░░░░░░░░░░░
+░░░░░░░░░░░░██▒▒▒▒██░░░░░░░░░░░░
+░░░░░░░░░░░░██▒▒▒▒██░░░░░░░░░░░░
+░░░░░░░░░░░░██▒▒▒▒██░░░░░░░░░░░░
+░░░░░░░░░░░░██▒▒▒▒██░░░░░░░░░░░░
+░░░░░░░░░░░░██▒▒▒▒██░░░░░░░░░░░░
+░░░░░░░░░░░░▒▒▒▒▒▒▒▒░░░░░░░░░░░░
+░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░
+░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░
+░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░
+
+░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░
+░░░░████░░▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░
+░░░░████░░░░▒▒▒▒▒▒▒▒░░░░░░░░░░░░
+░░░░████░░░░███░░███░░░░░░░░░░░░
+░░░░████░░░░██░░░░██░░░░░░░░░░░░
+░░░░████░░░░██░░░░██░░░░░░░░░░░░
+░░░░████░░░░██░░░░██░░░░░░░░░░░░
+░░░░████░░░░███░░███░░░░░░░░░░░░
+░░░░████░░░░███░░███░░░░░░░░░░░░
+░░░░████░░░░▒▒▒▒▒▒▒▒░░░░░░░░░░░░
+░░░░████░░▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░
+
+░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░░░▒▒▒▒▒▒▒▒▒░░▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░░░░░▒▒▒▒▒▒▒░░▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░░░░░░░▒▒▒░░░░░░▒▒▒░░████░░░░
+░░░░░░░░░░░░▒░░░░░░▒░░░░████░░░░
+░░░░░░░░░░░░█░░░░░░█░░░░████░░░░
+░░░░░░░░░░░░█░░░░░░█░░░░████░░░░
+░░░░░░░░░░░░█░░░░░░█░░░░████░░░░
+░░░░░░░░░░░░█░░░░░░█░░░░████░░░░
+░░░░░░░░░░░░█░░░░░░█░░░░████░░░░
+░░░░░░░░░░░░██░░░░██░░░░████░░░░
+░░░░░░░░░░░░▒▒░░░░▒▒░░░░████░░░░
+░░░░░░░░░░▒▒▒▒░░░░▒▒▒▒░░████░░░░
+░░░░░░░░▒▒▒▒▒▒░░░░▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░░░▒▒▒▒▒▒▒▒░░░░▒▒▒▒▒▒▒▒▒▒░░░░
+░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░
+░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░</tw-passagedata><tw-passagedata pid="47" name="forbidden" tags="" position="1446.6666666666667,144.16666666666669" size="100,100">[[uma determinada direção.-&gt;c01]]</tw-passagedata><tw-passagedata pid="48" name="replace" tags="" position="1618.3333333333335,29.166666666666686" size="100,100">&lt;button&gt;Hello&lt;/button&gt;
+
+button {
+  background-color: green;
+  color: black;
+  padding: 5px;
+}
+
+button {
+  visibility: hidden;
+}
+button:after {
+  content:&#39;goodbye&#39;; 
+  visibility: visible;
+  display: block;
+  position: absolute;
+  background-color: red;
+  padding: 5px;
+  top: 2px;
+}
+
+\\\
+
+.element {
+  text-indent: -9999px;
+  line-height: 0; /* Collapse the original line */
+}
+
+.element::after {
+  content: &quot;New text&quot;;
+  text-indent: 0;
+  display: block;
+  line-height: initial; /* New content takes up original line height */
+}</tw-passagedata><tw-passagedata pid="49" name="flashlight" tags="" position="1653.3333333333335,355.83333333333337" size="100,100">Double-click this passage to edit it.</tw-passagedata><tw-passagedata pid="50" name="typewriter" tags="" position="1798.3333333333335,215.83333333333337" size="100,100">&lt;p id=&quot;tw-text&quot;&gt;&lt;/p&gt;&lt;/pre&gt;
+&lt;script&gt;
+var p = document.getElementById(&#39;tw-text&#39;);
+p.innerHTML = &#39;&#39;;
+var n = 0;
+var str = &#39;he slowly came to you&#39;;
+var typeTimer = setInterval(function() {
+  n = n + 1;
+  p.innerHTML = str.slice(0, n);
+  if (n === str.length) {
+    clearInterval(typeTimer);
+    p.innerHTML = str;
+    n = 0;
+    setInterval(function() {
+
+      if (n === 0) {
+        p.innerHTML = str + &quot;|&quot;
+        n = 1;
+      } else {
+        p.innerHTML = str
+        n = 0;
+      };
+    }, 500);
+  };
+}, 300)
+&lt;/script&gt;</tw-passagedata><tw-passagedata pid="51" name="zoltan" tags="" position="1770.0000000000002,382.50000000000006" size="100,100">zolta smiliar machine type differnt things</tw-passagedata><tw-passagedata pid="52" name="&quot;Untitled Passage&quot;" tags="" position="1821.6666666666667,52.333333333333314" size="100,100">Double-click this passage to edit it.</tw-passagedata><tw-passagedata pid="53" name="actions" tags="" position="1988.3333333333335,179" size="100,100">get-take
+open
+put
+ask
+tell
+examine
+look
+wait
+listen
+use
+go
+
+where
+when
+what
+who
+why
+
+inventory</tw-passagedata><tw-passagedata pid="54" name="tag: noise" tags="noise" position="1840,527.3333333333334" size="100,100">&lt;style&gt;
+*::selection {
+     background: rgba(0,0,0,0);
+     color: black;
+}
+&lt;/style&gt;&lt;center&gt;
+ 
+░░░░░░░░
+▒░░░░▒▒░░░░▒
+▒▒░░▒▒▒▒▒▒░░▒▒
+▒▒░░░▒▒▒▒░░░▒▒
+▒▒▒░░░▒▒░░░▒▒▒
+▓▒░░░░░░░░░░▒▓
+▓▓█▒█▓░░▓█▒█▓▓
+▒▓▒▓▓▓▒░░▒▓▓▓▒▓▒
+▒▒░░░░▒░░▒░░░░▒▒
+▒▓▒░░▒▒░░▒▒░░▒▓▒
+▓▓▒▒▒▓▓▓▓▒▒▒▓▓
+▓█▒░░░░░░▒█▓
+▓▓▓██████▓▓▓
+█▓▒▒░░░░▒▒▓█
+▓█▒▒▒▒▒▒▒▒█▓
+▒▓█▒░░░░▒█▓▒
+▒▓▓██████▓▓▒
+▒▓▒▓▓▓▓▓▓▒▓▒
+
+
+**Você sente um sorriso e [[tudo acaba.-&gt;fim]]**
+&lt;/center&gt;
+</tw-passagedata><tw-passagedata pid="55" name="scary shake" tags="" position="1970,372.3333333333333" size="100,100">
+
+
+
+
+
+
+
+
+
+
+
+
+&lt;div id=&quot;test&quot;&gt;it is &lt;span&gt;here&lt;/span&gt;&lt;/div&gt;</tw-passagedata><tw-passagedata pid="56" name="beast" tags="" position="1333.3333333333335,361.6666666666667" size="100,100">
+█████████████░░░░░░░░███████████
+████████████░░░░░░░█████████████
+██████████████░░░███████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+████████████████████████████████
+█████████████████████░██████████
+████████████░████░██░░░█░███████
+██░████░███░░███░░░░░░░█████████
+█░░███░░░██░░░██░░░░░░░█████████
+█░░░██░░░░░░░░██░░░██░██████████
+░░░░░░░░░░░░░███░░░█████████████
+░░░░░░░██░░░█████░██████████████
+░██░░░███░░░████████████████████
+█████░████░░████████████████████
+████████████████████████████████
+████████████████████████████████</tw-passagedata><tw-passagedata pid="57" name="the owls" tags="" position="1476.666666666667,306.6666666666667" size="100,100">&lt;div class=&quot;hidden&quot;&gt;are not what they seem&lt;/div&gt;</tw-passagedata><tw-passagedata pid="58" name="fim" tags="" position="1840,677.3333333333334" size="100,100">Double-click this passage to edit it.</tw-passagedata></tw-storydata>

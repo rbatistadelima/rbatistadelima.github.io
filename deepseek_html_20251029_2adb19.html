@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Text on Image Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #1a1a1a;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+            position: relative;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #ff7e5f, #feb47b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            padding: 1rem;
+            gap: 1rem;
+            height: calc(100vh - 120px);
+            position: relative;
+            z-index: 10;
+        }
+
+        .editor-panel {
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            padding: 1rem;
+            width: 300px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow-y: auto;
+        }
+
+        .panel-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 0.8rem;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+            color: #ff7e5f;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 0.4rem;
+        }
+
+        .control-group {
+            margin-bottom: 0.8rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 0.6rem;
+            border-radius: 4px;
+            border: none;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        input:focus, select:focus {
+            outline: 2px solid #ff7e5f;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        button {
+            background: linear-gradient(to right, #ff7e5f, #feb47b);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 0.4rem;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .viewer-container {
+            flex: 1;
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            background: transparent;
+        }
+
+        #renderer {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .drop-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            border: 3px dashed #ff7e5f;
+            border-radius: 8px;
+        }
+
+        .drop-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .drop-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #ff7e5f;
+        }
+
+        .drop-text {
+            font-size: 1.2rem;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .instructions {
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            position: relative;
+            z-index: 10;
+        }
+
+        .instructions h2 {
+            color: #4fc3f7;
+        }
+
+        .instructions ol {
+            margin-left: 1.2rem;
+            margin-top: 0.8rem;
+        }
+
+        .instructions li {
+            margin-bottom: 0.6rem;
+            line-height: 1.4;
+            font-size: 0.9rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.8);
+            position: relative;
+            z-index: 100;
+        }
+
+        .color-preview {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 8px;
+            vertical-align: middle;
+            border: 2px solid white;
+        }
+
+        .control-hint {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 0.3rem;
+            font-style: italic;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .editor-panel {
+                width: 100%;
+            }
+        }
+
+        /* Fullscreen background image container */
+        #background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        #background-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #background-image.loaded {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Fullscreen background image -->
+    <div id="background-container">
+        <img id="background-image" alt="Background">
+    </div>
+
+    <header>
+        <h1>3D Text on Image Editor</h1>
+        <p class="subtitle">Upload an image and add customizable 3D text with real lighting</p>
+    </header>
+
+    <div class="container">
+        <div class="editor-panel">
+            <div class="panel-section">
+                <h2>Image Input</h2>
+                <div class="control-group">
+                    <label for="imageUpload">Upload Image</label>
+                    <input type="file" id="imageUpload" accept="image/*">
+                </div>
+                <button id="pasteImage">Paste from Clipboard</button>
+            </div>
+
+            <div class="panel-section">
+                <h2>Text Properties</h2>
+                <div class="control-group">
+                    <label for="textInput">Text Content</label>
+                    <input type="text" id="textInput" value="3D TEXT" placeholder="Enter your text">
+                </div>
+                <div class="control-group">
+                    <label for="textSize">Text Size: <span id="sizeValue">0.5</span></label>
+                    <input type="range" id="textSize" min="0.1" max="2" step="0.1" value="0.5">
+                </div>
+                <div class="control-group">
+                    <label for="textDepth">Text Depth: <span id="depthValue">0.2</span></label>
+                    <input type="range" id="textDepth" min="0" max="0.5" step="0.05" value="0.2">
+                </div>
+                <div class="control-group">
+                    <label for="textColor">Text Color</label>
+                    <input type="color" id="textColor" value="#ff7e5f">
+                    <span class="color-preview" id="colorPreview"></span>
+                </div>
+                <button id="updateText">Update Text</button>
+            </div>
+
+            <div class="panel-section">
+                <h2>3D Controls</h2>
+                <div class="control-group">
+                    <label for="controlMode">Transform Mode</label>
+                    <select id="controlMode">
+                        <option value="translate">Move</option>
+                        <option value="rotate">Rotate</option>
+                        <option value="scale">Scale</option>
+                    </select>
+                </div>
+                <div class="control-hint">
+                    Drag the text to move, rotate, or scale it in 3D space
+                </div>
+                <button id="resetCamera">Reset View</button>
+            </div>
+
+            <div class="panel-section">
+                <h2>Export</h2>
+                <button id="exportBtn">Export as PNG</button>
+            </div>
+        </div>
+
+        <div class="viewer-container">
+            <div class="drop-overlay" id="dropOverlay">
+                <div class="drop-icon">📁</div>
+                <div class="drop-text">Drop or paste image here</div>
+            </div>
+            <div id="renderer"></div>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <h2>How to Use This Editor</h2>
+        <ol>
+            <li>Upload an image using the file input, drag and drop, or paste from clipboard</li>
+            <li>Customize your 3D text using the controls on the left</li>
+            <li>Use the transform controls to move, rotate, or scale the text directly in the 3D view</li>
+            <li>The image stays as a fullscreen background - no distortion or cropping</li>
+            <li>When satisfied with your composition, export it as a PNG</li>
+        </ol>
+    </div>
+
+    <footer>
+        <p>3D Text on Image Editor | Created with Three.js</p>
+    </footer>
+
+    <!-- Three.js and related libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FontLoader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.min.js"></script>
+
+    <script>
+        // Main application
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('3D Text Editor initialized');
+            
+            // Variables
+            let scene, camera, renderer, controls, transformControls;
+            let textMesh;
+            let font;
+            
+            // DOM Elements
+            const rendererContainer = document.getElementById('renderer');
+            const dropOverlay = document.getElementById('dropOverlay');
+            const imageUpload = document.getElementById('imageUpload');
+            const pasteImageBtn = document.getElementById('pasteImage');
+            const textInput = document.getElementById('textInput');
+            const textSize = document.getElementById('textSize');
+            const textDepth = document.getElementById('textDepth');
+            const textColor = document.getElementById('textColor');
+            const colorPreview = document.getElementById('colorPreview');
+            const updateTextBtn = document.getElementById('updateText');
+            const controlMode = document.getElementById('controlMode');
+            const resetCameraBtn = document.getElementById('resetCamera');
+            const exportBtn = document.getElementById('exportBtn');
+            const backgroundImage = document.getElementById('background-image');
+            const sizeValue = document.getElementById('sizeValue');
+            const depthValue = document.getElementById('depthValue');
+            
+            // Initialize Three.js scene
+            function initScene() {
+                // Create scene with transparent background
+                scene = new THREE.Scene();
+                scene.background = null; // Transparent background
+                
+                // Create perspective camera for 3D text
+                camera = new THREE.PerspectiveCamera(75, getAspectRatio(), 0.1, 1000);
+                camera.position.set(0, 0, 5);
+                
+                // Create renderer with transparent background
+                renderer = new THREE.WebGLRenderer({ 
+                    antialias: true, 
+                    preserveDrawingBuffer: true,
+                    alpha: true // Enable transparency
+                });
+                renderer.setSize(rendererContainer.clientWidth, rendererContainer.clientHeight);
+                renderer.setClearColor(0x000000, 0); // Transparent background
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                rendererContainer.appendChild(renderer.domElement);
+                
+                // Add orbit controls for 3D text manipulation
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.enableZoom = true;
+                controls.enablePan = true;
+                controls.minDistance = 2;
+                controls.maxDistance = 20;
+                
+                // Add transform controls for direct manipulation
+                transformControls = new THREE.TransformControls(camera, renderer.domElement);
+                transformControls.addEventListener('dragging-changed', function(event) {
+                    controls.enabled = !event.value;
+                });
+                scene.add(transformControls);
+                
+                // Add lighting for 3D text
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(5, 10, 7);
+                directionalLight.castShadow = true;
+                directionalLight.shadow.mapSize.width = 1024;
+                directionalLight.shadow.mapSize.height = 1024;
+                scene.add(directionalLight);
+                
+                // Load font and create initial text
+                loadFont();
+                
+                // Start animation loop
+                animate();
+                
+                // Handle window resize
+                window.addEventListener('resize', onWindowResize);
+                
+                // Set up control mode
+                controlMode.addEventListener('change', function() {
+                    transformControls.setMode(controlMode.value);
+                });
+                
+                // Set initial control mode
+                transformControls.setMode('translate');
+                
+                // Update range values display
+                textSize.addEventListener('input', function() {
+                    sizeValue.textContent = this.value;
+                });
+                
+                textDepth.addEventListener('input', function() {
+                    depthValue.textContent = this.value;
+                });
+                
+                // Set initial color preview
+                colorPreview.style.backgroundColor = textColor.value;
+            }
+            
+            // Load font for 3D text
+            function loadFont() {
+                const loader = new THREE.FontLoader();
+                
+                // Create a simple JSON font definition
+                const fontData = {
+                    "glyphs": {
+                        " ": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "!": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "0": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "1": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "2": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "3": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "4": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "5": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "6": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "7": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "8": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "9": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "A": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "B": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "C": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "D": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "E": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "F": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "G": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "H": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "I": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "J": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "K": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "L": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "M": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "N": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "O": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "P": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "Q": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "R": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "S": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "T": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "U": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "V": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "W": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "X": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "Y": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "Z": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "a": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "b": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "c": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "d": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "e": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "f": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "g": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "h": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "i": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "j": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "k": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "l": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "m": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "n": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "o": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "p": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "q": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "r": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "s": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "t": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "u": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "v": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "w": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "x": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "y": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""},
+                        "z": {"x_min": 0, "x_max": 1, "ha": 1, "o": ""}
+                    },
+                    "familyName": "Arial",
+                    "ascender": 1,
+                    "descender": -0.2,
+                    "underlinePosition": -0.1,
+                    "underlineThickness": 0.05,
+                    "boundingBox": {"yMin": -0.2, "xMin": 0, "yMax": 1, "xMax": 1},
+                    "resolution": 100,
+                    "original_font_information": {}
+                };
+                
+                font = loader.parse(fontData);
+                createText();
+            }
+            
+            // Create 3D text
+            function createText() {
+                // Remove existing text if any
+                if (textMesh) {
+                    scene.remove(textMesh);
+                }
+                
+                const text = textInput.value || '3D TEXT';
+                const depth = parseFloat(textDepth.value);
+                const color = textColor.value;
+                const size = parseFloat(textSize.value);
+                
+                // Create text geometry
+                const geometry = new THREE.TextGeometry(text, {
+                    font: font,
+                    size: size,
+                    height: depth,
+                    curveSegments: 12,
+                    bevelEnabled: true,
+                    bevelThickness: 0.01,
+                    bevelSize: 0.01,
+                    bevelOffset: 0,
+                    bevelSegments: 5
+                });
+                
+                geometry.computeBoundingBox();
+                geometry.center();
+                
+                const material = new THREE.MeshLambertMaterial({ color: color });
+                textMesh = new THREE.Mesh(geometry, material);
+                textMesh.castShadow = true;
+                textMesh.position.y = 0;
+                
+                scene.add(textMesh);
+                transformControls.attach(textMesh);
+                
+                // Update color preview
+                colorPreview.style.backgroundColor = color;
+            }
+            
+            // Update text based on user input
+            function updateText() {
+                if (textMesh) {
+                    // Update text properties
+                    const depth = parseFloat(textDepth.value);
+                    const color = textColor.value;
+                    const size = parseFloat(textSize.value);
+                    
+                    // Update material color
+                    textMesh.material.color.set(color);
+                    
+                    // Update geometry
+                    textMesh.geometry.dispose();
+                    
+                    const text = textInput.value || '3D TEXT';
+                    const geometry = new THREE.TextGeometry(text, {
+                        font: font,
+                        size: size,
+                        height: depth,
+                        curveSegments: 12,
+                        bevelEnabled: true,
+                        bevelThickness: 0.01,
+                        bevelSize: 0.01,
+                        bevelOffset: 0,
+                        bevelSegments: 5
+                    });
+                    
+                    geometry.computeBoundingBox();
+                    geometry.center();
+                    
+                    textMesh.geometry = geometry;
+                    
+                    // Update color preview
+                    colorPreview.style.backgroundColor = color;
+                    
+                    console.log('Text updated:', {
+                        content: textInput.value,
+                        size: size,
+                        depth: depth,
+                        color: color
+                    });
+                }
+            }
+            
+            // Handle image upload
+            function handleImageUpload(file) {
+                if (!file || !file.type.match('image.*')) {
+                    console.error('Invalid file type');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    backgroundImage.src = e.target.result;
+                    backgroundImage.onload = function() {
+                        backgroundImage.classList.add('loaded');
+                        console.log('Background image loaded:', file.name);
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            // Handle paste from clipboard
+            function handlePaste(e) {
+                const items = e.clipboardData.items;
+                
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].type.indexOf('image') !== -1) {
+                        const file = items[i].getAsFile();
+                        handleImageUpload(file);
+                        break;
+                    }
+                }
+            }
+            
+            // Export as PNG
+            function exportAsPNG() {
+                // Create a temporary canvas to combine background and 3D text
+                const canvas = document.createElement('canvas');
+                canvas.width = renderer.domElement.width;
+                canvas.height = renderer.domElement.height;
+                const ctx = canvas.getContext('2d');
+                
+                // Draw background image
+                if (backgroundImage.src) {
+                    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+                } else {
+                    // Draw default background if no image
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                
+                // Draw 3D text
+                ctx.drawImage(renderer.domElement, 0, 0);
+                
+                // Create download link
+                const link = document.createElement('a');
+                link.download = '3d-text-composition.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                
+                console.log('Exported composition as PNG');
+            }
+            
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            
+            // Handle window resize
+            function onWindowResize() {
+                camera.aspect = getAspectRatio();
+                camera.updateProjectionMatrix();
+                renderer.setSize(rendererContainer.clientWidth, rendererContainer.clientHeight);
+            }
+            
+            // Get aspect ratio based on container
+            function getAspectRatio() {
+                return rendererContainer.clientWidth / rendererContainer.clientHeight;
+            }
+            
+            // Event listeners
+            imageUpload.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    handleImageUpload(e.target.files[0]);
+                }
+            });
+            
+            pasteImageBtn.addEventListener('click', function() {
+                // Focus on document to enable paste
+                document.activeElement.blur();
+                setTimeout(() => {
+                    alert('Press Ctrl+V (Cmd+V on Mac) to paste an image');
+                }, 100);
+            });
+            
+            // Enable paste from clipboard
+            document.addEventListener('paste', handlePaste);
+            
+            updateTextBtn.addEventListener('click', updateText);
+            
+            resetCameraBtn.addEventListener('click', function() {
+                controls.reset();
+                camera.position.set(0, 0, 5);
+            });
+            
+            exportBtn.addEventListener('click', exportAsPNG);
+            
+            // Drag and drop functionality
+            rendererContainer.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropOverlay.classList.add('active');
+            });
+            
+            rendererContainer.addEventListener('dragleave', function() {
+                dropOverlay.classList.remove('active');
+            });
+            
+            rendererContainer.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropOverlay.classList.remove('active');
+                
+                if (e.dataTransfer.files.length > 0) {
+                    handleImageUpload(e.dataTransfer.files[0]);
+                }
+            });
+            
+            // Initialize the scene
+            initScene();
+            
+            console.log('3D Text Editor ready');
+        });
+    </script>
+</body>
+</html>

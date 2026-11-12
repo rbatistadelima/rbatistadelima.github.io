@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MIDI Stem Controller</title>
+  <style>
+    :root {
+      --bg: #11131a;
+      --panel: #1b1f2a;
+      --panel2: #242a38;
+      --text: #f4f6ff;
+      --muted: #9da7bd;
+      --accent: #7c5cff;
+      --danger: #ff5c7a;
+      --ok: #39d98a;
+      --border: rgba(255,255,255,.09);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(124,92,255,.25), transparent 35%),
+        radial-gradient(circle at bottom right, rgba(57,217,138,.12), transparent 35%),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 28px;
+    }
+
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 52px);
+      line-height: .95;
+      letter-spacing: -0.06em;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin-top: 12px;
+      max-width: 680px;
+      line-height: 1.5;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.025));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      backdrop-filter: blur(14px);
+    }
+
+    .toolbar {
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    button, label.file-button {
+      border: 1px solid var(--border);
+      background: var(--panel2);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 11px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .12s ease, background .12s ease, opacity .12s ease;
+      user-select: none;
+    }
+
+    button:hover, label.file-button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .primary { background: var(--accent); }
+    .danger { background: rgba(255,92,122,.18); color: #ffd8df; }
+    .ok { background: rgba(57,217,138,.17); color: #cfffe7; }
+    .active { outline: 2px solid var(--accent); }
+
+    input[type="file"] { display: none; }
+
+    .transport {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .progress-wrap {
+      height: 16px;
+      background: rgba(255,255,255,.08);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .progress {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--ok));
+    }
+
+    .time {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      min-width: 116px;
+      text-align: right;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .tracks {
+      display: grid;
+      gap: 12px;
+    }
+
+    .track {
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 1.3fr 1fr auto auto;
+      gap: 12px;
+      align-items: center;
+      background: rgba(255,255,255,.045);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+    }
+
+    .track.muted { opacity: .5; }
+    .track.soloed { box-shadow: 0 0 0 2px rgba(57,217,138,.45) inset; }
+
+    .track-title {
+      min-width: 0;
+    }
+
+    .track-name {
+      font-weight: 850;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .volume {
+      display: grid;
+      grid-template-columns: 1fr 44px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .empty {
+      text-align: center;
+      padding: 54px 18px;
+      color: var(--muted);
+    }
+
+    .hint {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    @media (max-width: 800px) {
+      body { padding: 16px; }
+      .track {
+        grid-template-columns: 1fr;
+      }
+      .transport { grid-template-columns: 1fr; }
+      .time { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>MIDI Stem<br>Controller</h1>
+        <div class="subtitle">
+          Load a .mid file, play it in the browser, and control each MIDI track like a stem: volume, mute, solo, mute all, and timeline seeking.
+        </div>
+      </div>
+    </header>
+
+    <section class="card toolbar">
+      <div class="controls">
+        <label class="file-button primary">
+          Load MIDI
+          <input id="fileInput" type="file" accept=".mid,.midi,audio/midi" />
+        </label>
+        <button id="playBtn" disabled>Play</button>
+        <button id="stopBtn" disabled>Stop</button>
+        <button id="muteAllBtn" disabled>Mute All</button>
+        <button id="resetBtn" disabled>Reset Mix</button>
+      </div>
+
+      <div class="transport">
+        <div id="progressWrap" class="progress-wrap" title="Click to seek">
+          <div id="progress" class="progress"></div>
+        </div>
+        <div id="time" class="time">0:00 / 0:00</div>
+      </div>
+
+      <div id="status" class="status">No MIDI loaded.</div>
+      <div class="hint">
+        Note: this uses the browser Web Audio synth, not SoundFonts. MIDI files with multiple channels/instruments will play with a simple built-in synthesizer.
+      </div>
+    </section>
+
+    <section id="tracks" class="tracks card">
+      <div class="empty">Load a MIDI file to show tracks.</div>
+    </section>
+  </main>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const playBtn = document.getElementById('playBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const muteAllBtn = document.getElementById('muteAllBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const tracksEl = document.getElementById('tracks');
+    const statusEl = document.getElementById('status');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressEl = document.getElementById('progress');
+    const timeEl = document.getElementById('time');
+
+    let audioCtx;
+    let midi = null;
+    let tracks = [];
+    let isPlaying = false;
+    let startAudioTime = 0;
+    let startSongTime = 0;
+    let songPosition = 0;
+    let duration = 0;
+    let scheduled = [];
+    let raf = null;
+    let mutedAll = false;
+
+    const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function readString(view, offset, len) {
+      let s = '';
+      for (let i = 0; i < len; i++) s += String.fromCharCode(view.getUint8(offset + i));
+      return s;
+    }
+
+    function readVarLen(view, state) {
+      let value = 0;
+      let b;
+      do {
+        b = view.getUint8(state.offset++);
+        value = (value << 7) + (b & 0x7f);
+      } while (b & 0x80);
+      return value;
+    }
+
+    function midiNoteName(n) {
+      return NOTE_NAMES[n % 12] + Math.floor(n / 12 - 1);
+    }
+
+    function parseMidi(buffer) {
+      const view = new DataView(buffer);
+      let offset = 0;
+
+      if (readString(view, offset, 4) !== 'MThd') throw new Error('Invalid MIDI header.');
+      offset += 4;
+      const headerLength = view.getUint32(offset); offset += 4;
+      const format = view.getUint16(offset); offset += 2;
+      const trackCount = view.getUint16(offset); offset += 2;
+      const division = view.getUint16(offset); offset += 2;
+      offset = 8 + headerLength;
+
+      if (division & 0x8000) throw new Error('SMPTE time division is not supported in this simple player.');
+      const ppq = division;
+
+      const rawTracks = [];
+      const tempoEvents = [{ tick: 0, mpqn: 500000 }];
+
+      for (let t = 0; t < trackCount; t++) {
+        if (readString(view, offset, 4) !== 'MTrk') throw new Error('Missing MTrk chunk.');
+        offset += 4;
+        const len = view.getUint32(offset); offset += 4;
+        const end = offset + len;
+        const state = { offset };
+        let tick = 0;
+        let runningStatus = 0;
+        let name = '';
+        const notes = [];
+        const openNotes = new Map();
+        const programs = new Set();
+        const channels = new Set();
+
+        while (state.offset < end) {
+          tick += readVarLen(view, state);
+          let status = view.getUint8(state.offset++);
+
+          if (status < 0x80) {
+            state.offset--;
+            status = runningStatus;
+          } else {
+            runningStatus = status;
+          }
+
+          if (status === 0xff) {
+            const type = view.getUint8(state.offset++);
+            const metaLen = readVarLen(view, state);
+            if (type === 0x03) {
+              name = readString(view, state.offset, metaLen).trim();
+            } else if (type === 0x51 && metaLen === 3) {
+              const mpqn = (view.getUint8(state.offset) << 16) | (view.getUint8(state.offset + 1) << 8) | view.getUint8(state.offset + 2);
+              tempoEvents.push({ tick, mpqn });
+            }
+            state.offset += metaLen;
+            continue;
+          }
+
+          if (status === 0xf0 || status === 0xf7) {
+            const syxLen = readVarLen(view, state);
+            state.offset += syxLen;
+            continue;
+          }
+
+          const cmd = status & 0xf0;
+          const channel = status & 0x0f;
+          channels.add(channel + 1);
+
+          const data1 = view.getUint8(state.offset++);
+          let data2 = 0;
+          if (cmd !== 0xc0 && cmd !== 0xd0) data2 = view.getUint8(state.offset++);
+
+          if (cmd === 0x90 && data2 > 0) {
+            const key = channel + ':' + data1;
+            if (!openNotes.has(key)) openNotes.set(key, []);
+            openNotes.get(key).push({ tick, velocity: data2 / 127, note: data1, channel });
+          } else if (cmd === 0x80 || (cmd === 0x90 && data2 === 0)) {
+            const key = channel + ':' + data1;
+            const stack = openNotes.get(key);
+            if (stack && stack.length) {
+              const n = stack.shift();
+              n.durationTicks = Math.max(1, tick - n.tick);
+              notes.push(n);
+            }
+          } else if (cmd === 0xc0) {
+            programs.add(data1 + 1);
+          }
+        }
+
+        rawTracks.push({ index: t, name, notes, programs: [...programs], channels: [...channels] });
+        offset = end;
+      }
+
+      tempoEvents.sort((a, b) => a.tick - b.tick);
+
+      function tickToSeconds(tick) {
+        let seconds = 0;
+        let lastTick = 0;
+        let mpqn = 500000;
+        for (const ev of tempoEvents) {
+          if (ev.tick > tick) break;
+          seconds += ((ev.tick - lastTick) / ppq) * (mpqn / 1000000);
+          lastTick = ev.tick;
+          mpqn = ev.mpqn;
+        }
+        seconds += ((tick - lastTick) / ppq) * (mpqn / 1000000);
+        return seconds;
+      }
+
+      let maxTime = 0;
+      for (const tr of rawTracks) {
+        for (const n of tr.notes) {
+          n.time = tickToSeconds(n.tick);
+          n.duration = tickToSeconds(n.tick + n.durationTicks) - n.time;
+          maxTime = Math.max(maxTime, n.time + n.duration);
+        }
+      }
+
+      return { format, ppq, tracks: rawTracks, duration: maxTime };
+    }
+
+    function frequencyFromMidi(note) {
+      return 440 * Math.pow(2, (note - 69) / 12);
+    }
+
+    function makeInstrument(trackIndex, note, velocity, when, length, gainValue) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const filter = audioCtx.createBiquadFilter();
+
+      const waveforms = ['sine', 'triangle', 'square', 'sawtooth'];
+      osc.type = waveforms[trackIndex % waveforms.length];
+      osc.frequency.setValueAtTime(frequencyFromMidi(note), when);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(900 + ((trackIndex * 380) % 4200), when);
+      filter.Q.setValueAtTime(0.4, when);
+
+      const peak = Math.max(0.0001, velocity * gainValue * 0.16);
+      gain.gain.setValueAtTime(0.0001, when);
+      gain.gain.exponentialRampToValueAtTime(peak, when + 0.015);
+      gain.gain.setValueAtTime(peak, Math.max(when + 0.02, when + length - 0.05));
+      gain.gain.exponentialRampToValueAtTime(0.0001, when + length + 0.04);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start(when);
+      osc.stop(when + length + 0.08);
+      scheduled.push(osc);
+    }
+
+    function effectiveGain(track) {
+      if (mutedAll) return 0;
+      const anySolo = tracks.some(t => t.solo);
+      if (anySolo && !track.solo) return 0;
+      if (track.mute) return 0;
+      return track.volume;
+    }
+
+    function scheduleFrom(position) {
+      clearScheduled();
+      const lookAheadEnd = duration + 1;
+      startAudioTime = audioCtx.currentTime;
+      startSongTime = position;
+
+      for (const track of tracks) {
+        const gainValue = effectiveGain(track);
+        if (gainValue <= 0) continue;
+
+        for (const note of track.notes) {
+          if (note.time + note.duration < position) continue;
+          if (note.time > lookAheadEnd) continue;
+
+          const when = audioCtx.currentTime + Math.max(0, note.time - position);
+          const length = Math.max(0.04, note.duration - Math.max(0, position - note.time));
+          makeInstrument(track.index, note.note, note.velocity, when, length, gainValue);
+        }
+      }
+    }
+
+    function clearScheduled() {
+      for (const osc of scheduled) {
+        try { osc.stop(); } catch (e) {}
+      }
+      scheduled = [];
+    }
+
+    function play() {
+      if (!midi) return;
+      ensureAudio();
+      if (songPosition >= duration) songPosition = 0;
+      isPlaying = true;
+      playBtn.textContent = 'Pause';
+      scheduleFrom(songPosition);
+      tickUI();
+    }
+
+    function pause() {
+      if (!isPlaying) return;
+      songPosition = getCurrentPosition();
+      isPlaying = false;
+      playBtn.textContent = 'Play';
+      clearScheduled();
+      cancelAnimationFrame(raf);
+      updateTransport();
+    }
+
+    function stop() {
+      isPlaying = false;
+      songPosition = 0;
+      playBtn.textContent = 'Play';
+      clearScheduled();
+      cancelAnimationFrame(raf);
+      updateTransport();
+    }
+
+    function getCurrentPosition() {
+      if (!isPlaying || !audioCtx) return songPosition;
+      return Math.min(duration, startSongTime + (audioCtx.currentTime - startAudioTime));
+    }
+
+    function tickUI() {
+      songPosition = getCurrentPosition();
+      updateTransport();
+      if (songPosition >= duration) {
+        stop();
+        return;
+      }
+      raf = requestAnimationFrame(tickUI);
+    }
+
+    function formatTime(s) {
+      s = Math.max(0, s || 0);
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60).toString().padStart(2, '0');
+      return `${m}:${sec}`;
+    }
+
+    function updateTransport() {
+      const pos = getCurrentPosition();
+      const pct = duration ? (pos / duration) * 100 : 0;
+      progressEl.style.width = pct + '%';
+      timeEl.textContent = `${formatTime(pos)} / ${formatTime(duration)}`;
+    }
+
+    function renderTracks() {
+      tracksEl.innerHTML = '';
+      if (!tracks.length) {
+        tracksEl.innerHTML = '<div class="empty">No playable note tracks found.</div>';
+        return;
+      }
+
+      for (const track of tracks) {
+        const row = document.createElement('div');
+        row.className = 'track' + (track.mute ? ' muted' : '') + (track.solo ? ' soloed' : '');
+
+        const title = document.createElement('div');
+        title.className = 'track-title';
+        title.innerHTML = `
+          <div class="track-name">${escapeHtml(track.name || 'Track ' + (track.index + 1))}</div>
+          <div class="track-meta">${track.notes.length} notes · channels ${track.channels.join(', ') || 'n/a'} · programs ${track.programs.join(', ') || 'n/a'}</div>
+        `;
+
+        const volume = document.createElement('div');
+        volume.className = 'volume';
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = '0';
+        slider.max = '1';
+        slider.step = '0.01';
+        slider.value = track.volume;
+        const val = document.createElement('span');
+        val.textContent = Math.round(track.volume * 100) + '%';
+        slider.addEventListener('input', () => {
+          track.volume = Number(slider.value);
+          val.textContent = Math.round(track.volume * 100) + '%';
+          rescheduleIfPlaying();
+        });
+        volume.append(slider, val);
+
+        const mute = document.createElement('button');
+        mute.textContent = track.mute ? 'Unmute' : 'Mute';
+        mute.className = track.mute ? 'danger active' : 'danger';
+        mute.addEventListener('click', () => {
+          track.mute = !track.mute;
+          renderTracks();
+          rescheduleIfPlaying();
+        });
+
+        const solo = document.createElement('button');
+        solo.textContent = track.solo ? 'Unsolo' : 'Solo';
+        solo.className = track.solo ? 'ok active' : 'ok';
+        solo.addEventListener('click', () => {
+          track.solo = !track.solo;
+          renderTracks();
+          rescheduleIfPlaying();
+        });
+
+        row.append(title, volume, mute, solo);
+        tracksEl.appendChild(row);
+      }
+    }
+
+    function rescheduleIfPlaying() {
+      if (isPlaying) {
+        songPosition = getCurrentPosition();
+        scheduleFrom(songPosition);
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      stop();
+      try {
+        const buffer = await file.arrayBuffer();
+        midi = parseMidi(buffer);
+        duration = midi.duration;
+        tracks = midi.tracks
+          .filter(t => t.notes.length > 0)
+          .map(t => ({ ...t, volume: 0.8, mute: false, solo: false }));
+
+        statusEl.textContent = `${file.name} loaded · ${tracks.length} playable tracks · format ${midi.format} · PPQ ${midi.ppq}`;
+        playBtn.disabled = false;
+        stopBtn.disabled = false;
+        muteAllBtn.disabled = false;
+        resetBtn.disabled = false;
+        mutedAll = false;
+        muteAllBtn.textContent = 'Mute All';
+        renderTracks();
+        updateTransport();
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'Could not load MIDI: ' + err.message;
+      }
+    });
+
+    playBtn.addEventListener('click', () => isPlaying ? pause() : play());
+    stopBtn.addEventListener('click', stop);
+
+    muteAllBtn.addEventListener('click', () => {
+      mutedAll = !mutedAll;
+      muteAllBtn.textContent = mutedAll ? 'Unmute All' : 'Mute All';
+      muteAllBtn.classList.toggle('active', mutedAll);
+      rescheduleIfPlaying();
+    });
+
+    resetBtn.addEventListener('click', () => {
+      mutedAll = false;
+      muteAllBtn.textContent = 'Mute All';
+      muteAllBtn.classList.remove('active');
+      tracks.forEach(t => { t.volume = 0.8; t.mute = false; t.solo = false; });
+      renderTracks();
+      rescheduleIfPlaying();
+    });
+
+    progressWrap.addEventListener('click', (e) => {
+      if (!midi || !duration) return;
+      const rect = progressWrap.getBoundingClientRect();
+      const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      songPosition = pct * duration;
+      if (isPlaying) scheduleFrom(songPosition);
+      updateTransport();
+    });
+  </script>
+</body>
+</html>

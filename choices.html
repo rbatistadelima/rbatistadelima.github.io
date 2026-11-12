@@ -1,0 +1,258 @@
+<tw-storydata name="choices" startnode="1" creator="Twine" creator-version="2.2.1" ifid="F9C71A31-A72D-415D-A634-282B027DA859" zoom="1" format="SugarCube" format-version="2.21.0" options="" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css">body.title {
+  background: url(http://www.designshock.com/wp-content/uploads/2015/02/sea.jpg) no-repeat center center fixed;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
+}
+
+body.title .passage {
+  font-family: "Dorsa";
+  text-align: center;
+  line-height: 75%;
+}
+
+html {
+  overflow: scroll;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 0px;
+  /* remove scrollbar space */
+  background: transparent;
+  /* optional: just make scrollbar invisible */;
+}
+
+/* optional: show position indicator in red */
+::-webkit-scrollbar-thumb {
+  background: #FF0000;
+}
+
+#story-title {
+  display: none;
+}
+
+#menu-core,#ui-bar-toggle {
+	display: none; 
+}
+
+#story-banner {
+  font-weight: bold;
+}
+
+body {
+  font-family: Comfortaa;
+  overflow-y: scroll;
+}
+
+#menu, #ui-bar-tray {
+  font-family: Play;
+}
+
+#ui-bar {
+  background: url("https://www.toptal.com/designers/subtlepatterns/patterns/dark-triangles.png");
+}
+
+.fixed {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  background-color: red;
+  color: white;
+  text-align: center;
+}
+
+.box {
+  text-align: center;
+  width: 80px;
+  background-color: gray;
+  position: absolute;
+  z-index: 5;
+}
+
+.screen {
+  position: relative;
+}
+
+.sprite {
+  width: 75%;
+  position: fixed;
+  margin: 50%;
+  padding: 0%;
+  margin-top: -20%;
+}
+
+a.link-internal {
+  color: white;
+  font-weight: bold;
+}
+
+a.link-internal:hover {
+  color: white;
+  text-decoration: none;
+  /*font-size: 200%;*/
+  font-weight: bold;
+}
+
+body.intro {
+  background: none !important;
+  background-color: black !important;
+}
+
+body.creation {
+  background: none !important;
+  background-color: black !important;
+}
+
+body.intro .passage {
+  text-align: center;
+}
+
+/* Enable outgoing opacity-based passage transitions. */
+config.passages.transitionOut = "opacity";
+
+.passage-in,
+.passage-out {
+  position: absolute;
+  opacity: 0;
+}
+
+body[data-tags~="no-side-bar"] #ui-bar {
+	display: none;
+}
+
+body[data-tags~="no-side-bar"] #story {
+	margin-left: 2.5em;
+}
+
+
+
+
+
+.health-bar {
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  width: 200px;
+  height: 20px;
+  padding: 5px;
+  background: #ddd;
+  -webkit-border-radius: 5px;
+  -moz-border-radius: 5px;
+  border-radius: 5px;
+  position: relative;
+}
+.bar {
+  background: #c54;
+  width: 100%;
+  height: 10px;
+  position: relative;
+  
+  transition: width .5s linear;
+}
+
+
+
+
+
+
+
+
+
+
+
+</style><script role="script" id="twine-user-script" type="text/twine-javascript">Config.history.controls = false;
+Config.passages.displayTitles = true;
+Config.saves.autosave = true;
+
+var tprogress = 500; //total
+var cprogress = 10; //current
+var pprogress = cprogress * 100 / tprogress; //percentage
+var cycles = 0;
+var busy = 0;
+var stop = 0;
+
+
+
+
+setup.progressstop() = function () {
+     clearTimeout(progressrepeat);
+
+          document.getElementById("log").innerHTML = "paused";
+       
+                        }
+
+setup.progressstart() = function () {
+  
+  if (stop == 0 && cprogress < tprogress) {
+       progressrepeat = setTimeout(arguments.callee, 5);
+        document.getElementById("log").innerHTML = "training";
+        busy = 1;     
+        cprogress += 3;
+        var pprogress = cprogress * 100 / tprogress;
+        document.getElementById('progress').style.width = pprogress + "%";
+       
+
+    } else if (cprogress >= tprogress) {
+        document.getElementById("button-progression").innerHTML = "Start";
+        document.getElementById("log").innerHTML = "concluded";
+        busy = 0;
+        cycles += 1;
+        document.getElementById('cycles').innerHTML = cycles;
+        tprogress = tprogress * 1.4;
+        cprogress = 0;
+        var pprogress = cprogress * 100 / tprogress;
+        document.getElementById('progress').style.width = pprogress + "%";
+
+
+    } 
+};
+
+</script><tw-passagedata pid="1" name="Você quer começar a jogar?" tags="" position="50,150" size="100,100">&lt;div class=&quot;container&quot;&gt;&lt;div class=&quot;hp&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;div class=&quot;container&quot;&gt;&lt;div class=&quot;sp&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;div class=&quot;container&quot;&gt;&lt;div id=&quot;progress&quot;&gt;&lt;/div&gt;&lt;/div&gt;  
+
+cycles &lt;span id=&quot;cycles&quot;&gt;&lt;/span&gt;&lt;br&gt;
+    time &lt;span id=&quot;time&quot;&gt;&lt;/span&gt;
+&lt;br&gt;
+&lt;button onclick=&quot;setup.progressstart()&quot; id=&quot;button-progression&quot;&gt;Start&lt;/button&gt;&lt;button onclick=&quot;setup.progressstop()&quot; id=&quot;button-progressstop&quot;&gt;Stop&lt;/button&gt;
+&lt;br&gt;
+&lt;span id=&quot;log&quot;&gt;log&lt;/span&gt;
+&lt;style&gt;
+.container{
+  width:200px;
+  height:10px;
+  background-color:silver;
+  margin:4px;
+}
+
+.hp{
+  width:70%;
+  height:100%;
+  background-color:salmon;
+}
+.sp{
+  width:40%;
+  height:100%;
+  background-color:cornflowerblue;
+}
+
+#progress{
+  width:0%;
+  height:100%;
+  background-color:gold;
+}
+&lt;/style&gt;</tw-passagedata><tw-passagedata pid="2" name="Você quer escolher?" tags="" position="850,150" size="100,100">Você quer escolher?
+
+SIM</tw-passagedata><tw-passagedata pid="3" name="Você manteria suas escolhas?" tags="" position="650,150" size="100,100">Você manteria suas escolhas?
+
+SIM / NÃO</tw-passagedata><tw-passagedata pid="4" name="Você quer saber as consequências de suas escolhas?" tags="" position="450,150" size="100,100">Você quer saber as consequências de suas escolhas?
+
+SIM / NÃO</tw-passagedata><tw-passagedata pid="5" name="Você deseja que suas escolhas tenham consequências?" tags="" position="250,150" size="100,100">Você deseja que suas escolhas tenham consequências?
+
+
+SIM / NÃO</tw-passagedata><tw-passagedata pid="6" name="StorySubtitle" tags="" position="50,350" size="100,100"></tw-passagedata></tw-storydata>

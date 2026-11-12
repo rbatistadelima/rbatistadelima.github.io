@@ -1,140 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>512×512 Favicon Demo</title>
+
+<!-- 512×512 favicon -->
+<link rel="icon" type="image/png" sizes="512x512"
+href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgNTEyIDUxMiI+PHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMDAiIGZpbGw9IiMxZTkwZmYiLz48dGV4dCB4PSIyNTYiIHk9IjI5MCIgZm9udC1zaXplPSIyNDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZmlsbD0id2hpdGUiPuKaqTwvdGV4dD48L3N2Zz4=">
+
 <style>
-body {
-    font-family: sans-serif;
-    background: #1e1e1e;
-    color: white;
-    padding: 30px;
+body{
+    margin:0;
+    font-family:system-ui,sans-serif;
+    display:grid;
+    place-items:center;
+    height:100vh;
+    background:#202124;
+    color:#fff;
 }
-
-.section {
-    margin-bottom: 40px;
+.card{
+    background:#2d2f33;
+    padding:40px;
+    border-radius:16px;
+    text-align:center;
 }
-
-h2 {
-    margin-bottom: 15px;
-}
-
-/* Card styling */
-.cards {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.card {
-    padding: 15px 25px;
-    border: 2px solid #555;
-    border-radius: 12px;
-    background: #2b2b2b;
-    cursor: pointer;
-    transition: .2s;
-    user-select: none;
-}
-
-.card:hover {
-    border-color: #888;
-}
-
-/* Hide actual inputs */
-input[type="radio"],
-input[type="checkbox"] {
-    display: none;
-}
-
-/* Selected states */
-input:checked + .card {
-    background: #0078ff;
-    border-color: #0078ff;
-}
-
-/* Sliders */
-.slider-box {
-    background: #2b2b2b;
-    border: 2px solid #555;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 15px;
-}
-
-.slider-box label {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-}
-
-input[type="range"] {
-    width: 100%;
+img{
+    width:256px;
+    image-rendering:pixelated;
 }
 </style>
 </head>
 <body>
 
-<!-- Sliders -->
-<div class="section">
-    <h2>Graphics</h2>
+<div class="card">
+    <h1>512×512 Favicon Demo</h1>
+    <p>This page uses a 512×512 favicon embedded directly in the HTML.</p>
 
-    <div class="slider-box">
-        <label>
-            Volume
-            <span id="volValue">50</span>
-        </label>
-        <input type="range" min="0" max="100" value="50" id="volume">
-    </div>
-
-    <div class="slider-box">
-        <label>
-            Brightness
-            <span id="brightValue">75</span>
-        </label>
-        <input type="range" min="0" max="100" value="75" id="brightness">
-    </div>
+    <!-- Preview of the same icon -->
+    <img
+    src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgNTEyIDUxMiI+PHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMDAiIGZpbGw9IiMxZTkwZmYiLz48dGV4dCB4PSIyNTYiIHk9IjI5MCIgZm9udC1zaXplPSIyNDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZmlsbD0id2hpdGUiPuKaqTwvdGV4dD48L3N2Zz4="
+    alt="512 icon">
 </div>
-
-<!-- Radio Cards -->
-<div class="section">
-    <h2>Difficulty (Single Select)</h2>
-
-    <div class="cards">
-        <input type="radio" id="easy" name="difficulty" checked>
-        <label class="card" for="easy">Easy</label>
-
-        <input type="radio" id="normal" name="difficulty">
-        <label class="card" for="normal">Normal</label>
-
-        <input type="radio" id="hard" name="difficulty">
-        <label class="card" for="hard">Hard</label>
-    </div>
-</div>
-
-<!-- Checkbox Cards -->
-<div class="section">
-    <h2>Features (Multiple Select)</h2>
-
-    <div class="cards">
-        <input type="checkbox" id="music">
-        <label class="card" for="music">Music</label>
-
-        <input type="checkbox" id="subtitles">
-        <label class="card" for="subtitles">Subtitles</label>
-
-        <input type="checkbox" id="tutorials">
-        <label class="card" for="tutorials">Tutorials</label>
-    </div>
-</div>
-
-<script>
-const volume = document.getElementById("volume");
-const brightness = document.getElementById("brightness");
-
-volume.oninput = () =>
-    document.getElementById("volValue").textContent = volume.value;
-
-brightness.oninput = () =>
-    document.getElementById("brightValue").textContent = brightness.value;
-</script>
 
 </body>
 </html>

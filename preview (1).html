@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PT TTS Voice Explorer</title>
+
+<style>
+  body {
+    font-family: system-ui, Arial;
+    padding: 20px;
+    background: #0f1115;
+    color: #e8e8e8;
+  }
+
+  h1 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+
+  select, input, button {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+  }
+
+  select, input {
+    background: #1b1f2a;
+    color: white;
+  }
+
+  button {
+    background: #4c7dff;
+    color: white;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #3a66d6;
+  }
+
+  .small {
+    font-size: 12px;
+    opacity: 0.7;
+  }
+
+  .info {
+    margin-top: 10px;
+    font-size: 12px;
+    opacity: 0.8;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<h1>🇧🇷🇵🇹 Portuguese TTS Voices Only</h1>
+
+<input id="text" value="Olá! Isto é um teste de voz em português." />
+
+<select id="voiceSelect"></select>
+
+<button id="speakBtn">Falar</button>
+<button id="stopBtn">Parar</button>
+
+<div class="small">
+  Showing only pt-BR / pt-PT voices
+</div>
+
+<div class="info" id="info"></div>
+
+<script>
+let voices = [];
+const voiceSelect = document.getElementById("voiceSelect");
+const info = document.getElementById("info");
+
+function isPortuguese(v) {
+  const lang = (v.lang || "").toLowerCase();
+  const name = (v.name || "").toLowerCase();
+
+  return (
+    lang.startsWith("pt") ||
+    name.includes("portuguese") ||
+    name.includes("português")
+  );
+}
+
+function loadVoices() {
+  voices = speechSynthesis.getVoices().filter(isPortuguese);
+
+  voiceSelect.innerHTML = "";
+
+  voices.forEach((v, i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = `${v.name} (${v.lang})`;
+    voiceSelect.appendChild(opt);
+  });
+
+  if (!voices.length) {
+    info.textContent = "Nenhuma voz em português encontrada.";
+  } else {
+    info.textContent =
+      "Voices found: " + voices.length + "\n\n" +
+      voices.map(v => `• ${v.name} | ${v.lang}`).join("\n");
+
+    // auto-select best match (Brazil first)
+    const bestIndex = voices.findIndex(v => v.lang === "pt-BR");
+    voiceSelect.value = bestIndex >= 0 ? bestIndex : 0;
+  }
+}
+
+speechSynthesis.onvoiceschanged = loadVoices;
+loadVoices();
+
+document.getElementById("speakBtn").onclick = () => {
+  const text = document.getElementById("text").value;
+  if (!text) return;
+
+  const utter = new SpeechSynthesisUtterance(text);
+
+  const selected = voices[voiceSelect.value];
+  if (selected) {
+    utter.voice = selected;
+    utter.lang = selected.lang;
+  }
+
+  utter.rate = 1;
+  utter.pitch = 1;
+
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utter);
+};
+
+document.getElementById("stopBtn").onclick = () => {
+  speechSynthesis.cancel();
+};
+</script>
+
+</body>
+</html>

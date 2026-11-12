@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Kaori AudioKernel (Single Engine)</title>
+
+<style>
+body {
+  font-family: system-ui, Arial;
+  background: #0f1115;
+  color: #e8e8e8;
+  padding: 20px;
+}
+
+button {
+  padding: 10px 14px;
+  margin-right: 6px;
+  cursor: pointer;
+}
+
+textarea {
+  width: 100%;
+  height: 140px;
+  margin-top: 10px;
+}
+
+.card {
+  background: #1a1d25;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.status {
+  margin-top: 10px;
+  font-weight: bold;
+  color: #9ef0a0;
+}
+
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🧠 Kaori-Only AudioKernel (Zero Fallback)</h2>
+
+<div class="card">
+  <div id="status" class="status">Inicializando...</div>
+
+  <button id="playBtn" disabled>▶ Play Queue</button>
+  <button id="stopBtn">⛔ Stop</button>
+
+  <textarea id="input">
+kaori|Olá, eu sou Kaori.
+kaori|Estou executando em fila determinística.
+kaori|Sem interrupções, sem concorrência.
+kaori|Cada frase espera a anterior terminar.
+  </textarea>
+</div>
+
+<script>
+/* =========================================================
+   KAORI ENGINE (SINGLE SOURCE OF TRUTH)
+   - substitua aqui pelo Transformers.js MMS real
+========================================================= */
+
+class KaoriEngine {
+  constructor() {
+    this.ready = false;
+    this._fakeAudio = null;
+  }
+
+  async preload() {
+    // simula carregamento pesado WASM + modelo
+    await new Promise(r => setTimeout(r, 2500));
+
+    this.ready = true;
+  }
+
+  speak(text, onStart, onEnd) {
+    if (!this.ready) {
+      throw new Error("Kaori ainda não está pronta");
+    }
+
+    onStart?.();
+
+    // simulação determinística de duração
+    const duration = Math.max(600, Math.min(5000, text.length * 55));
+
+    // simula execução de áudio contínua (sem overlap possível)
+    const startTime = performance.now();
+
+    const tick = () => {
+      const elapsed = performance.now() - startTime;
+
+      if (elapsed >= duration) {
+        onEnd?.();
+        return;
+      }
+
+      requestAnimationFrame(tick);
+    };
+
+    tick();
+  }
+}
+
+/* =========================================================
+   AUDIO KERNEL (ONLY CONTROLLER)
+========================================================= */
+
+class AudioKernel {
+  constructor() {
+    this.queue = [];
+    this.busy = false;
+    this.running = false;
+
+    this.kaori = new KaoriEngine();
+  }
+
+  async init() {
+    this.setStatus("Carregando Kaori (modelo WASM)...");
+
+    await this.kaori.preload();
+
+    this.setStatus("Kaori pronta ✔");
+    document.getElementById("playBtn").disabled = false;
+  }
+
+  setStatus(txt) {
+    document.getElementById("status").innerText = txt;
+  }
+
+  enqueue(tasks) {
+    this.queue.push(...tasks);
+    this.process();
+  }
+
+  stop() {
+    this.queue = [];
+    this.running = false;
+    this.busy = false;
+    this.setStatus("Parado ⛔");
+  }
+
+  async process() {
+    if (this.busy || this.running === false) return;
+
+    this.busy = true;
+    this.running = true;
+
+    while (this.queue.length > 0 && this.running) {
+      const task = this.queue.shift();
+      await this.runTask(task);
+    }
+
+    this.busy = false;
+  }
+
+  runTask(task) {
+    return new Promise((resolve) => {
+      this.kaori.speak(
+        task.text,
+
+        () => {
+          this.setStatus("🎤 Kaori falando...");
+        },
+
+        () => {
+          resolve();
+        }
+      );
+    });
+  }
+}
+
+/* =========================================================
+   BOOT
+========================================================= */
+
+const kernel = new AudioKernel();
+
+document.getElementById("playBtn").onclick = () => {
+  const lines = document.getElementById("input").value.trim().split("\n");
+
+  const tasks = lines.map(line => {
+    const [voice, ...text] = line.split("|");
+
+    return {
+      voice: voice.trim(),
+      text: text.join("|").trim()
+    };
+  }).filter(t => t.text.length > 0);
+
+  kernel.enqueue(tasks);
+};
+
+document.getElementById("stopBtn").onclick = () => {
+  kernel.stop();
+};
+
+(async () => {
+  await kernel.init();
+})();
+</script>
+
+</body>
+</html>

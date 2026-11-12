@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ Laboratório TTS — 4 Characters</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<style>
+html,body{
+  height:100%;
+  margin:0;
+  background:#0f0f12;
+  color:#fff;
+  font-family:Arial,Helvetica,sans-serif;
+}
+
+body{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:14px;
+  gap:12px;
+}
+
+#voiceNames{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+#voiceNames input{
+  background:#141415;
+  border:1px solid #222;
+  color:#fff;
+  padding:6px 8px;
+  border-radius:6px;
+}
+
+textarea{
+  width:90%;
+  max-width:980px;
+  height:140px;
+  border-radius:8px;
+  padding:10px;
+  background:#121214;
+  border:0;
+  color:#fff;
+  resize:vertical;
+}
+
+.karaoke{
+  width:90%;
+  max-width:980px;
+  padding:18px;
+  border-radius:8px;
+  background:#141417;
+  min-height:120px;
+  font-size:1.15rem;
+  white-space:pre-wrap;
+}
+
+.controls{
+  position:fixed;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:18px;
+  background:rgba(10,10,10,0.6);
+  padding:8px;
+  border-radius:12px;
+  display:flex;
+  gap:8px;
+  opacity:0;
+  transition:opacity .18s;
+}
+
+body.show-controls:hover .controls{
+  opacity:1;
+}
+
+button{
+  background:#222;
+  border:0;
+  color:#fff;
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.name{
+  font-weight:700;
+  margin-right:8px;
+}
+
+.immersive #texto,
+.immersive #voiceNames{
+  display:none;
+}
+</style>
+</head>
+
+<body class="show-controls">
+
+<div id="voiceNames">
+  <label>Daniel: <input id="nameDaniel" value="Daniel"></label>
+  <label>Maria: <input id="nameMaria" value="Maria"></label>
+  <label>Regina: <input id="nameRegina" value="Regina"></label>
+  <label>Ana: <input id="nameAna" value="Ana"></label>
+</div>
+
+<textarea id="texto" spellcheck="false">
+Daniel: Bom dia, Regina! Como vai?
+Regina: **Tudo ótimo!** E você?
+Maria: //Parece que vocês dormiram pouco hoje...//
+Ana: Olá pessoal! Eu sou a nova voz do sistema.
+Daniel: Haha, bem-vinda, Ana!
+Regina: Que bom ter mais uma voz aqui... //isso vai ficar interessante//
+</textarea>
+
+<div class="karaoke" id="karaoke">Legenda aparecerá aqui...</div>
+
+<div class="controls">
+  <button onclick="startScript()">▶ Ler</button>
+  <button onclick="pauseSpeech()">⏸</button>
+  <button onclick="resumeSpeech()">⏯</button>
+  <button onclick="prevLine()">⏮</button>
+  <button onclick="nextLine()">⏭</button>
+  <button onclick="stopAll()">🛑</button>
+  <button onclick="toggleImmersive()">🕶️ Modo Imersivo</button>
+</div>
+
+<script>
+let synth = window.speechSynthesis;
+let voices = [];
+let lines = [];
+let currentIndex = 0;
+let isPaused = false;
+let immersiveMode = false;
+
+const colors = { 
+  Daniel:'#ff6b6b', 
+  Maria:'#7bed9f', 
+  Regina:'#7ea2ff',
+  Ana:'#ffb86b'
+};
+
+function refreshVoices(){
+  voices = synth.getVoices() || [];
+}
+
+if(typeof speechSynthesis !== 'undefined')
+  speechSynthesis.onvoiceschanged = refreshVoices;
+
+refreshVoices();
+
+function includesIgnoreCase(a,b){
+  return (a||'').toLowerCase().includes((b||'').toLowerCase());
+}
+
+function findPtVoice(preferContains){
+  if(!voices.length) return null;
+
+  if(preferContains){
+    const v = voices.find(v =>
+      v.lang?.toLowerCase().startsWith('pt') &&
+      includesIgnoreCase(v.name, preferContains)
+    );
+    if(v) return v;
+  }
+
+  const vpt = voices.find(v => v.lang?.toLowerCase().startsWith('pt'));
+  if(vpt) return vpt;
+
+  return voices[0] || null;
+}
+
+function processarMarcacoes(texto){
+  const regex = /(\*\*[^*]+\*\*|\/\/[^/]+\/\/)/g;
+  let partes = [];
+  let lastIndex = 0;
+  let match;
+
+  while((match = regex.exec(texto)) !== null){
+    if(match.index > lastIndex){
+      partes.push({texto:texto.substring(lastIndex, match.index), efeito:'normal'});
+    }
+
+    const parte = match[0];
+
+    if(parte.startsWith('**'))
+      partes.push({texto:parte.slice(2,-2), efeito:'negrito'});
+
+    if(parte.startsWith('//'))
+      partes.push({texto:parte.slice(2,-2), efeito:'devagar'});
+
+    lastIndex = regex.lastIndex;
+  }
+
+  if(lastIndex < texto.length){
+    partes.push({texto:texto.substring(lastIndex), efeito:'normal'});
+  }
+
+  return partes;
+}
+
+function falarGoogle(texto, rate=1, volume=1){
+  const url =
+    `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(texto)}&tl=pt-BR&client=tw-ob`;
+
+  const audio = new Audio(url);
+  audio.playbackRate = rate;
+  audio.volume = volume;
+
+  return new Promise(resolve=>{
+    audio.onended = ()=>resolve({ok:true});
+    audio.onerror = ()=>resolve({ok:false});
+    audio.play().catch(()=>resolve({ok:false}));
+  });
+}
+
+function getSpeakerSpec(nomeLinha){
+
+  const inputDaniel = document.getElementById('nameDaniel').value.trim() || 'Daniel';
+  const inputMaria  = document.getElementById('nameMaria').value.trim() || 'Maria';
+  const inputRegina = document.getElementById('nameRegina').value.trim() || 'Regina';
+  const inputAna    = document.getElementById('nameAna').value.trim() || 'Ana';
+
+  const nl = (nomeLinha||'').trim().toLowerCase();
+
+  if(nl === inputDaniel.toLowerCase() || nl === 'daniel'){
+    return {
+      tipo:'synth',
+      voz: findPtVoice('male'),
+      who:'Daniel'
+    };
+  }
+
+  if(nl === inputMaria.toLowerCase() || nl === 'maria'){
+    return {
+      tipo:'synth',
+      voz: findPtVoice('female'),
+      who:'Maria'
+    };
+  }
+
+  if(nl === inputAna.toLowerCase() || nl === 'ana'){
+    return {
+      tipo:'synth',
+      voz: findPtVoice() || null,
+      who:'Ana'
+    };
+  }
+
+  if(nl === inputRegina.toLowerCase() || nl === 'regina'){
+    return {
+      tipo:'google',
+      who:'Regina'
+    };
+  }
+
+  return { tipo:'synth', voz: findPtVoice(), who:'fallback' };
+}
+
+async function speakParts(nome, partes){
+
+  const spec = getSpeakerSpec(nome);
+
+  for(const p of partes){
+
+    let rate = 1.2;
+    let pitch = 1;
+    let volume = 1;
+
+    const txt = p.texto.trim();
+
+    if(spec.who === 'Regina'){
+      volume = 0.85;
+    }
+
+    if(spec.who === 'Ana'){
+      pitch *= 1.2;
+      rate *= 1.05;
+    }
+
+    if(p.efeito === 'negrito') rate *= 1.4;
+    if(p.efeito === 'devagar') rate *= 0.6;
+
+    if(spec.tipo === 'synth' && spec.voz){
+
+      const u = new SpeechSynthesisUtterance(p.texto);
+      u.voice = spec.voz;
+      u.lang = spec.voz.lang || 'pt-BR';
+      u.rate = rate;
+      u.pitch = pitch;
+      u.volume = volume;
+
+      synth.speak(u);
+
+      await new Promise(r=>{
+        u.onend = r;
+      });
+
+    } else {
+
+      const ok = await falarGoogle(p.texto, rate, volume);
+
+      if(!ok){
+        const fallback = new SpeechSynthesisUtterance(p.texto);
+        fallback.lang = 'pt-BR';
+        synth.speak(fallback);
+
+        await new Promise(r=>{
+          fallback.onend = r;
+        });
+      }
+    }
+  }
+}
+
+async function lerLinha(i){
+
+  const linha = lines[i];
+  const karaoke = document.getElementById('karaoke');
+
+  const match = linha.match(/^([^:]+):\s*(.+)$/);
+
+  if(!match){
+    karaoke.textContent = linha;
+    await speakParts('system',[{texto:linha, efeito:'normal'}]);
+    return;
+  }
+
+  const nome = match[1];
+  const frase = match[2];
+
+  const partes = processarMarcacoes(frase);
+
+  let html = `<span class="name">${nome}:</span> `;
+
+  partes.forEach(p=>{
+    if(p.efeito === 'negrito')
+      html += `<strong>${p.texto}</strong>`;
+    else if(p.efeito === 'devagar')
+      html += `<em>${p.texto}</em>`;
+    else
+      html += p.texto;
+  });
+
+  karaoke.innerHTML = html;
+
+  await speakParts(nome, partes);
+}
+
+function startScript(){
+  lines = document.getElementById('texto').value
+    .split('\n')
+    .map(l=>l.trim())
+    .filter(Boolean);
+
+  currentIndex = 0;
+
+  (async ()=>{
+    for(let i=0;i<lines.length;i++){
+      currentIndex = i;
+      await lerLinha(i);
+    }
+  })();
+}
+
+function pauseSpeech(){
+  synth.pause();
+  isPaused = true;
+}
+
+function resumeSpeech(){
+  synth.resume();
+  isPaused = false;
+}
+
+function stopAll(){
+  synth.cancel();
+}
+
+function nextLine(){
+  synth.cancel();
+}
+
+function prevLine(){
+  synth.cancel();
+}
+
+function toggleImmersive(){
+  immersiveMode = !immersiveMode;
+  document.body.classList.toggle('immersive', immersiveMode);
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Multi-Personagem Sequencial</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
+        #status { margin-top: 10px; font-weight: bold; color: #666; }
+        .log { margin-top: 20px; background: #222; color: #00ff00; padding: 10px; font-family: monospace; height: 150px; overflow-y: auto; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Sistema TTS Multi-Personagem</h2>
+    <p>Status do Sistema: <span id="status">Inicializando pipelines e carregando Kaori (MMS)...</span></p>
+    
+    <button id="btn-play" disabled>Iniciar Diálogo Sequencial</button>
+
+    <h3>Logs de Execução:</h3>
+    <div id="log" class="log"></div>
+</div>
+
+<script type="module">
+    import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1';
+
+    // --- ESTADO GLOBAL DO SISTEMA ---
+    const state = {
+        audioCtx: null,
+        ttsPipeline: null,
+        isQueueRunning: false,
+        dialogueQueue: [],
+        dom: {
+            btnPlay: document.getElementById('btn-play'),
+            status: document.getElementById('status'),
+            log: document.getElementById('log')
+        }
+    };
+
+    // Diálogo de teste simulando a troca de personagens sem overlap
+    const roteiro = [
+        { personagem: 'Kaori', texto: 'Olá! Eu sou a Kaori, rodando localmente via WebAssembly.' },
+        { personagem: 'Daniel', texto: 'E eu sou o Daniel. Note que eu só começo a falar quando a Kaori terminar totalmente.' },
+        { personagem: 'Kaori', texto: 'Perfeito. Zero interrupções e zero race conditions a partir de agora.' }
+    ];
+
+    function logger(msg) {
+        state.dom.log.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}<br>`;
+        state.dom.log.scrollTop = state.dom.log.scrollHeight;
+    }
+
+    // --- 1. BOOT & PRE-LOAD (KAORI) ---
+    async function initSystem() {
+        try {
+            logger("Carregando modelo Kaori (MMS Portuguese)... Isso pode demorar no primeiro boot.");
+            
+            // Inicializa o AudioContext na primeira interação ou no boot (Chrome exige interação para som, mas o contexto pode ser criado)
+            state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            // Carrega o pipeline do Transformers.js para TTS em Português
+            state.ttsPipeline = await pipeline('text-to-speech', 'Xenova/mms-1b-por', {
+                quantized: true // Melhora performance e reduz tamanho do download no browser
+            });
+
+            logger("Modelo Kaori carregado com sucesso!");
+            state.dom.status.innerText = "Pronto para execução.";
+            state.dom.status.style.color = "green";
+            state.dom.btnPlay.disabled = false; // Desbloqueia o botão
+        } catch (error) {
+            logger(`Erro no boot: ${error.message}`);
+            state.dom.status.innerText = "Falha ao carregar modelo.";
+            state.dom.status.style.color = "red";
+        }
+    }
+
+    // --- 2. ENGINES DE ÁUDIO UNIFICADAS (Geram AudioBuffer) ---
+    
+    // Engine Principal: Kaori (Transformers.js)
+    async function generateKaoriAudio(text) {
+        logger("Kaori processando síntese...");
+        const output = await state.ttsPipeline(text);
+        
+        // O output contém as propriedades 'audio' (Float32Array) e 'sampling_rate'
+        const audioData = output.audio;
+        const sampleRate = output.sampling_rate;
+
+        // Transforma o resultado diretamente em um AudioBuffer do Web Audio API
+        const audioBuffer = state.audioCtx.createBuffer(1, audioData.length, sampleRate);
+        audioBuffer.getChannelData(0).set(audioData);
+        
+        return audioBuffer;
+    }
+
+    // Engine de Fallback/Alternativa: Web Speech API adaptada para Promise
+    // Nota: Como o speechSynthesis nativo não gera AudioBuffer diretamente, controlamos o fluxo 
+    // encapsulando o término da fala nativa em uma Promise estrita para não quebrar a fila.
+    function generateFallbackAudio(text) {
+        return new Promise((resolve, reject) => {
+            logger("Daniel (Fallback) sintetizando via Web Speech API...");
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'pt-BR';
+
+            // Truque de estabilidade para o Chrome não "esquecer" o onend em textos longos
+            const keepAlive = setInterval(() => {
+                if (!window.speechSynthesis.speaking) {
+                    clearInterval(keepAlive);
+                } else {
+                    window.speechSynthesis.pause();
+                    window.speechSynthesis.resume();
+                }
+            }, 10000);
+
+            utterance.onend = () => {
+                clearInterval(keepAlive);
+                // Retorna null para sinalizar que o áudio já foi tocado pela própria engine nativa
+                resolve(null); 
+            };
+
+            utterance.onerror = (err) => {
+                clearInterval(keepAlive);
+                reject(err);
+            };
+
+            window.speechSynthesis.speak(utterance);
+        });
+    }
+
+    // --- 3. REPRODUTOR UNIFICADO (Web Audio) ---
+    function playAudioBuffer(audioBuffer) {
+        return new Promise((resolve) => {
+            if (!audioBuffer) {
+                // Se for null, significa que foi processado por uma engine externa (como o fallback nativo) que já acabou
+                resolve();
+                return;
+            }
+
+            const source = state.audioCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(state.audioCtx.destination);
+            
+            source.onended = () => {
+                resolve(); // Só libera a Promise quando o áudio terminou de tocar no alto-falante
+            };
+
+            logger("Reproduzindo áudio no AudioContext...");
+            source.start(0);
+        });
+    }
+
+    // --- 4. FILA DE EXECUÇÃO SEQUENCIAL (SCHEDULER AJUSTADO) ---
+    async function processQueue() {
+        if (state.isQueueRunning) return;
+        state.isQueueRunning = true;
+        state.dom.btnPlay.disabled = true;
+
+        // Garante que o AudioContext saia do modo "suspended" (exigência dos browsers)
+        if (state.audioCtx.state === 'suspended') {
+            await state.audioCtx.resume();
+        }
+
+        while (state.dialogueQueue.length > 0) {
+            const fala Atual = state.dialogueQueue.shift();
+            logger(`Iniciando a fala de: <b>${falaAtual.personagem}</b>`);
+
+            try {
+                if (falaAtual.personagem === 'Kaori') {
+                    // Pipeline 100% controlado via Web Audio API
+                    const buffer = await generateKaoriAudio(falaAtual.texto);
+                    await playAudioBuffer(buffer);
+                } else {
+                    // Fallback Nativo (Daniel) - A Promise só resolve quando ele termina de falar
+                    await generateFallbackAudio(falaAtual.texto);
+                }
+                logger(`Finalizado: ${falaAtual.personagem}`);
+            } catch (error) {
+                logger(`Erro ao processar ${falaAtual.personagem}: ${error.message}`);
+            }
+            
+            // Pequeno intervalo de segurança (respiro) entre falas para evitar cliques de áudio
+            await new Promise(res => setTimeout(res, 300));
+        }
+
+        logger("--- Fim do Diálogo ---");
+        state.isQueueRunning = false;
+        state.dom.btnPlay.disabled = false;
+    }
+
+    // --- GATILHO DE INTERAÇÃO ---
+    state.dom.btnPlay.addEventListener('click', () => {
+        // Enche a fila com o roteiro clonado
+        state.dialogueQueue = [...roteiro];
+        processQueue();
+    });
+
+    // Inicializa a aplicação ao carregar a página
+    window.addEventListener('DOMContentLoaded', initSystem);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8"/>
+    <title>🎙️ TTS Lab — Fila Estável com Kaori Nativo</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+    <style>
+        html,body{margin:0;height:100%;background:#0f0f12;color:#fff;font-family:Arial}
+        body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+        textarea{width:90%;max-width:980px;height:140px;background:#121214;color:#fff;border:0;padding:10px;border-radius:4px;resize:vertical;}
+        .karaoke{width:90%;max-width:980px;background:#141417;padding:14px;border-radius:8px;min-height:120px;box-sizing:border-box;}
+        button{background:#007bff;color:#fff;border:0;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:1rem;}
+        button:hover{background:#0056b3;}
+        button:disabled{opacity:0.5;cursor:not-allowed;}
+        .status{font-size:0.9rem;color:#aaa;}
+    </style>
+
+    <script>
+        /* ---------------- GLOBAL LOCK (SERIALIZAÇÃO RIGOROSA) ---------------- */
+        let audioLock = Promise.resolve();
+        function lock(fn){  
+            audioLock = audioLock.then(fn);  
+            return audioLock;
+        }
+
+        /* ---------------- DIAGNÓSTICO INICIAL ---------------- */
+        function initSystem(){
+            document.getElementById("status").innerText = "Motores de áudio prontos ✔ (Modo Local Seguro)";
+            document.getElementById("btn-play").disabled = false;
+        }
+        window.addEventListener("DOMContentLoaded", initSystem);
+
+        /* ---------------- PIPELINE KAORI (NATIVE STREAM BYPASS) ---------------- */
+        function kaoriSpeak(text) {
+            return lock(() => new Promise((resolve) => {
+                // INFO: Substitua pela URL real da sua API da Kaori se necessário
+                const apiUrl = `https://api.exemplo.com/kaori/tts?text=${encodeURIComponent(text)}`;
+                
+                logger("Kaori", "Carregando transmissão de áudio...");
+
+                // Instanciação isolada que contorna restrições de CORS de requisições fetch locais
+                const audio = new Audio();
+                audio.src = apiUrl;
+                audio.crossOrigin = "anonymous"; 
+
+                // Timer de segurança: impede que a fila trave se o servidor da Kaori cair ou demorar
+                const timeoutSeguranca = setTimeout(() => {
+                    console.warn("Timeout na API da Kaori. Destravando fila automaticamente.");
+                    cleanup();
+                    resolve();
+                }, 7000);
+
+                function cleanup() {
+                    clearTimeout(timeoutSeguranca);
+                    audio.oncanplaythrough = null;
+                    audio.onended = null;
+                    audio.onerror = null;
+                }
+
+                // Dispara quando houver dados suficientes na memória para reproduzir sem engasgar
+                audio.oncanplaythrough = () => {
+                    logger("Kaori", text);
+                    audio.play().catch((err) => {
+                        console.error("Autoplay barrado pelo browser:", err);
+                        cleanup();
+                        resolve();
+                    });
+                };
+
+                // Evento chave: Só passa a vez para o próximo personagem quando o som da Kaori terminar fisicamente
+                audio.onended = () => {
+                    cleanup();
+                    resolve();
+                };
+
+                // Trata erros de rota, links quebrados ou falta de internet sem congelar a aplicação
+                audio.onerror = (e) => {
+                    console.error("Falha na rota da API Kaori:", e);
+                    logger("Kaori (Erro)", "Não foi possível carregar o áudio. Pulando...");
+                    cleanup();
+                    resolve(); 
+                };
+
+                // Força o gatilho de carga no motor do navegador
+                audio.load();
+            }));
+        }
+
+        /* ---------------- MOTORES NATIVOS DO BROWSER (LOCKED) ---------------- */
+        let voices = [];
+        function updateVoices() { 
+            if (typeof speechSynthesis !== 'undefined') {
+                voices = speechSynthesis.getVoices(); 
+            }
+        }
+        updateVoices();
+        if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = updateVoices;
+        }
+
+        function speakBrowser(text, isMale){  
+            return lock(() => new Promise(r => {    
+                if (typeof speechSynthesis === 'undefined') return r();
+                
+                // Evita sobreposição limpando buffers acumulados do sistema operacional
+                speechSynthesis.cancel(); 
+
+                const u = new SpeechSynthesisUtterance(text);    
+                u.lang = "pt-BR";
+                
+                if (voices.length > 0) {
+                    const target = isMale ? /male|daniel/i : /female|luciana|google|maria/i;
+                    u.voice = voices.find(v => target.test(v.name)) || voices.find(v => v.lang.includes("pt")) || voices[0];
+                }
+
+                // Timer contra o bug crônico do Chrome de esquecer de disparar o evento 'onend'
+                const safetyTimer = setTimeout(() => { r(); }, (text.length * 80) + 2500);
+
+                u.onend = () => { clearTimeout(safetyTimer); r(); };    
+                u.onerror = () => { clearTimeout(safetyTimer); r(); };
+
+                speechSynthesis.speak(u);  
+            }));
+        }
+
+        /* ---------------- OUTROS SERVIÇOS DE REDE (LOCKED) ---------------- */
+        function googleTTS(text){  
+            return lock(() => new Promise(r => {    
+                const a = new Audio("https://translate.google.com/translate_tts?ie=UTF-8&q=" + encodeURIComponent(text) + "&tl=pt-BR&client=tw-ob");    
+                a.onended = r;    
+                a.onerror = r;
+                a.play().catch(r);  
+            }));
+        }
+
+        function rv(text){  
+            return lock(() => new Promise(r => {    
+                if (typeof responsiveVoice !== 'undefined') {
+                    responsiveVoice.speak(text, "Brazilian Portuguese Female", { onend: r, onerror: r });  
+                } else {
+                    r();
+                }
+            }));
+        }
+
+        /* ---------------- ROTEADOR CENTRAL DE PERSONAGENS ---------------- */
+        function speak(name, text){
+            const n = name.toLowerCase();
+            
+            if(n.includes("kaori")) return kaoriSpeak(text);  
+            if(n === "ana") return rv(text);  
+            if(n === "regina") return googleTTS(text);
+            if(n === "daniel") return speakBrowser(text, true);  
+            
+            return speakBrowser(text, false);
+        }
+
+        /* ---------------- GERENCIADOR DO FLUXO DO DIÁLOGO ---------------- */
+        function logger(name, text) {
+            document.getElementById("karaoke").innerHTML = `<b>${name}:</b> ${text}`;
+        }
+
+        async function start(){
+            document.getElementById("btn-play").disabled = true;
+
+            const lines = document.getElementById("texto").value.split("\n").filter(Boolean);
+            
+            for(const line of lines){
+                const m = line.match(/^([^:]+):\s*(.*)$/);    
+                if(!m) continue;
+                
+                const name = m[1].trim();    
+                const text = m[2].trim();    
+                
+                // Consome a linha e trava a thread aguardando a liberação da Promise anterior
+                await speak(name, text);  
+                
+                // Respiro mecânico estrito (250ms) para desacoplar transições de hardware de áudio
+                await new Promise(r => setTimeout(r, 250));
+            }
+            
+            document.getElementById("btn-play").disabled = false;
+        }
+        
+        window.start = start;
+    </script>
+</head>
+<body>
+    <div class="status" id="status">Inicializando motores...</div>
+    <textarea id="texto">Daniel: Eu não devo mais interromper Kaori.
+Regina: Google TTS aguardando na fila.
+Kaori: Agora meu pipeline é limpo, direto e sem falhas de carregamento.
+Ana: ResponsiveVoice aguardando sua vez de falar.
+Daniel: Executando perfeitamente sincronizado direto do arquivo local.</textarea>
+    <div class="karaoke" id="karaoke"></div>
+    <button id="btn-play" onclick="start()" disabled>▶ Play</button>
+</body>
+</html>

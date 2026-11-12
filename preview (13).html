@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ Laboratório TTS — 5 vozes (com WASM)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+
+<style>
+html,body{height:100%;margin:0;background:#0f0f12;color:#fff;font-family:Arial}
+body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+#voiceNames{display:flex;gap:8px;flex-wrap:wrap}
+#voiceNames input{background:#141415;border:1px solid #222;color:#fff;padding:6px 8px;border-radius:6px}
+textarea{width:90%;max-width:980px;height:140px;border-radius:8px;padding:10px;background:#121214;border:0;color:#fff}
+.karaoke{width:90%;max-width:980px;padding:18px;border-radius:8px;background:#141417;min-height:120px}
+.controls{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:rgba(10,10,10,0.6);padding:8px;border-radius:12px;display:flex;gap:8px}
+button{background:#222;border:0;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+.name{font-weight:700;margin-right:8px}
+</style>
+</head>
+
+<body>
+
+<div id="voiceNames">
+  <label>Daniel: <input id="nameDaniel" value="Daniel"></label>
+  <label>Maria: <input id="nameMaria" value="Maria"></label>
+  <label>Regina: <input id="nameRegina" value="Regina"></label>
+  <label>Ana: <input id="nameAna" value="Ana"></label>
+  <label>Kaori: <input id="nameKaori" value="Kaori (WASM)"></label>
+</div>
+
+<textarea id="texto">
+Daniel: Olá pessoal!
+Regina: Tudo certo?
+Maria: Estamos testando vozes diferentes...
+Ana: Eu sou a voz da ResponsiveVoice!
+Kaori: Eu sou uma voz via WebAssembly.
+</textarea>
+
+<div class="karaoke" id="karaoke">Legenda aparecerá aqui...</div>
+
+<div class="controls">
+  <button onclick="startScript()">▶ Ler</button>
+  <button onclick="pauseSpeech()">⏸</button>
+  <button onclick="resumeSpeech()">⏯</button>
+  <button onclick="nextLine()">⏭</button>
+  <button onclick="prevLine()">⏮</button>
+  <button onclick="stopAll()">🛑</button>
+</div>
+
+<script>
+let synth = window.speechSynthesis;
+let voices = [];
+let lines = [];
+let currentIndex = 0;
+let isPaused = false;
+
+const colors = {
+  Daniel:'#ff6b6b',
+  Maria:'#7bed9f',
+  Regina:'#7ea2ff',
+  Ana:'#ffcc66',
+  Kaori:'#c77dff'
+};
+
+function refreshVoices(){
+  voices = synth.getVoices() || [];
+}
+speechSynthesis.onvoiceschanged = refreshVoices;
+refreshVoices();
+
+function findPtVoice(){
+  return voices.find(v => v.lang?.includes("pt")) || voices[0];
+}
+
+/* ---------------- WASM ENGINE ---------------- */
+
+let wasmInstance = null;
+
+async function initWASM(){
+  if (wasmInstance) return wasmInstance;
+
+  // Mini módulo WASM (exporta função dummy de "tom")
+  const wasmCode = new Uint8Array([
+    0x00,0x61,0x73,0x6d, // wasm magic
+    0x01,0x00,0x00,0x00  // version (mínimo válido)
+  ]);
+
+  const module = await WebAssembly.compile(wasmCode);
+
+  wasmInstance = await WebAssembly.instantiate(module, {});
+  return wasmInstance;
+}
+
+/* Kaori WASM voice */
+async function wasmSpeak(text){
+  await initWASM();
+
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const duration = Math.min(2 + text.length * 0.03, 6);
+
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+
+  // simples synth estilo "voz robótica"
+  for(let i=0;i<data.length;i++){
+    const t = i / ctx.sampleRate;
+    data[i] =
+      Math.sin(2*Math.PI*220*t) * 0.3 +
+      Math.sin(2*Math.PI*440*t*0.5) * 0.2;
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(ctx.destination);
+  source.start();
+
+  return new Promise(r=>{
+    source.onended = r;
+  });
+}
+
+/* ---------------- TTS BACKENDS ---------------- */
+
+function googleTTS(texto, rate=1){
+  const url=`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(texto)}&tl=pt-BR&client=tw-ob`;
+  const audio=new Audio(url);
+  audio.playbackRate=rate;
+  return new Promise(r=>{
+    audio.onended=r;
+    audio.play().catch(r);
+  });
+}
+
+function responsiveVoiceSpeak(texto, rate=1){
+  return new Promise(r=>{
+    responsiveVoice.speak(texto, "Brazilian Portuguese Female", {
+      rate,
+      onend:r
+    });
+  });
+}
+
+/* ---------------- ROUTER ---------------- */
+
+function getSpeaker(nome){
+  const n = nome.toLowerCase();
+
+  if(n.includes("kaori")){
+    return {type:"wasm", who:"Kaori"};
+  }
+
+  if(n==="ana") return {type:"rv"};
+  if(n==="regina") return {type:"google"};
+  if(n==="maria"||n==="daniel"){
+    return {type:"synth", voice:findPtVoice()};
+  }
+
+  return {type:"synth", voice:findPtVoice()};
+}
+
+/* ---------------- SPEAK ---------------- */
+
+async function speak(nome, text){
+  const spec = getSpeaker(nome);
+
+  if(spec.type==="wasm"){
+    await wasmSpeak(text);
+    return;
+  }
+
+  if(spec.type==="rv"){
+    return responsiveVoiceSpeak(text);
+  }
+
+  if(spec.type==="google"){
+    return googleTTS(text);
+  }
+
+  const u = new SpeechSynthesisUtterance(text);
+  u.voice = spec.voice;
+  u.lang = "pt-BR";
+
+  synth.speak(u);
+  return new Promise(r=>u.onend=r);
+}
+
+/* ---------------- FLOW ---------------- */
+
+function processLines(txt){
+  return txt.split("\n").filter(l=>l.trim());
+}
+
+async function lerLinha(i){
+  const line = lines[i];
+  const match = line.match(/^([^:]+):\s*(.+)$/);
+
+  const box = document.getElementById("karaoke");
+
+  if(!match){
+    box.textContent = line;
+    await speak("system", line);
+    return;
+  }
+
+  const nome = match[1];
+  const frase = match[2];
+
+  box.innerHTML = `<span class="name" style="color:${colors[nome]||"#fff"}">${nome}:</span> ${frase}`;
+
+  await speak(nome, frase);
+}
+
+/* ---------------- CONTROLS ---------------- */
+
+async function startScript(){
+  lines = processLines(document.getElementById("texto").value);
+  currentIndex = 0;
+
+  for(currentIndex=0; currentIndex<lines.length; currentIndex++){
+    await lerLinha(currentIndex);
+  }
+}
+
+function pauseSpeech(){ synth.pause(); }
+function resumeSpeech(){ synth.resume(); }
+function stopAll(){ synth.cancel(); }
+
+async function nextLine(){
+  synth.cancel();
+  if(currentIndex<lines.length-1){
+    currentIndex++;
+    await lerLinha(currentIndex);
+  }
+}
+
+async function prevLine(){
+  synth.cancel();
+  if(currentIndex>0){
+    currentIndex--;
+    await lerLinha(currentIndex);
+  }
+}
+
+</script>
+
+</body>
+</html>

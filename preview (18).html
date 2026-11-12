@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ TTS Lab — Stable Edition</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+
+<style>
+html,body{margin:0;height:100%;background:#0f0f12;color:#fff;font-family:Arial}
+body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+
+textarea{
+  width:90%;max-width:980px;height:140px;
+  background:#121214;color:#fff;border:0;padding:10px;
+}
+
+.karaoke{
+  width:90%;max-width:980px;
+  background:#141417;padding:14px;
+  border-radius:8px;min-height:120px;
+}
+
+button{
+  background:#222;color:#fff;border:0;
+  padding:10px;border-radius:8px;cursor:pointer;
+}
+
+button:disabled{
+  opacity:0.4;
+  cursor:not-allowed;
+}
+
+.status{
+  font-size:0.9rem;
+  color:#aaa;
+}
+</style>
+
+<script type="module">
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1";
+
+/* ---------------- STATE ---------------- */
+
+let ttsKaori = null;
+let kaoriReady = false;
+
+/* ---------------- GLOBAL QUEUE (CRITICAL FIX) ---------------- */
+
+let queue = Promise.resolve();
+
+function enqueue(fn){
+  queue = queue.then(fn);
+  return queue;
+}
+
+/* ---------------- KAORI BOOT ---------------- */
+
+async function bootKaori(){
+
+  const btn = document.getElementById("playBtn");
+  btn.disabled = true;
+
+  document.getElementById("status").innerText =
+    "Inicializando Kaori (IA neural)...";
+
+  ttsKaori = await pipeline(
+    "text-to-speech",
+    "Xenova/mms-tts-por"
+  );
+
+  kaoriReady = true;
+
+  document.getElementById("status").innerText =
+    "Kaori pronta ✔ Sistema desbloqueado.";
+
+  btn.disabled = false;
+}
+
+/* ---------------- KAORI SPEAK ---------------- */
+
+async function kaoriSpeak(text){
+
+  const out = await ttsKaori(text);
+
+  const ctx = new AudioContext();
+
+  const buf = ctx.createBuffer(1, out.sampling_rate, out.sampling_rate);
+  buf.copyToChannel(out.audio, 0);
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+
+  src.connect(ctx.destination);
+  src.start();
+
+  return new Promise(r => (src.onended = r));
+}
+
+/* ---------------- INIT BOOT ---------------- */
+
+window.addEventListener("DOMContentLoaded", bootKaori);
+
+/* ---------------- VOICES ---------------- */
+
+let voices = speechSynthesis.getVoices();
+
+speechSynthesis.onvoiceschanged = () => {
+  voices = speechSynthesis.getVoices();
+};
+
+function pickFemale(){
+  return voices.find(v=>/female|luciana|google/i.test(v.name))
+    || voices.find(v=>v.lang?.includes("pt"))
+    || voices[0];
+}
+
+function pickMale(){
+  return voices.find(v=>/male|daniel/i.test(v.name))
+    || voices.find(v=>v.lang?.includes("pt"))
+    || voices[0];
+}
+
+/* ---------------- SYNTH FIXED ---------------- */
+
+function speakBrowser(text, voice){
+  return enqueue(() => new Promise(r => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.voice = voice;
+    u.lang = "pt-BR";
+
+    u.onend = r;
+    u.onerror = r; // FIX stability
+
+    speechSynthesis.speak(u);
+  }));
+}
+
+/* ---------------- OTHER SERVICES ---------------- */
+
+function googleTTS(text){
+  return enqueue(() => new Promise(r => {
+    const a = new Audio(
+      "https://translate.google.com/translate_tts?ie=UTF-8&q=" +
+      encodeURIComponent(text) +
+      "&tl=pt-BR&client=tw-ob"
+    );
+    a.onended = r;
+    a.play().catch(r);
+  }));
+}
+
+function rv(text){
+  return enqueue(() => new Promise(r => {
+    responsiveVoice.speak(text, "Brazilian Portuguese Female", {
+      onend: r
+    });
+  }));
+}
+
+/* ---------------- ROUTER ---------------- */
+
+function speak(name, text){
+
+  const n = name.toLowerCase();
+
+  if(n.includes("kaori")){
+    return enqueue(async () => {
+      if(!kaoriReady){
+        await new Promise(r => {
+          const wait = setInterval(() => {
+            if(kaoriReady){
+              clearInterval(wait);
+              r();
+            }
+          }, 100);
+        });
+      }
+      await kaoriSpeak(text);
+    });
+  }
+
+  if(n==="ana") return rv(text);
+  if(n==="regina") return googleTTS(text);
+
+  if(n==="daniel") return speakBrowser(text, pickMale());
+
+  return speakBrowser(text, pickFemale());
+}
+
+/* ---------------- FLOW ---------------- */
+
+async function start(){
+
+  const lines = document.getElementById("texto")
+    .value.split("\n").filter(Boolean);
+
+  for(const line of lines){
+
+    const m = line.match(/^([^:]+):\s*(.*)$/);
+    if(!m) continue;
+
+    const name = m[1];
+    const text = m[2];
+
+    document.getElementById("karaoke").innerHTML =
+      `<b>${name}:</b> ${text}`;
+
+    await speak(name, text);
+  }
+}
+
+window.start = start;
+
+</script>
+</head>
+
+<body>
+
+<div class="status" id="status">Carregando Kaori IA...</div>
+
+<textarea id="texto">
+Daniel: Agora eu funciono corretamente.
+Maria: Voz feminina estável.
+Regina: Google TTS sincronizado.
+Ana: ResponsiveVoice ativo.
+Kaori: IA neural carregando no boot.
+Daniel: Segunda frase também funciona.
+</textarea>
+
+<div class="karaoke" id="karaoke"></div>
+
+<button id="playBtn" disabled onclick="start()">▶ Play</button>
+
+</body>
+</html>

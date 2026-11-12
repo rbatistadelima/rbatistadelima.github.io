@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AR VR Scene to VDO Ninja</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    body, html { margin:0; height:100%; overflow:hidden; background:black; }
+    #bgvideo { display:none; }
+  </style>
+</head>
+<body>
+<video id="bgvideo" autoplay playsinline muted></video>
+
+<a-scene embedded vr-mode-ui="enabled: true">
+  <a-entity id="rig">
+    <a-entity id="cam" camera look-controls>
+      <!-- Background video fixed to camera -->
+      <a-entity id="bgPlane" geometry="primitive: plane; height: 2; width: 2"
+                position="0 0 -1"
+                material="shader: flat; src: #bgvideo; side: double; depthTest: false">
+      </a-entity>
+    </a-entity>
+  </a-entity>
+
+  <!-- Floating box -->
+  <a-box id="spinBox" position="0 0 -5" rotation="0 0 0" color="tomato"></a-box>
+</a-scene>
+
+<script>
+// 📷 Back camera video
+const video = document.getElementById("bgvideo");
+navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}, audio:false})
+  .then(stream => { video.srcObject = stream; video.play(); })
+  .catch(err => console.error("Camera error:", err));
+
+const box = document.getElementById("spinBox");
+const rig = document.getElementById("rig");
+
+// Movement multipliers
+const BOX_MULTIPLIER = 28.5; // 5% less than 30
+const MOVE_SPEED = 0.095;    // 5% less than 0.1
+
+// 🎮 Gamepad support
+let gamepadIndex = null;
+window.addEventListener("gamepadconnected", e => gamepadIndex = e.gamepad.index);
+window.addEventListener("gamepaddisconnected", e => gamepadIndex = null);
+
+function getGamepadInput() {
+  if (gamepadIndex === null) return { x:0, z:0 };
+  const gp = navigator.getGamepads()[gamepadIndex];
+  if (!gp) return { x:0, z:0 };
+  return { x: gp.axes[0], z: gp.axes[1] };
+}
+
+// Custom tick
+AFRAME.registerComponent('tick-box', {
+  tick: function() {
+    // Rotate box
+    box.object3D.rotation.y += 0.01 * BOX_MULTIPLIER;
+
+    // Move rig with joystick
+    const { x, z } = getGamepadInput();
+    const rigObj = rig.object3D;
+    const forward = new THREE.Vector3(0,0,-1);
+    const right = new THREE.Vector3(1,0,0);
+    rigObj.getWorldDirection(forward);
+    forward.y = 0; forward.normalize();
+    right.crossVectors(new THREE.Vector3(0,1,0), forward).normalize();
+
+    rigObj.position.add(forward.multiplyScalar(-z * MOVE_SPEED));
+    rigObj.position.add(right.multiplyScalar(x * MOVE_SPEED));
+  }
+});
+document.querySelector('a-scene').setAttribute('tick-box','');
+
+// Auto VR
+document.querySelector('a-scene').addEventListener('loaded', ()=> {
+  document.querySelector('a-scene').enterVR();
+});
+
+// iOS motion permission
+function enableMotion(){
+  if(typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function"){
+    DeviceMotionEvent.requestPermission().catch(console.error);
+  }
+}
+document.body.addEventListener("click", enableMotion,{once:true});
+
+// 🎥 Push scene to VDO Ninja
+function pushToVdo() {
+  const sceneCanvas = document.querySelector('a-scene').canvas;
+  const stream = sceneCanvas.captureStream(30);
+
+  // Create hidden iframe
+  const iframe = document.createElement("iframe");
+  iframe.src = "https://vdo.ninja/?push=B7wtPru&noaudio=1&quality=2";
+  iframe.style.display = "none";
+  iframe.allow = "camera; microphone";
+  document.body.appendChild(iframe);
+
+  iframe.onload = () => {
+    // Wait for iframe to load VDO.Ninja then replace its camera with our canvas stream
+    iframe.contentWindow.postMessage({forwardStream:stream},"*");
+  };
+}
+window.onload = pushToVdo;
+</script>
+</body>
+</html>

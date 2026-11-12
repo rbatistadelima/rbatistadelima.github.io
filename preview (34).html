@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TTS Voice Explorer</title>
+
+<style>
+  body {
+    font-family: system-ui, Arial;
+    padding: 20px;
+    background: #0f1115;
+    color: #e8e8e8;
+  }
+
+  h1 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+
+  select, input, button {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+  }
+
+  select, input {
+    background: #1b1f2a;
+    color: white;
+  }
+
+  button {
+    background: #4c7dff;
+    color: white;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #3a66d6;
+  }
+
+  .row {
+    margin-bottom: 10px;
+  }
+
+  .small {
+    font-size: 12px;
+    opacity: 0.7;
+  }
+
+  .voice-info {
+    margin-top: 10px;
+    font-size: 12px;
+    opacity: 0.8;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<h1>🔊 TTS Voice Explorer (Android / iOS / Web)</h1>
+
+<div class="row">
+  <input id="text" value="Hello! This is a text to speech test." />
+</div>
+
+<div class="row">
+  <select id="voiceSelect"></select>
+</div>
+
+<div class="row">
+  <button id="speakBtn">Speak</button>
+  <button id="stopBtn">Stop</button>
+</div>
+
+<div class="small">
+  Voices load asynchronously — wait 1–2 seconds if list is empty.
+</div>
+
+<div class="voice-info" id="voiceInfo"></div>
+
+<script>
+let voices = [];
+const voiceSelect = document.getElementById("voiceSelect");
+const voiceInfo = document.getElementById("voiceInfo");
+
+function loadVoices() {
+  voices = speechSynthesis.getVoices();
+
+  voiceSelect.innerHTML = "";
+
+  voices.forEach((v, i) => {
+    const option = document.createElement("option");
+    option.value = i;
+    option.textContent = `${v.name} (${v.lang})${v.default ? " — DEFAULT" : ""}`;
+    voiceSelect.appendChild(option);
+  });
+
+  showVoiceInfo();
+}
+
+function showVoiceInfo() {
+  if (!voices.length) {
+    voiceInfo.textContent = "No voices loaded yet...";
+    return;
+  }
+
+  voiceInfo.textContent =
+    "Total voices: " + voices.length + "\n\n" +
+    voices.slice(0, 10).map(v =>
+      `• ${v.name} | ${v.lang} | localService=${v.localService}`
+    ).join("\n") +
+    (voices.length > 10 ? "\n..." : "");
+}
+
+// Important for Safari / iOS
+speechSynthesis.onvoiceschanged = loadVoices;
+
+// initial attempt
+loadVoices();
+
+document.getElementById("speakBtn").onclick = () => {
+  const text = document.getElementById("text").value;
+
+  if (!text) return;
+
+  const utterance = new SpeechSynthesisUtterance(text);
+
+  const selected = voices[voiceSelect.value];
+  if (selected) {
+    utterance.voice = selected;
+    utterance.lang = selected.lang;
+  }
+
+  utterance.rate = 1;
+  utterance.pitch = 1;
+
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utterance);
+};
+
+document.getElementById("stopBtn").onclick = () => {
+  speechSynthesis.cancel();
+};
+</script>
+
+</body>
+</html>

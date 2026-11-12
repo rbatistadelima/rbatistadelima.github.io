@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Multi-personagem - Sistema Estável</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 2rem;
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+        }
+        h1 {
+            color: #fff;
+            text-align: center;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+        .sub {
+            color: #94a3b8;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .status-bar {
+            background: #0f172a;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #1e293b;
+            border-radius: 2rem;
+        }
+        .led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        .led.ready { background: #22c55e; box-shadow: 0 0 8px #22c55e; animation: pulse 1s infinite; }
+        .led.loading { background: #eab308; animation: pulse 1s infinite; }
+        .led.error { background: #ef4444; }
+        .led.idle { background: #64748b; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .character-grid {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .character-card {
+            background: #1e293b;
+            border-radius: 1rem;
+            padding: 1rem;
+            transition: all 0.3s ease;
+        }
+        .character-card.playing {
+            background: #2d3a5e;
+            border-left: 4px solid #22c55e;
+        }
+        .character-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+        .character-name {
+            color: #fff;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .character-voice {
+            color: #94a3b8;
+            font-size: 0.875rem;
+        }
+        .message-input {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        input {
+            flex: 1;
+            padding: 0.5rem 1rem;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+            color: #fff;
+            font-size: 0.875rem;
+        }
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        button {
+            padding: 0.5rem 1rem;
+            background: #3b82f6;
+            border: none;
+            border-radius: 0.5rem;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .play-all-btn {
+            width: 100%;
+            padding: 1rem;
+            background: #22c55e;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .play-all-btn:hover:not(:disabled) {
+            background: #16a34a;
+        }
+        .queue-status {
+            color: #94a3b8;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 1rem;
+        }
+        .error-message {
+            color: #ef4444;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Multi-TTS Studio</h1>
+        <div class="sub">Sistema de áudio sequencial sem interrupções</div>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="led" id="kaoriLed"></div>
+                <span>Kaori (Transformers.js)</span>
+            </div>
+            <div class="status-indicator">
+                <div class="led" id="fallbackLed"></div>
+                <span>Fallback (Web Speech)</span>
+            </div>
+            <div class="status-indicator">
+                <div class="led" id="queueLed"></div>
+                <span>Fila</span>
+            </div>
+        </div>
+
+        <div class="character-grid" id="characterGrid"></div>
+
+        <button class="play-all-btn" id="playAllBtn" disabled>▶ Play All (Sequencial)</button>
+        <div class="queue-status" id="queueStatus">Pronto para tocar</div>
+        <div class="error-message" id="errorMessage"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js"></script>
+    <script>
+        // ============================================
+        // ARQUITETURA: SINGLE AUDIO ENGINE + PROMISE QUEUE
+        // ============================================
+        
+        class SequentialAudioEngine {
+            constructor() {
+                this.queue = [];           // Fila de promises
+                this.isPlaying = false;    // Flag de execução
+                this.currentAudio = null;  // Referência ao áudio atual
+                this.kaoriReady = false;
+                this.fallbackReady = true;  // Web Speech sempre disponível
+                this.kaoriPipeline = null;
+                this.preferredEngine = 'kaori'; // 'kaori' ou 'fallback'
+            }
+
+            async initializeKaori() {
+                console.log('🔄 Inicializando Kaori (Transformers.js)...');
+                try {
+                    // Carrega o modelo MMS Portuguese
+                    this.kaoriPipeline = await transformers.pipeline(
+                        'text-to-speech',
+                        'facebook/mms-tts-por'
+                    );
+                    this.kaoriReady = true;
+                    this.preferredEngine = 'kaori';
+                    console.log('✅ Kaori pronto!');
+                    return true;
+                } catch (error) {
+                    console.error('❌ Falha ao carregar Kaori:', error);
+                    this.kaoriReady = false;
+                    this.preferredEngine = 'fallback';
+                    return false;
+                }
+            }
+
+            // Engine unificada de áudio - apenas UMA executa por vez
+            async speak(text, voiceConfig) {
+                return new Promise((resolve, reject) => {
+                    // Adiciona à fila
+                    this.queue.push(async () => {
+                        this.isPlaying = true;
+                        this.updateQueueLed();
+                        
+                        try {
+                            // Escolhe engine baseado na disponibilidade
+                            if (this.preferredEngine === 'kaori' && this.kaoriReady && voiceConfig.useKaori !== false) {
+                                await this.speakWithKaori(text, voiceConfig);
+                            } else {
+                                await this.speakWithFallback(text, voiceConfig);
+                            }
+                            resolve();
+                        } catch (error) {
+                            console.error('Erro na fala:', error);
+                            reject(error);
+                        } finally {
+                            this.isPlaying = false;
+                            this.currentAudio = null;
+                            this.updateQueueLed();
+                            this.processQueue(); // Processa próximo
+                        }
+                    });
+                    
+                    // Se não está tocando, inicia a fila
+                    if (!this.isPlaying) {
+                        this.processQueue();
+                    }
+                });
+            }
+
+            async speakWithKaori(text, voiceConfig) {
+                console.log(`🎤 Kaori falando: "${text.substring(0, 50)}..."`);
+                
+                // Gera áudio com Transformers.js
+                const output = await this.kaoriPipeline(text, {
+                    speaker_embeddings: voiceConfig.speakerEmbeddings || null
+                });
+                
+                // Converte para áudio playável
+                const audioData = output.audio;
+                const sampleRate = output.sampling_rate;
+                
+                // Converte para WAV em memória
+                const wavBuffer = this.audioBufferToWav(audioData, sampleRate);
+                const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+                const url = URL.createObjectURL(blob);
+                
+                // Toca usando Web Audio API (mais controlável)
+                await this.playAudioUrl(url);
+                URL.revokeObjectURL(url);
+            }
+
+            async speakWithFallback(text, voiceConfig) {
+                console.log(`🗣️ Fallback (Web Speech) falando: "${text.substring(0, 50)}..."`);
+                
+                return new Promise((resolve, reject) => {
+                    // Verifica suporte
+                    if (!window.speechSynthesis) {
+                        reject(new Error('Web Speech API não suportada'));
+                        return;
+                    }
+                    
+                    // Cancela qualquer fala anterior (dentro do mesmo engine)
+                    window.speechSynthesis.cancel();
+                    
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = voiceConfig.lang || 'pt-BR';
+                    utterance.rate = voiceConfig.rate || 1.0;
+                    utterance.pitch = voiceConfig.pitch || 1.0;
+                    utterance.volume = voiceConfig.volume || 1.0;
+                    
+                    // Tenta encontrar voz específica se fornecida
+                    if (voiceConfig.name) {
+                        const voices = window.speechSynthesis.getVoices();
+                        const targetVoice = voices.find(v => v.name === voiceConfig.name);
+                        if (targetVoice) utterance.voice = targetVoice;
+                    }
+                    
+                    utterance.onend = () => resolve();
+                    utterance.onerror = (err) => reject(err);
+                    
+                    window.speechSynthesis.speak(utterance);
+                });
+            }
+
+            playAudioUrl(url) {
+                return new Promise((resolve, reject) => {
+                    const audio = new Audio(url);
+                    this.currentAudio = audio;
+                    
+                    audio.onended = () => resolve();
+                    audio.onerror = (err) => reject(err);
+                    
+                    audio.play().catch(reject);
+                });
+            }
+
+            audioBufferToWav(buffer, sampleRate) {
+                // Converte Float32Array para WAV
+                const numChannels = 1;
+                const format = 1; // PCM
+                const byteRate = sampleRate * numChannels * 2;
+                const blockAlign = numChannels * 2;
+                
+                const dataLength = buffer.length * 2;
+                const bufferLength = 44 + dataLength;
+                const arrayBuffer = new ArrayBuffer(bufferLength);
+                const view = new DataView(arrayBuffer);
+                
+                // RIFF chunk
+                this.writeString(view, 0, 'RIFF');
+                view.setUint32(4, bufferLength - 8, true);
+                this.writeString(view, 8, 'WAVE');
+                this.writeString(view, 12, 'fmt ');
+                view.setUint32(16, 16, true);
+                view.setUint16(20, format, true);
+                view.setUint16(22, numChannels, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, byteRate, true);
+                view.setUint16(32, blockAlign, true);
+                view.setUint16(34, 16, true);
+                this.writeString(view, 36, 'data');
+                view.setUint32(40, dataLength, true);
+                
+                // Write audio data
+                let offset = 44;
+                for (let i = 0; i < buffer.length; i++) {
+                    const sample = Math.max(-1, Math.min(1, buffer[i]));
+                    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                    offset += 2;
+                }
+                
+                return arrayBuffer;
+            }
+
+            writeString(view, offset, str) {
+                for (let i = 0; i < str.length; i++) {
+                    view.setUint8(offset + i, str.charCodeAt(i));
+                }
+            }
+
+            processQueue() {
+                if (this.queue.length === 0 || this.isPlaying) return;
+                
+                const nextTask = this.queue.shift();
+                if (nextTask) nextTask();
+            }
+
+            updateQueueLed() {
+                const led = document.getElementById('queueLed');
+                if (this.isPlaying) {
+                    led.style.background = '#22c55e';
+                    led.style.boxShadow = '0 0 8px #22c55e';
+                } else if (this.queue.length > 0) {
+                    led.style.background = '#eab308';
+                    led.style.boxShadow = '0 0 8px #eab308';
+                } else {
+                    led.style.background = '#64748b';
+                    led.style.boxShadow = 'none';
+                }
+            }
+
+            // Cancela toda a fila e áudio atual
+            cancelAll() {
+                this.queue = [];
+                if (this.currentAudio) {
+                    this.currentAudio.pause();
+                    this.currentAudio = null;
+                }
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+                this.isPlaying = false;
+                this.updateQueueLed();
+            }
+        }
+
+        // ============================================
+        // APP PRINCIPAL
+        // ============================================
+        
+        class TTSApp {
+            constructor() {
+                this.engine = new SequentialAudioEngine();
+                this.characters = [
+                    { id: 'kaori', name: 'Kaori', voice: 'Transformers.js MMS', useKaori: true, lang: 'pt-BR', rate: 1.0, pitch: 1.0 },
+                    { id: 'daniel', name: 'Daniel', voice: 'Fallback - Português', useKaori: false, lang: 'pt-BR', rate: 0.95, pitch: 0.9 },
+                    { id: 'sofia', name: 'Sofia', voice: 'Fallback - Português', useKaori: false, lang: 'pt-BR', rate: 1.05, pitch: 1.1 },
+                    { id: 'roberto', name: 'Roberto', voice: 'Fallback - Português', useKaori: false, lang: 'pt-BR', rate: 0.9, pitch: 0.85 }
+                ];
+                this.init();
+            }
+
+            async init() {
+                this.renderCharacters();
+                this.attachEvents();
+                
+                // Preload Kaori antes de ativar botões
+                this.updateStatus('loading');
+                const kaoriSuccess = await this.engine.initializeKaori();
+                
+                if (kaoriSuccess) {
+                    this.updateStatus('ready');
+                    this.enablePlayButton(true);
+                } else {
+                    this.updateStatus('fallback');
+                    this.enablePlayButton(true);
+                    this.showError('Kaori falhou, usando fallback nativo');
+                }
+                
+                // Carrega vozes do sistema para fallback
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.getVoices();
+                    window.speechSynthesis.onvoiceschanged = () => {
+                        window.speechSynthesis.getVoices();
+                    };
+                }
+            }
+
+            renderCharacters() {
+                const grid = document.getElementById('characterGrid');
+                grid.innerHTML = this.characters.map(char => `
+                    <div class="character-card" data-id="${char.id}">
+                        <div class="character-header">
+                            <div>
+                                <div class="character-name">${char.name}</div>
+                                <div class="character-voice">${char.voice}</div>
+                            </div>
+                        </div>
+                        <div class="message-input">
+                            <input type="text" id="input-${char.id}" placeholder="Digite a mensagem..." value="Olá, meu nome é ${char.name}!">
+                            <button class="speak-btn" data-id="${char.id}">Falar</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            attachEvents() {
+                // Botões individuais
+                document.querySelectorAll('.speak-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const charId = btn.dataset.id;
+                        const input = document.getElementById(`input-${charId}`);
+                        const text = input.value.trim();
+                        const character = this.characters.find(c => c.id === charId);
+                        
+                        if (text && character) {
+                            this.speakCharacter(character, text);
+                        }
+                    });
+                });
+                
+                // Botão Play All
+                const playAllBtn = document.getElementById('playAllBtn');
+                playAllBtn.addEventListener('click', () => this.playAllSequential());
+            }
+
+            async speakCharacter(character, text) {
+                const card = document.querySelector(`.character-card[data-id="${character.id}"]`);
+                card?.classList.add('playing');
+                
+                try {
+                    await this.engine.speak(text, {
+                        useKaori: character.useKaori && this.engine.kaoriReady,
+                        lang: character.lang,
+                        rate: character.rate,
+                        pitch: character.pitch,
+                        name: character.voice.includes('Google') ? character.voice : null
+                    });
+                } catch (error) {
+                    this.showError(`Erro ao falar com ${character.name}: ${error.message}`);
+                } finally {
+                    card?.classList.remove('playing');
+                    this.updateQueueDisplay();
+                }
+            }
+
+            async playAllSequential() {
+                const playAllBtn = document.getElementById('playAllBtn');
+                playAllBtn.disabled = true;
+                
+                for (const character of this.characters) {
+                    const input = document.getElementById(`input-${character.id}`);
+                    const text = input.value.trim();
+                    if (text) {
+                        await this.speakCharacter(character, text);
+                    }
+                }
+                
+                playAllBtn.disabled = false;
+                this.updateQueueDisplay('Completo!');
+            }
+
+            updateStatus(status) {
+                const kaoriLed = document.getElementById('kaoriLed');
+                const fallbackLed = document.getElementById('fallbackLed');
+                
+                switch(status) {
+                    case 'loading':
+                        kaoriLed.className = 'led loading';
+                        fallbackLed.className = 'led idle';
+                        document.getElementById('queueStatus').textContent = '⏳ Carregando Kaori...';
+                        break;
+                    case 'ready':
+                        kaoriLed.className = 'led ready';
+                        fallbackLed.className = 'led idle';
+                        document.getElementById('queueStatus').textContent = '✅ Pronto (Kaori ativo)';
+                        break;
+                    case 'fallback':
+                        kaoriLed.className = 'led error';
+                        fallbackLed.className = 'led ready';
+                        document.getElementById('queueStatus').textContent = '⚠️ Usando fallback (Web Speech)';
+                        break;
+                }
+            }
+
+            enablePlayButton(enabled) {
+                document.getElementById('playAllBtn').disabled = !enabled;
+                document.querySelectorAll('.speak-btn').forEach(btn => {
+                    btn.disabled = !enabled;
+                });
+            }
+
+            updateQueueDisplay(message = null) {
+                const queueStatus = document.getElementById('queueStatus');
+                if (message) {
+                    queueStatus.textContent = message;
+                    setTimeout(() => {
+                        if (queueStatus.textContent === message) {
+                            queueStatus.textContent = 'Pronto para tocar';
+                        }
+                    }, 2000);
+                } else if (this.engine.isPlaying) {
+                    queueStatus.textContent = '🎵 Tocando...';
+                } else if (this.engine.queue.length > 0) {
+                    queueStatus.textContent = `⏳ Aguardando (${this.engine.queue.length} na fila)`;
+                } else {
+                    queueStatus.textContent = '✅ Pronto para tocar';
+                }
+            }
+
+            showError(message) {
+                const errorDiv = document.getElementById('errorMessage');
+                errorDiv.textContent = message;
+                setTimeout(() => {
+                    if (errorDiv.textContent === message) {
+                        errorDiv.textContent = '';
+                    }
+                }, 3000);
+            }
+        }
+
+        // Inicializa app quando DOM estiver pronto
+        window.addEventListener('DOMContentLoaded', () => {
+            window.app = new TTSApp();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AudioKernel TTS System</title>
+
+<style>
+body {
+  font-family: system-ui, Arial;
+  background: #0f1115;
+  color: #e8e8e8;
+  padding: 20px;
+}
+
+button {
+  padding: 10px 14px;
+  margin: 5px;
+  cursor: pointer;
+}
+
+textarea {
+  width: 100%;
+  height: 120px;
+  margin-top: 10px;
+}
+
+.card {
+  background: #1a1d25;
+  padding: 12px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.status {
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🧠 AudioKernel TTS System (Single Queue)</h2>
+
+<div class="card">
+  <div id="status" class="status">Inicializando sistema...</div>
+
+  <button id="playBtn" disabled>▶ Play Queue</button>
+  <button id="stopBtn">⛔ Stop</button>
+
+  <textarea id="input">
+kaori|Olá, eu sou Kaori e estou pronta.
+browser|Agora falando com fallback.
+kaori|Fila sequencial funcionando sem interrupção.
+  </textarea>
+</div>
+
+<script>
+/* =========================
+   ENGINE ADAPTERS
+========================= */
+
+class SpeechSynthesisAdapter {
+  speak(text, onStart, onEnd) {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "pt-BR";
+
+    u.onstart = () => onStart?.();
+    u.onend = () => onEnd?.();
+
+    speechSynthesis.cancel(); // garante 0 overlap interno
+    speechSynthesis.speak(u);
+  }
+}
+
+/**
+ * KaoriAdapter (Transformers.js placeholder)
+ * Aqui simulamos preload + execução async.
+ * Substitua pelo pipeline real MMS PT.
+ */
+class KaoriAdapter {
+  constructor() {
+    this.ready = false;
+  }
+
+  async preload() {
+    // simula WASM + modelo pesado
+    await new Promise(r => setTimeout(r, 2000));
+    this.ready = true;
+  }
+
+  speak(text, onStart, onEnd) {
+    if (!this.ready) {
+      console.warn("Kaori ainda não está pronta");
+      return;
+    }
+
+    onStart?.();
+
+    // simulação de TTS gerado
+    const duration = Math.min(4000, text.length * 50);
+
+    const audio = new Audio();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.value = 120;
+    gain.gain.value = 0.05;
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+
+    setTimeout(() => {
+      osc.stop();
+      ctx.close();
+      onEnd?.();
+    }, duration);
+  }
+}
+
+/* =========================
+   AUDIO KERNEL (CORE)
+========================= */
+
+class AudioKernel {
+  constructor() {
+    this.queue = [];
+    this.busy = false;
+
+    this.kaori = new KaoriAdapter();
+    this.browser = new SpeechSynthesisAdapter();
+
+    this.ready = false;
+  }
+
+  async init() {
+    this.setStatus("Carregando Kaori (WASM / modelo)...");
+
+    await this.kaori.preload();
+
+    this.ready = true;
+
+    this.setStatus("Sistema pronto");
+    document.getElementById("playBtn").disabled = false;
+  }
+
+  setStatus(txt) {
+    document.getElementById("status").innerText = txt;
+  }
+
+  enqueue(tasks) {
+    this.queue.push(...tasks);
+    this.process();
+  }
+
+  stop() {
+    this.queue = [];
+    speechSynthesis.cancel();
+    this.busy = false;
+    this.setStatus("Parado");
+  }
+
+  async process() {
+    if (this.busy || !this.ready) return;
+
+    this.busy = true;
+
+    while (this.queue.length > 0) {
+      const task = this.queue.shift();
+      await this.runTask(task);
+    }
+
+    this.busy = false;
+  }
+
+  runTask(task) {
+    return new Promise((resolve) => {
+      const engine = this.getEngine(task.voice);
+
+      engine.speak(
+        task.text,
+        () => this.setStatus(`Falando: ${task.voice}`),
+        () => resolve()
+      );
+    });
+  }
+
+  getEngine(voice) {
+    if (voice === "kaori") return this.kaori;
+    return this.browser;
+  }
+}
+
+/* =========================
+   BOOTSTRAP
+========================= */
+
+const kernel = new AudioKernel();
+
+document.getElementById("playBtn").onclick = () => {
+  const lines = document.getElementById("input").value.trim().split("\n");
+
+  const tasks = lines.map(l => {
+    const [voice, ...text] = l.split("|");
+    return {
+      voice: voice?.trim() || "browser",
+      text: text.join("|").trim()
+    };
+  });
+
+  kernel.enqueue(tasks);
+};
+
+document.getElementById("stopBtn").onclick = () => {
+  kernel.stop();
+};
+
+(async () => {
+  await kernel.init();
+})();
+</script>
+
+</body>
+</html>

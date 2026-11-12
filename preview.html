@@ -1,48 +1,303 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>512×512 Favicon Demo</title>
-
-<!-- 512×512 favicon -->
-<link rel="icon" type="image/png" sizes="512x512"
-href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgNTEyIDUxMiI+PHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMDAiIGZpbGw9IiMxZTkwZmYiLz48dGV4dCB4PSIyNTYiIHk9IjI5MCIgZm9udC1zaXplPSIyNDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZmlsbD0id2hpdGUiPuKaqTwvdGV4dD48L3N2Zz4=">
-
+<meta charset="utf-8">
+<title>ASCII FPS</title>
 <style>
-body{
+html,body{
     margin:0;
-    font-family:system-ui,sans-serif;
-    display:grid;
-    place-items:center;
-    height:100vh;
-    background:#202124;
+    width:100%;
+    height:100%;
+    background:#000;
     color:#fff;
+    overflow:hidden;
+    font-family:Consolas,Monaco,monospace;
 }
-.card{
-    background:#2d2f33;
-    padding:40px;
-    border-radius:16px;
-    text-align:center;
-}
-img{
-    width:256px;
-    image-rendering:pixelated;
+pre{
+    margin:0;
+    padding:4px;
+    line-height:1;
+    font-size:12px;
+    user-select:none;
 }
 </style>
 </head>
 <body>
+<pre id="screen"></pre>
 
-<div class="card">
-    <h1>512×512 Favicon Demo</h1>
-    <p>This page uses a 512×512 favicon embedded directly in the HTML.</p>
+<script>
+const screen = document.getElementById("screen");
 
-    <!-- Preview of the same icon -->
-    <img
-    src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgNTEyIDUxMiI+PHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMDAiIGZpbGw9IiMxZTkwZmYiLz48dGV4dCB4PSIyNTYiIHk9IjI5MCIgZm9udC1zaXplPSIyNDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZmlsbD0id2hpdGUiPuKaqTwvdGV4dD48L3N2Zz4="
-    alt="512 icon">
-</div>
+const MAP = [
+"################",
+"#..............#",
+"#..............#",
+"#......##......#",
+"#..............#",
+"#...#..........#",
+"#..............#",
+"#..............#",
+"#......###.....#",
+"#..............#",
+"#..............#",
+"#..........#...#",
+"#..............#",
+"#..............#",
+"#..............#",
+"################"
+];
 
+const MAP_W = MAP[0].length;
+const MAP_H = MAP.length;
+
+let px = 3.5;
+let py = 3.5;
+let pa = 0;
+
+const VIEW_W = 120;
+const VIEW_H = 40;
+
+const FOV = Math.PI / 3;
+const DEPTH = 20;
+
+const keys = {};
+
+addEventListener("keydown", e=>{
+    keys[e.key.toLowerCase()] = true;
+});
+
+addEventListener("keyup", e=>{
+    keys[e.key.toLowerCase()] = false;
+});
+
+function isWall(x,y){
+    x = Math.floor(x);
+    y = Math.floor(y);
+
+    if(x < 0 || y < 0 || x >= MAP_W || y >= MAP_H){
+        return true;
+    }
+
+    return MAP[y][x] === "#";
+}
+
+function update(dt){
+
+    const moveSpeed = 4 * dt;
+    const rotSpeed = 2.5 * dt;
+
+    if(keys["a"]) pa -= rotSpeed;
+    if(keys["d"]) pa += rotSpeed;
+
+    let nx = px;
+    let ny = py;
+
+    // forward
+    if(keys["w"]){
+        nx += Math.cos(pa) * moveSpeed;
+        ny += Math.sin(pa) * moveSpeed;
+    }
+
+    // backward
+    if(keys["s"]){
+        nx -= Math.cos(pa) * moveSpeed;
+        ny -= Math.sin(pa) * moveSpeed;
+    }
+
+    // strafe left
+    if(keys["q"]){
+        nx += Math.cos(pa - Math.PI/2) * moveSpeed;
+        ny += Math.sin(pa - Math.PI/2) * moveSpeed;
+    }
+
+    // strafe right
+    if(keys["e"]){
+        nx += Math.cos(pa + Math.PI/2) * moveSpeed;
+        ny += Math.sin(pa + Math.PI/2) * moveSpeed;
+    }
+
+    if(!isWall(nx, py)) px = nx;
+    if(!isWall(px, ny)) py = ny;
+}
+
+function castColumn(column){
+
+    const rayAngle =
+        pa - FOV/2 +
+        (column / VIEW_W) * FOV;
+
+    const eyeX = Math.cos(rayAngle);
+    const eyeY = Math.sin(rayAngle);
+
+    let dist = 0;
+    let hit = false;
+
+    while(!hit && dist < DEPTH){
+
+        dist += 0.03;
+
+        const testX = Math.floor(px + eyeX * dist);
+        const testY = Math.floor(py + eyeY * dist);
+
+        if(
+            testX < 0 ||
+            testY < 0 ||
+            testX >= MAP_W ||
+            testY >= MAP_H
+        ){
+            hit = true;
+            dist = DEPTH;
+        }
+        else if(MAP[testY][testX] === "#"){
+            hit = true;
+        }
+    }
+
+    // fisheye correction
+    dist *= Math.cos(rayAngle - pa);
+
+    if(dist < 0.1) dist = 0.1;
+
+    let ceiling =
+        Math.floor(VIEW_H/2 - VIEW_H/dist);
+
+    let floor =
+        VIEW_H - ceiling;
+
+    let shade;
+
+    if(dist < DEPTH*0.15) shade = "█";
+    else if(dist < DEPTH*0.30) shade = "▓";
+    else if(dist < DEPTH*0.50) shade = "▒";
+    else if(dist < DEPTH*0.75) shade = "░";
+    else shade = ".";
+
+    return {
+        ceiling,
+        floor,
+        shade
+    };
+}
+
+function render(){
+
+    const fpsRows = [];
+
+    for(let y=0;y<VIEW_H;y++){
+        fpsRows[y] = "";
+    }
+
+    for(let x=0;x<VIEW_W;x++){
+
+        const ray = castColumn(x);
+
+        for(let y=0;y<VIEW_H;y++){
+
+            if(y < ray.ceiling){
+
+                fpsRows[y] += " ";
+
+            }else if(y <= ray.floor){
+
+                fpsRows[y] += ray.shade;
+
+            }else{
+
+                const b =
+                    1 -
+                    ((y - VIEW_H/2) / (VIEW_H/2));
+
+                if(b < 0.25)
+                    fpsRows[y] += "#";
+                else if(b < 0.5)
+                    fpsRows[y] += "x";
+                else if(b < 0.75)
+                    fpsRows[y] += ".";
+                else
+                    fpsRows[y] += " ";
+            }
+        }
+    }
+
+    const output = [];
+
+    for(let y=0;y<Math.max(VIEW_H, MAP_H);y++){
+
+        let line = "";
+
+        // minimap
+        if(y < MAP_H){
+
+            for(let x=0;x<MAP_W;x++){
+
+                if(
+                    Math.floor(px) === x &&
+                    Math.floor(py) === y
+                ){
+
+                    const dir =
+                        ((pa%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+
+                    let p = "@";
+
+                    if(dir < Math.PI/4 || dir > Math.PI*7/4)
+                        p = ">";
+                    else if(dir < Math.PI*3/4)
+                        p = "v";
+                    else if(dir < Math.PI*5/4)
+                        p = "<";
+                    else
+                        p = "^";
+
+                    line += p;
+                }
+                else{
+                    line += MAP[y][x];
+                }
+            }
+        }
+        else{
+            line += " ".repeat(MAP_W);
+        }
+
+        line += "    ";
+
+        if(y < VIEW_H){
+            line += fpsRows[y];
+        }
+
+        output.push(line);
+    }
+
+    output.push("");
+    output.push("W/S = Forward Back");
+    output.push("A/D = Turn");
+    output.push("Q/E = Strafe");
+    output.push("");
+    output.push(
+        "X:" + px.toFixed(2) +
+        " Y:" + py.toFixed(2) +
+        " A:" + pa.toFixed(2)
+    );
+
+    screen.textContent = output.join("\n");
+}
+
+let last = performance.now();
+
+function loop(now){
+
+    const dt = (now - last) / 1000;
+    last = now;
+
+    update(dt);
+    render();
+
+    requestAnimationFrame(loop);
+}
+
+render();
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>

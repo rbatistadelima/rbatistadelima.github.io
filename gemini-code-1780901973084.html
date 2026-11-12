@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Multi-Personagem Estável</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f4f4f9; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; }
+        button:disabled { background: #cccccc; cursor: not-allowed; }
+        #status { margin-top: 10px; font-weight: bold; color: #d97706; }
+        .log { margin-top: 20px; background: #222; color: #00ff00; padding: 10px; font-family: monospace; height: 180px; overflow-y: auto; border-radius: 4px; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Sistema TTS Multi-Personagem</h2>
+    <p>Status do Sistema: <span id="status">Criando Worker de Background...</span></p>
+    
+    <button id="btn-play" disabled>Iniciar Diálogo Sequencial</button>
+
+    <h3>Logs do Sistema:</h3>
+    <div id="log" class="log"></div>
+</div>
+
+<script type="module">
+    // --- CONFIGURAÇÃO DO WEB WORKER EM SINGLE FILE ---
+    // Este bloco de texto será transformado em um arquivo separado rodando em outra thread
+    const workerCode = `
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1';
+        
+        // Configurações estritas para rodar em browsers sem estourar memória
+        env.allowLocalModels = false;
+        
+        let ttsPipeline = null;
+
+        self.onmessage = async (e) => {
+            const { type, text } = e.data;
+
+            if (type === 'INIT') {
+                try {
+                    self.postMessage({ type: 'LOG', msg: 'Worker ativo. Baixando modelo MMS (pode levar um tempo)...' });
+                    
+                    // Inicializa o modelo da Kaori de forma leve
+                    ttsPipeline = await pipeline('text-to-speech', 'Xenova/mms-1b-por', {
+                        quantized: true,
+                        progress_callback: (progress) => {
+                            if(progress.status === 'progress') {
+                                self.postMessage({ type: 'LOG', msg: \`Baixando \${progress.file}: \${Math.round(progress.loaded / progress.total * 100)}%\` });
+                            }
+                        }
+                    });
+
+                    self.postMessage({ type: 'READY' });
+                } catch (err) {
+                    self.postMessage({ type: 'ERROR', error: err.message });
+                }
+            }
+
+            if (type === 'GENERATE') {
+                try {
+                    self.postMessage({ type: 'LOG', msg: 'Kaori processando áudio na Thread Secundária...' });
+                    const output = await ttsPipeline(text);
+                    
+                    // Transfere os dados brutos (Float32Array) de volta para a Main Thread
+                    self.postMessage({ 
+                        type: 'AUDIO_READY', 
+                        audioData: output.audio, 
+                        sampleRate: output.sampling_rate 
+                    });
+                } catch (err) {
+                    self.postMessage({ type: 'ERROR', error: err.message });
+                }
+            }
+        };
+    `;
+
+    // --- CÓDIGO DA MAIN THREAD (UI e ÁUDIO) ---
+    const state = {
+        audioCtx: null,
+        worker: null,
+        isQueueRunning: false,
+        dialogueQueue: [],
+        currentResolve: null, // Controla o await da geração do áudio do worker
+        dom: {
+            btnPlay: document.getElementById('btn-play'),
+            status: document.getElementById('status'),
+            log: document.getElementById('log')
+        }
+    };
+
+    const roteiro = [
+        { personagem: 'Kaori', texto: 'Olá! Agora eu estou rodando dentro de um Web Worker isolado.' },
+        { personagem: 'Daniel', texto: 'Excelente. Desse jeito a interface do usuário nunca trava, mesmo compilando WebAssembly.' },
+        { personagem: 'Kaori', texto: 'Exatamente. Fila perfeitamente sequencial e estável.' }
+    ];
+
+    function logger(msg) {
+        state.dom.log.innerHTML += `[${new Date().toLocaleTimeString()}] ${msg}<br>`;
+        state.dom.log.scrollTop = state.dom.log.scrollHeight;
+    }
+
+    function initSystem() {
+        if (window.location.protocol === 'file:') {
+            state.dom.status.innerText = "ERRO: Não abra o HTML diretamente. Use um Servidor Local (Live Server)!";
+            state.dom.status.style.color = "red";
+            logger("Erro de Origem: O Transformers.js requer execução via http:// ou localhost.");
+            return;
+        }
+
+        // Cria o Worker a partir do Blob string
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        state.worker = new Worker(URL.createObjectURL(blob), { type: 'module' });
+
+        // Handler de mensagens vindas do Worker
+        state.worker.onmessage = (e) => {
+            const data = e.data;
+
+            switch (data.type) {
+                case 'LOG':
+                    logger(data.msg);
+                    break;
+                case 'READY':
+                    logger("Kaori totalmente carregada e pronta!");
+                    state.dom.status.innerText = "Sistema Pronto.";
+                    state.dom.status.style.color = "green";
+                    state.dom.btnPlay.disabled = false;
+                    // Inicializa contexto de áudio
+                    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    break;
+                case 'AUDIO_READY':
+                    // Recebeu o Float32Array do worker, reconstrói o AudioBuffer na Main Thread
+                    const audioBuffer = state.audioCtx.createBuffer(1, data.audioData.length, data.sampleRate);
+                    audioBuffer.getChannelData(0).set(data.audioData);
+                    if (state.currentResolve) state.currentResolve(audioBuffer);
+                    break;

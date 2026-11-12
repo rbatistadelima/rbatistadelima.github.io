@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🌍 TTS Multilíngue lendo Português</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<style>
+html,body{margin:0;height:100%;background:#0f0f12;color:#fff;font-family:Arial}
+body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+textarea{width:90%;max-width:980px;height:150px;background:#121214;color:#fff;border:0;border-radius:8px;padding:10px}
+.karaoke{width:90%;max-width:980px;background:#141417;padding:14px;border-radius:8px;min-height:120px}
+button{background:#222;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+.controls{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;background:rgba(0,0,0,.6);padding:8px;border-radius:10px}
+.name{font-weight:bold;margin-right:6px}
+</style>
+</head>
+
+<body>
+
+<textarea id="texto">
+Português: Bom dia, tudo bem?
+Espanhol: Bom dia, tudo bem?
+Francês: Bom dia, tudo bem?
+Italiano: Bom dia, tudo bem?
+Inglês: Bom dia, tudo bem?
+</textarea>
+
+<div class="karaoke" id="karaoke">...</div>
+
+<div class="controls">
+<button onclick="start()">▶</button>
+<button onclick="pause()">⏸</button>
+<button onclick="resume()">▶⏯</button>
+<button onclick="stop()">🛑</button>
+</div>
+
+<script>
+let synth = window.speechSynthesis;
+let voices = [];
+let lines = [];
+
+speechSynthesis.onvoiceschanged = () => {
+  voices = synth.getVoices();
+};
+voices = synth.getVoices();
+
+/* 🎯 pega qualquer voz do idioma */
+function getVoice(lang){
+  lang = lang.toLowerCase();
+  return voices.find(v => v.lang?.toLowerCase().startsWith(lang)) || voices[0];
+}
+
+/* 🌍 PERSONAGENS = IDIOMAS */
+function speaker(name){
+  switch(name.toLowerCase()){
+
+    case "português":
+      return {lang:"pt-BR"};
+
+    case "espanhol":
+      return {lang:"es-ES"};
+
+    case "francês":
+      return {lang:"fr-FR"};
+
+    case "italiano":
+      return {lang:"it-IT"};
+
+    case "inglês":
+      return {lang:"en-US"};
+
+    default:
+      return {lang:"pt-BR"};
+  }
+}
+
+/* 🔊 SPEAK */
+async function say(name,text){
+  const s = speaker(name);
+
+  const u = new SpeechSynthesisUtterance(text);
+
+  u.lang = s.lang;
+  u.voice = getVoice(s.lang);
+
+  u.rate = 1;
+  u.pitch = 1;
+
+  synth.speak(u);
+
+  await new Promise(r => u.onend = r);
+}
+
+/* 📜 FLOW */
+async function line(i){
+  const l = lines[i];
+  const m = l.match(/^([^:]+):\s*(.+)$/);
+  const box = document.getElementById("karaoke");
+
+  if(!m){
+    box.textContent = l;
+    return;
+  }
+
+  box.innerHTML = `<span class="name">${m[1]}:</span> ${m[2]}`;
+  await say(m[1], m[2]);
+}
+
+async function start(){
+  lines = document.getElementById("texto")
+    .value.split("\n")
+    .filter(l => l.trim());
+
+  for(let i=0;i<lines.length;i++){
+    await line(i);
+  }
+}
+
+function pause(){ synth.pause(); }
+function resume(){ synth.resume(); }
+function stop(){ synth.cancel(); }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ TTS Lab — Stable Scheduler Final</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+
+<style>
+body{
+  margin:0;
+  background:#0f0f12;
+  color:#fff;
+  font-family:Arial;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:14px;
+  gap:12px;
+}
+
+textarea{
+  width:90%;
+  max-width:900px;
+  height:140px;
+  background:#121214;
+  color:#fff;
+  border:0;
+  padding:10px;
+}
+
+.karaoke{
+  width:90%;
+  max-width:900px;
+  background:#141417;
+  padding:12px;
+  border-radius:8px;
+  min-height:120px;
+}
+
+button{
+  background:#222;
+  color:#fff;
+  border:0;
+  padding:10px 14px;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+button:disabled{
+  opacity:0.4;
+  cursor:not-allowed;
+}
+
+.status{
+  font-size:0.9rem;
+  color:#aaa;
+}
+</style>
+
+<script type="module">
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1";
+
+/* =====================================================
+   🔥 SINGLE AUDIO SCHEDULER (ABSOLUTE SOURCE OF TRUTH)
+===================================================== */
+
+class Scheduler {
+  constructor(){
+    this.queue = Promise.resolve();
+  }
+
+  add(task){
+    this.queue = this.queue.then(() => task());
+    return this.queue;
+  }
+}
+
+const scheduler = new Scheduler();
+
+/* =====================================================
+   🧠 KAORI BOOT (PRELOAD ON START)
+===================================================== */
+
+let kaoriModel = null;
+let kaoriReady = false;
+
+async function bootKaori(){
+
+  document.getElementById("status").innerText =
+    "Carregando Kaori IA (WASM)...";
+
+  kaoriModel = await pipeline(
+    "text-to-speech",
+    "Xenova/mms-tts-por"
+  );
+
+  // warmup (reduz first-lag)
+  await kaoriModel("warmup");
+
+  kaoriReady = true;
+
+  document.getElementById("status").innerText =
+    "Kaori pronta ✔ Sistema liberado";
+
+  document.getElementById("playBtn").disabled = false;
+}
+
+window.addEventListener("DOMContentLoaded", bootKaori);
+
+/* =====================================================
+   🎧 KAORI SPEECH
+===================================================== */
+
+async function kaoriSpeak(text){
+
+  const out = await kaoriModel(text);
+
+  const ctx = new AudioContext();
+
+  const buf = ctx.createBuffer(1, out.sampling_rate, out.sampling_rate);
+  buf.copyToChannel(out.audio, 0);
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+
+  src.connect(ctx.destination);
+  src.start();
+
+  return new Promise(r => src.onended = r);
+}
+
+/* =====================================================
+   🎤 VOICE SELECT
+===================================================== */
+
+let voices = speechSynthesis.getVoices();
+
+speechSynthesis.onvoiceschanged = () => {
+  voices = speechSynthesis.getVoices();
+};
+
+function pickFemale(){
+  return voices.find(v=>/female|luciana|google/i.test(v.name))
+    || voices.find(v=>v.lang?.includes("pt"))
+    || voices[0];
+}
+
+function pickMale(){
+  return voices.find(v=>/male|daniel/i.test(v.name))
+    || voices.find(v=>v.lang?.includes("pt"))
+    || voices[0];
+}
+
+/* =====================================================
+   🔒 WRAPPED AUDIO (ALL THROUGH SCHEDULER)
+===================================================== */
+
+function speakSpeech(text, voice){
+  return scheduler.add(() => new Promise(r => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.voice = voice;
+    u.lang = "pt-BR";
+
+    u.onend = r;
+    u.onerror = r;
+
+    speechSynthesis.speak(u);
+  }));
+}
+
+function speakGoogle(text){
+  return scheduler.add(() => new Promise(r => {
+    const a = new Audio(
+      "https://translate.google.com/translate_tts?ie=UTF-8&q=" +
+      encodeURIComponent(text) +
+      "&tl=pt-BR&client=tw-ob"
+    );
+    a.onended = r;
+    a.play().catch(r);
+  }));
+}
+
+function speakRV(text){
+  return scheduler.add(() => new Promise(r => {
+    responsiveVoice.speak(text, "Brazilian Portuguese Female", {
+      onend: r
+    });
+  }));
+}
+
+function speakKaori(text){
+  return scheduler.add(async () => {
+    while(!kaoriReady){
+      await new Promise(r => setTimeout(r, 50));
+    }
+    await kaoriSpeak(text);
+  });
+}
+
+/* =====================================================
+   🎛️ ROUTER (NO DIRECT AUDIO EVER)
+===================================================== */
+
+function speak(name,text){
+
+  const n = name.toLowerCase();
+
+  if(n.includes("kaori")) return speakKaori(text);
+  if(n==="ana") return speakRV(text);
+  if(n==="regina") return speakGoogle(text);
+  if(n==="daniel") return speakSpeech(text, pickMale());
+
+  return speakSpeech(text, pickFemale());
+}
+
+/* =====================================================
+   ▶ PLAY ENGINE
+===================================================== */
+
+async function start(){
+
+  const lines = document.getElementById("texto")
+    .value.split("\n")
+    .filter(Boolean);
+
+  for(const line of lines){
+
+    const m = line.match(/^([^:]+):\s*(.*)$/);
+    if(!m) continue;
+
+    const name = m[1];
+    const text = m[2];
+
+    document.getElementById("karaoke").innerHTML =
+      `<b>${name}:</b> ${text}`;
+
+    await speak(name,text);
+  }
+}
+
+window.start = start;
+
+</script>
+</head>
+
+<body>
+
+<div class="status" id="status">Inicializando sistema...</div>
+
+<textarea id="texto">
+Daniel: Agora nada mais interrompe ninguém.
+Maria: Voz feminina estável.
+Regina: Google TTS sincronizado.
+Ana: ResponsiveVoice ativo.
+Kaori: Eu sou IA neural carregando no boot.
+Daniel: Agora o scheduler controla tudo.
+Kaori: Eu também respeito a fila.
+</textarea>
+
+<div class="karaoke" id="karaoke"></div>
+
+<button id="playBtn" disabled onclick="start()">▶ Play</button>
+
+</body>
+</html>

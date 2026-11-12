@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ TTS Lab — HARD FIX (no interruption)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<style>
+body{margin:0;background:#0f0f12;color:#fff;font-family:Arial;display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+textarea{width:90%;max-width:900px;height:140px;background:#121214;color:#fff;border:0;padding:10px}
+.karaoke{width:90%;max-width:900px;background:#141417;padding:12px;border-radius:8px;min-height:120px}
+button{background:#222;color:#fff;border:0;padding:10px 14px;border-radius:8px}
+.status{color:#aaa;font-size:0.9rem}
+</style>
+
+<script type="module">
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1";
+
+/* =========================
+   🔥 SINGLE GLOBAL AUDIO ENGINE
+========================= */
+
+let kaori = null;
+let ready = false;
+
+/* IMPORTANT: ONE CONTEXT ONLY */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+/* SERIAL QUEUE */
+let chain = Promise.resolve();
+
+/* =========================
+   BOOT KAORI ON LOAD
+========================= */
+
+async function boot(){
+  document.getElementById("status").innerText = "Carregando Kaori...";
+
+  kaori = await pipeline("text-to-speech","Xenova/mms-tts-por");
+
+  await kaori("warmup");
+
+  ready = true;
+
+  document.getElementById("status").innerText =
+    "Kaori pronta ✔ (single audio context mode)";
+
+  document.getElementById("playBtn").disabled = false;
+}
+
+window.addEventListener("DOMContentLoaded", boot);
+
+/* =========================
+   🔊 NO INTERRUPTION SPEECH
+========================= */
+
+function speak(text){
+
+  chain = chain.then(async () => {
+
+    while(!ready){
+      await new Promise(r=>setTimeout(r,50));
+    }
+
+    const out = await kaori(text);
+
+    const buffer = audioCtx.createBuffer(
+      1,
+      out.sampling_rate,
+      out.sampling_rate
+    );
+
+    buffer.copyToChannel(out.audio,0);
+
+    const src = audioCtx.createBufferSource();
+
+    /* CRITICAL: MUST NOT CREATE NEW CONTEXT */
+    src.buffer = buffer;
+    src.connect(audioCtx.destination);
+
+    return new Promise(r=>{
+      src.onended = r;
+      src.start();
+    });
+
+  });
+
+  return chain;
+}
+
+/* =========================
+   ▶ PLAY ENGINE
+========================= */
+
+async function start(){
+
+  const lines = document.getElementById("texto")
+    .value.split("\n")
+    .filter(Boolean);
+
+  for(const l of lines){
+
+    const m = l.match(/^([^:]+):\s*(.*)$/);
+    if(!m) continue;
+
+    const name = m[1];
+    const text = m[2];
+
+    document.getElementById("karaoke").innerHTML =
+      `<b>${name}:</b> ${text}`;
+
+    await speak(text);
+  }
+}
+
+window.start = start;
+
+</script>
+</head>
+
+<body>
+
+<div class="status" id="status">Inicializando...</div>
+
+<textarea id="texto">
+Daniel: Agora nada mais pode cortar áudio.
+Maria: Nem múltiplos engines.
+Regina: Nem speech synthesis escondido.
+Ana: Nem Audio() paralelo.
+Kaori: Agora existe um único pipeline.
+Daniel: E finalmente não há interrupção.
+</textarea>
+
+<div class="karaoke" id="karaoke"></div>
+
+<button id="playBtn" disabled onclick="start()">▶ Play</button>
+
+</body>
+</html>

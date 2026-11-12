@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronograma</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html5sortable@0.13.0/dist/html5sortable.min.js"></script>
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            overflow: hidden; 
+        }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #111827; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #059669; border-radius: 4px; }
+        .sortable-placeholder {
+            background: rgba(16, 185, 129, 0.05);
+            border: 1px dashed #10b981;
+            border-radius: 8px;
+            height: 38px;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 h-screen w-screen flex flex-col justify-between p-4 gap-3 select-none">
+
+    <header class="bg-gray-900 rounded-xl px-5 py-3 flex flex-col xl:flex-row justify-between items-center gap-4 border border-gray-800 shrink-0 shadow-lg">
+        <div class="w-full xl:w-auto">
+            <h1 class="text-base font-black text-white tracking-wide uppercase flex items-center gap-2">
+                <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                Cronograma
+            </h1>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-4 w-full xl:w-auto justify-end">
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Padrao:</span>
+                <select id="patternSelect" class="bg-gray-950 border border-gray-700 text-emerald-400 font-bold text-xs rounded-xl focus:ring-2 focus:ring-emerald-500 p-2 cursor-pointer min-w-[240px] shadow-inner">
+                    <optgroup label="Padroes do Sistema">
+                        <option value="instagram">Algoritmo Instagram (Picos)</option>
+                        <option value="abertura">Abertura Rapida (Foco Inicial)</option>
+                        <option value="continuo">Distribuicao Linear (1h em 1h)</option>
+                    </optgroup>
+                    <optgroup label="Meus Padroes Salvos" id="localPatternsGroup">
+                        </optgroup>
+                </select>
+                <button id="deletePatternBtn" class="hidden bg-red-950 border border-red-800 text-red-400 hover:bg-red-900 px-2 py-1.5 text-xs font-bold rounded-lg transition-colors">
+                    Excluir
+                </button>
+            </div>
+
+            <div class="h-6 w-[1px] bg-gray-800 hidden sm:block"></div>
+
+            <div class="flex items-center gap-2">
+                <input type="text" id="newPatternName" placeholder="Nome do padrao..." class="bg-gray-950 border border-gray-700 rounded-xl px-3 py-1.5 text-xs font-semibold text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-44">
+                <button id="savePatternBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-2 rounded-xl transition-colors shadow-md">
+                    Salvar Local
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow grid grid-cols-12 gap-3 min-h-0">
+        
+        <section class="col-span-8 bg-gray-900 rounded-xl border border-gray-800 p-4 flex flex-col relative shadow-xl overflow-hidden">
+            <div class="flex-grow relative w-full h-full min-h-0">
+                <canvas id="syncLineChart"></canvas>
+            </div>
+        </section>
+
+        <section class="col-span-4 bg-gray-900 rounded-xl border border-gray-800 p-3 flex flex-col justify-between shadow-xl overflow-hidden">
+            
+            <div class="flex justify-between items-center pb-2 border-b border-gray-800 shrink-0 gap-2">
+                <button id="toggleTableModeBtn" class="bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-900 font-bold text-[10px] px-2.5 py-1 rounded-lg transition-colors cursor-pointer uppercase tracking-wider">
+                    Modo: Horários
+                </button>
+                <button id="exportTextBtn" class="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 font-bold text-[10px] px-2.5 py-1 rounded-lg transition-colors cursor-pointer">
+                    Copiar para Área de Trabalho
+                </button>
+            </div>
+            
+            <div id="tableContainer" class="flex-grow overflow-y-auto custom-scroll mt-1.5 pr-0.5 space-y-1 max-h-[calc(100vh-220px)]">
+                </div>
+
+            <div class="bg-gray-950 border border-gray-800 rounded-xl p-2 mt-2 flex items-center gap-2 shrink-0">
+                <input type="text" id="newMediaTitle" placeholder="Novo item..." class="bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1 text-xs font-medium text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 flex-grow">
+                <button id="addMediaBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3 py-1 rounded-lg transition-colors shadow-md shrink-0">
+                    Adicionar
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="h-1 shrink-0"></footer>
+
+    <script>
+        const ctx = document.getElementById('syncLineChart').getContext('2d');
+        let chartInstance;
+        let currentTableMode = 'horarios'; // 'horarios' ou 'intervalos'
+
+        const timeSlots = [
+            "10:00", "10:15", "10:30", "10:45", "11:00", "11:15", "11:30", "11:45",
+            "12:00", "12:15", "12:30", "12:45", "13:00", "13:15", "13:30", "13:45",
+            "14:00", "14:15", "14:30", "14:45", "15:00", "15:15", "15:30", "15:45",
+            "16:00", "16:15", "16:30", "16:45", "17:00", "17:15", "17:30", "17:45",
+            "18:00", "18:15", "18:30", "18:45", "19:00", "19:15", "19:30", "19:45", "20:00"
+        ];
+
+        function timeToMinutes(slotIdx) {
+            return slotIdx * 15;
+        }
+
+        let masterVideosData = {
+            "vid_0": { title: "Abertura do Dia" },
+            "vid_1": { title: "Mídia de Contexto" },
+            "vid_2": { title: "Chamada Principal" },
+            "vid_3": { title: "Apresentação de Produto" },
+            "vid_4": { title: "Detalhes Técnicos" },
+            "vid_5": { title: "Ação Institucional" },
+            "vid_6": { title: "Acesso à Plataforma" },
+            "vid_7": { title: "Interação com Público" },
+            "vid_8": { title: "Bastidores da Operação" },
+            "vid_9": { title: "Prova Social" },
+            "vid_10": { title: "Encerramento" }
+        };
+
+        const basePatterns = {
+            instagram: [["vid_0",0], ["vid_1",4], ["vid_2",8], ["vid_3",12], ["vid_4",16], ["vid_5",20], ["vid_6",24], ["vid_7",28], ["vid_8",32], ["vid_9",36], ["vid_10",40]],
+            abertura:  [["vid_0",0], ["vid_1",1], ["vid_2",2], ["vid_3",12], ["vid_4",17], ["vid_5",22], ["vid_6",27], ["vid_7",32], ["vid_8",35], ["vid_9",38], ["vid_10",40]],
+            continuo:  [["vid_0",0], ["vid_1",4], ["vid_2",8], ["vid_3",12], ["vid_4",16], ["vid_5",20], ["vid_6",24], ["vid_7",28], ["vid_8",32], ["vid_9",36], ["vid_10",40]]
+        };
+
+        let currentSequenceState = [];
+
+        function getLocalPatterns() {
+            const saved = localStorage.getItem('clean_drag_patterns');
+            return saved ? JSON.parse(saved) : {};
+        }
+
+        function saveLocalPatterns(patterns) {
+            localStorage.setItem('clean_drag_patterns', JSON.stringify(patterns));
+        }
+
+        function updateSelectDropdownOptions() {
+            const localGroup = document.getElementById('localPatternsGroup');
+            localGroup.innerHTML = '';
+            const customPatterns = getLocalPatterns();
+            Object.keys(customPatterns).forEach(key => {
+                const option = document.createElement('option');
+                option.value = `custom_${key}`;
+                option.textContent = `${key}`;
+                localGroup.appendChild(option);
+            });
+        }
+
+        function syncStateToUrl() {
+            const params = new URLSearchParams();
+            const currentPattern = document.getElementById('patternSelect').value;
+            params.set('pattern', currentPattern);
+            params.set('m_data', btoa(encodeURIComponent(JSON.stringify(masterVideosData))));
+
+            currentSequenceState.forEach((item, i) => {
+                params.set(`id${i}`, item[0]);
+                params.set(`t${i}`, item[1]);
+            });
+
+            window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+            const deleteBtn = document.getElementById('deletePatternBtn');
+            currentPattern.startsWith('custom_') ? deleteBtn.classList.remove('hidden') : deleteBtn.classList.add('hidden');
+        }
+
+        function parseUrlOrStorageState() {
+            const params = new URLSearchParams(window.location.search);
+            const pattern = params.get('pattern') || 'instagram';
+            
+            const mDataParam = params.get('m_data');
+            if (mDataParam) {
+                try { masterVideosData = JSON.parse(decodeURIComponent(atob(mDataParam))); } catch(e){}
+            }
+
+            let constructedSequence = [];
+            let i = 0;
+            while(params.get(`id${i}`) !== null) {
+                const idVal = params.get(`id${i}`);
+                const timeVal = params.get(`t${i}`);
+                if (masterVideosData[idVal]) {
+                    constructedSequence.push([idVal, parseInt(timeVal, 10)]);
+                }
+                i++;
+            }
+
+            if (constructedSequence.length > 0) {
+                return { pattern, data: constructedSequence };
+            }
+
+            if (pattern.startsWith('custom_')) {
+                const customKey = pattern.replace('custom_', '');
+                const customPatterns = getLocalPatterns();
+                if (customPatterns[customKey]) return { pattern, data: JSON.parse(JSON.stringify(customPatterns[customKey])) };
+            }
+
+            return { pattern: 'instagram', data: JSON.parse(JSON.stringify(basePatterns['instagram'])) };
+        }
+
+        function formatIntervalText(minutes) {
+            if (minutes <= 0 || isNaN(minutes)) return "--";
+            if (minutes < 60) return `+${minutes} min`;
+            const hrs = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return mins > 0 ? `+${hrs}h ${mins}m` : `+${hrs}h`;
+        }
+
+        function renderTable() {
+            const container = document.getElementById('tableContainer');
+            container.innerHTML = '';
+
+            currentSequenceState.forEach((item, index) => {
+                const mediaId = item[0];
+                const currentTimeSlotIdx = item[1];
+                const staticData = masterVideosData[mediaId];
+
+                let intervalMinutes = 0;
+                if (index < currentSequenceState.length - 1) {
+                    const nextTimeSlotIdx = currentSequenceState[index + 1][1];
+                    intervalMinutes = timeToMinutes(nextTimeSlotIdx) - timeToMinutes(currentTimeSlotIdx);
+                }
+
+                const row = document.createElement('div');
+                // Compactado vertical de padding para mitigar possibilidade de scroll involuntário
+                row.className = "sortable-row flex flex-col py-1 px-2.5 bg-gray-900/40 border border-gray-800/60 rounded-lg gap-1 transition-colors hover:border-gray-700";
+                row.setAttribute('data-id', mediaId);
+
+                let selectOptions = '';
+                timeSlots.forEach((time, slotIdx) => {
+                    selectOptions += `<option value="${slotIdx}" ${slotIdx === currentTimeSlotIdx ? 'selected' : ''}>${time}</option>`;
+                });
+
+                // Bloco condicional baseado na alternância de modos de visualização
+                let interactiveZoneHtml = '';
+                if(currentTableMode === 'horarios') {
+                    interactiveZoneHtml = `
+                        <select data-index="${index}" class="time-table-select bg-gray-950 border border-gray-800 text-emerald-400 font-bold text-[11px] rounded px-1.5 py-0.5 cursor-pointer focus:outline-none">
+                            ${selectOptions}
+                        </select>
+                    `;
+                } else {
+                    interactiveZoneHtml = `
+                        <span class="text-[10px] font-mono font-bold ${intervalMinutes < 0 ? 'text-red-400' : 'text-gray-400'} bg-gray-950 px-2 py-0.5 rounded border border-gray-800/60">
+                            ${index === currentSequenceState.length - 1 ? 'Final' : formatIntervalText(intervalMinutes)}
+                        </span>
+                    `;
+                }
+
+                row.innerHTML = `
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 flex-grow max-w-[75%]">
+                            <div class="cursor-grab text-gray-600 hover:text-emerald-400 font-mono text-[10px] select-none">☰</div>
+                            <input type="text" data-id="${mediaId}" class="media-title-input bg-transparent border-b border-transparent hover:border-gray-800 focus:border-emerald-600 focus:outline-none text-xs font-semibold text-gray-200 py-0 w-full rounded" value="${staticData.title}">
+                        </div>
+                        <button data-id="${mediaId}" class="delete-item-btn text-gray-600 hover:text-red-400 transition-colors text-[9px]" title="Remover">
+                            Remover
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between border-t border-gray-800/40 pt-1 mt-0.5">
+                        <span class="text-[10px] text-gray-500 font-medium">${timeSlots[currentTimeSlotIdx]}</span>
+                        ${interactiveZoneHtml}
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+
+            // Handlers e Triggers internos da tabela
+            document.querySelectorAll('.media-title-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    masterVideosData[id].title = e.target.value;
+                    renderChart();
+                    syncStateToUrl();
+                });
+            });
+
+            document.querySelectorAll('.delete-item-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idToDelete = e.target.getAttribute('data-id');
+                    currentSequenceState = currentSequenceState.filter(item => item[0] !== idToDelete);
+                    renderChart();
+                    renderTable();
+                    syncStateToUrl();
+                });
+            });
+
+            document.querySelectorAll('.time-table-select').forEach(el => {
+                el.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.getAttribute('data-index'), 10);
+                    const newVal = parseInt(e.target.value, 10);
+                    currentSequenceState[idx][1] = newVal;
+                    renderChart();
+                    renderTable();
+                    syncStateToUrl();
+                });
+            });
+
+            if(currentSequenceState.length > 0) {
+                sortable('#tableContainer', {
+                    items: '.sortable-row',
+                    placeholderClass: 'sortable-placeholder'
+                })[0].addEventListener('sortupdate', function() {
+                    const rows = container.querySelectorAll('.sortable-row');
+                    const newSequence = [];
+                    rows.forEach((row) => {
+                        const id = row.getAttribute('data-id');
+                        const currentItem = currentSequenceState.find(d => d[0] === id);
+                        newSequence.push([id, currentItem[1]]);
+                    });
+                    currentSequenceState = newSequence;
+                    renderChart();
+                    renderTable();
+                    syncStateToUrl();
+                });
+            }
+        }
+
+        function renderChart() {
+            if (chartInstance) chartInstance.destroy();
+
+            // 1. Linha Principal: Progressão Ascendente do Tempo Absoluto
+            const progressionTimelineData = currentSequenceState.map(item => item[1]);
+
+            // 2. Segunda Linha: Mapeamento de Intervalos Dinâmicos Invertidos
+            const maxIntervalLimit = timeSlots.length - 1;
+            let lastCalculatedInterval = maxIntervalLimit / 2;
+
+            const intervalTimelineData = currentSequenceState.map((item, index) => {
+                if (index < currentSequenceState.length - 1) {
+                    const currentSlot = item[1];
+                    const nextSlot = currentSequenceState[index + 1][1];
+                    const diff = nextSlot - currentSlot;
+                    
+                    if (diff <= 0) return maxIntervalLimit;
+                    
+                    const invertedValue = Math.max(1, maxIntervalLimit - diff);
+                    if(index === currentSequenceState.length - 2) {
+                        lastCalculatedInterval = invertedValue;
+                    }
+                    return invertedValue;
+                }
+                return lastCalculatedInterval; // Mantém estabilidade no último ponto
+            });
+
+            const dynamicLabels = currentSequenceState.map((item, index) => {
+                return `${index + 1}. ${masterVideosData[item[0]]?.title || ''}`;
+            });
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dynamicLabels,
+                    datasets: [
+                        {
+                            // Curva 1: Progressão de Horários (Subindo)
+                            label: 'Horário de Postagem',
+                            data: progressionTimelineData,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.02)',
+                            borderWidth: 3,
+                            tension: 0.15,
+                            pointBackgroundColor: '#059669',
+                            pointBorderColor: '#34d399',
+                            pointBorderWidth: 2,
+                            pointRadius: 5,
+                            fill: true,
+                            yAxisID: 'y_horario'
+                        },
+                        {
+                            // Curva 2: Linha de Frequência de Intervalos
+                            label: 'Frequência (Intervalos)',
+                            data: intervalTimelineData,
+                            borderColor: 'rgba(156, 163, 175, 0.35)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 3,
+                            pointBackgroundColor: '#4b5563',
+                            fill: false,
+                            tension: 0.1,
+                            yAxisID: 'y_intervalo'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#111827',
+                            titleColor: '#34d399',
+                            bodyColor: '#e5e7eb',
+                            titleFont: { size: 11, weight: 'bold' },
+                            padding: 8,
+                            cornerRadius: 6,
+                            displayColors: false,
+                            callbacks: {
+                                title: function(context) {
+                                    const idx = context[0].dataIndex;
+                                    const titleStr = masterVideosData[currentSequenceState[idx][0]].title;
+                                    const currentHour = timeSlots[currentSequenceState[idx][1]];
+                                    
+                                    if(idx === currentSequenceState.length - 1) {
+                                        return `${titleStr}\nEntrada: ${currentHour} (Último Item)`;
+                                    }
+                                    
+                                    const currentMinutes = timeToMinutes(currentSequenceState[idx][1]);
+                                    const nextMinutes = timeToMinutes(currentSequenceState[idx + 1][1]);
+                                    return `${titleStr}\nEntrada: ${currentHour}\nEspera até o próximo: ${formatIntervalText(nextMinutes - currentMinutes)}`;
+                                },
+                                label: function() { return ""; }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            grid: { color: '#1f2937' }, 
+                            ticks: { color: '#9ca3af', font: { size: 10 } } 
+                        },
+                        y_horario: {
+                            type: 'linear',
+                            position: 'left',
+                            grid: { color: '#1f2937' },
+                            min: 0,
+                            max: timeSlots.length - 1,
+                            ticks: {
+                                color: '#10b981',
+                                font: { size: 9, weight: 'bold' },
+                                stepSize: 4,
+                                callback: function(value) { return timeSlots[value]; }
+                            }
+                        },
+                        y_intervalo: {
+                            type: 'linear',
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            min: 0,
+                            max: maxIntervalLimit,
+                            ticks: {
+                                color: '#6b7280',
+                                font: { size: 8 },
+                                stepSize: 10,
+                                callback: function(value) {
+                                    if(value === maxIntervalLimit) return "Alta Freq.";
+                                    if(value === 0) return "Baixa Freq.";
+                                    return "";
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Alternador Dinâmico das Tabelas por Botão ---
+        document.getElementById('toggleTableModeBtn').addEventListener('click', (e) => {
+            if(currentTableMode === 'horarios') {
+                currentTableMode = 'intervalos';
+                e.target.textContent = "Modo: Intervalos";
+                e.target.className = "bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 font-bold text-[10px] px-2.5 py-1 rounded-lg transition-colors cursor-pointer uppercase tracking-wider";
+            } else {
+                currentTableMode = 'horarios';
+                e.target.textContent = "Modo: Horários";
+                e.target.className = "bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-900 font-bold text-[10px] px-2.5 py-1 rounded-lg transition-colors cursor-pointer uppercase tracking-wider";
+            }
+            renderTable();
+        });
+
+        // --- Copiar para Área de Transferência ---
+        document.getElementById('exportTextBtn').addEventListener('click', () => {
+            if (currentSequenceState.length === 0) return alert('Não há itens para exportar.');
+            const textLines = currentSequenceState.map((item, index) => {
+                const title = masterVideosData[item[0]].title;
+                const time = timeSlots[item[1]];
+                let intervalStr = "";
+                if (index < currentSequenceState.length - 1) {
+                    const diff = timeToMinutes(currentSequenceState[index+1][1]) - timeToMinutes(item[1]);
+                    intervalStr = ` (${formatIntervalText(diff)})`;
+                }
+                return `${index + 1}. ${time} - ${title}${intervalStr}`;
+            });
+            navigator.clipboard.writeText(textLines.join('\n')).then(() => {
+                alert('Cronograma copiado para a área de transferência!');
+            });
+        });
+
+        document.getElementById('addMediaBtn').addEventListener('click', () => {
+            const titleInput = document.getElementById('newMediaTitle');
+            const title = titleInput.value.trim();
+            if (!title) return alert('Informe um título.');
+
+            const uniqueId = 'vid_' + Date.now();
+            masterVideosData[uniqueId] = { title };
+            
+            const lastTime = currentSequenceState.length > 0 ? currentSequenceState[currentSequenceState.length - 1][1] : 0;
+            currentSequenceState.push([uniqueId, lastTime]);
+            titleInput.value = '';
+
+            renderChart();
+            renderTable();
+            syncStateToUrl();
+        });
+
+        document.getElementById('savePatternBtn').addEventListener('click', () => {
+            const input = document.getElementById('newPatternName');
+            const name = input.value.trim();
+            if (!name) return alert('Nome inválido.');
+
+            const customPatterns = getLocalPatterns();
+            customPatterns[name] = currentSequenceState;
+            saveLocalPatterns(customPatterns);
+            
+            updateSelectDropdownOptions();
+            document.getElementById('patternSelect').value = `custom_${name}`;
+            input.value = '';
+            syncStateToUrl();
+        });
+
+        document.getElementById('deletePatternBtn').addEventListener('click', () => {
+            const selector = document.getElementById('patternSelect');
+            const currentPattern = selector.value;
+            if (!currentPattern.startsWith('custom_')) return;
+            const customKey = currentPattern.replace('custom_', '');
+            if (confirm(`Excluir padrão "${customKey}"?`)) {
+                const customPatterns = getLocalPatterns();
+                delete customPatterns[customKey];
+                saveLocalPatterns(customPatterns);
+                updateSelectDropdownOptions();
+                selector.value = 'instagram';
+                currentSequenceState = JSON.parse(JSON.stringify(basePatterns['instagram']));
+                renderChart();
+                renderTable();
+                syncStateToUrl();
+            }
+        });
+
+        document.getElementById('patternSelect').addEventListener('change', (e) => {
+            const selected = e.target.value;
+            if (selected.startsWith('custom_')) {
+                const customKey = selected.replace('custom_', '');
+                const customPatterns = getLocalPatterns();
+                if (customPatterns[customKey]) currentSequenceState = JSON.parse(JSON.stringify(customPatterns[customKey]));
+            } else {
+                currentSequenceState = JSON.parse(JSON.stringify(basePatterns[selected]));
+            }
+            renderChart();
+            renderTable();
+            syncStateToUrl();
+        });
+
+        // --- Inicialização Estável ---
+        updateSelectDropdownOptions();
+        const initialState = parseUrlOrStorageState();
+        document.getElementById('patternSelect').value = initialState.pattern;
+        currentSequenceState = initialState.data;
+
+        renderChart();
+        renderTable();
+        syncStateToUrl();
+    </script>
+</body>
+</html>

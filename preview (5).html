@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ Laboratório TTS — 8 vozes</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+
+<style>
+html,body{height:100%;margin:0;background:#0f0f12;color:#fff;font-family:Arial}
+body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+#voiceNames{display:flex;flex-wrap:wrap;gap:8px}
+#voiceNames input{background:#141415;border:1px solid #222;color:#fff;padding:6px;border-radius:6px}
+textarea{width:90%;max-width:980px;height:150px;background:#121214;color:#fff;border:0;border-radius:8px;padding:10px}
+.karaoke{width:90%;max-width:980px;background:#141417;padding:16px;border-radius:8px;min-height:120px}
+.controls{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;background:rgba(0,0,0,.6);padding:8px;border-radius:10px}
+button{background:#222;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+.name{font-weight:bold;margin-right:6px}
+</style>
+</head>
+
+<body>
+
+<div id="voiceNames">
+  <label>Daniel <input id="nameDaniel" value="Daniel"></label>
+  <label>Maria <input id="nameMaria" value="Maria"></label>
+  <label>Regina <input id="nameRegina" value="Regina"></label>
+  <label>Ana <input id="nameAna" value="Ana"></label>
+  <label>Lucas <input id="nameLucas" value="Lucas"></label>
+  <label>Sofia <input id="nameSofia" value="Sofia"></label>
+  <label>Bruno <input id="nameBruno" value="Bruno"></label>
+  <label>Helena <input id="nameHelena" value="Helena"></label>
+</div>
+
+<textarea id="texto">
+Daniel: Bom dia!
+Maria: Tudo bem por aí?
+Regina: Estou ótima...
+Ana: Cheguei agora!
+Lucas: Vocês estão animados demais...
+Sofia: EU AMO ESSA ENERGIA!
+Bruno: Vamos com calma hoje.
+Helena: Hehe... isso vai ser interessante.
+</textarea>
+
+<div class="karaoke" id="karaoke">...</div>
+
+<div class="controls">
+<button onclick="start()">▶</button>
+<button onclick="pause()">⏸</button>
+<button onclick="resume()">⏯</button>
+<button onclick="stop()">🛑</button>
+</div>
+
+<script>
+let synth=window.speechSynthesis;
+let voices=[];
+let lines=[];
+let i=0;
+let paused=false;
+
+const colors={
+  Daniel:"#ff6b6b",
+  Maria:"#7bed9f",
+  Regina:"#7ea2ff",
+  Ana:"#ffcc66",
+  Lucas:"#9b59b6",
+  Sofia:"#ff4fd8",
+  Bruno:"#ffa502",
+  Helena:"#1abc9c"
+};
+
+function refresh(){
+  voices=synth.getVoices();
+}
+speechSynthesis.onvoiceschanged=refresh;
+refresh();
+
+function findPT(){
+  return voices.find(v=>v.lang?.startsWith("pt"))||voices[0];
+}
+
+/* GOOGLE */
+function google(text,rate=1){
+  const url=`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=pt-BR&client=tw-ob`;
+  const a=new Audio(url);
+  a.playbackRate=rate;
+  return new Promise(r=>{a.onended=r;a.play().catch(r)});
+}
+
+/* RESPONSIVEVOICE */
+function rv(text,rate=1,pitch=1){
+  return new Promise(r=>{
+    responsiveVoice.speak(text,"Brazilian Portuguese Female",{
+      rate,pitch,volume:1,onend:r
+    });
+  });
+}
+
+/* ROUTER */
+function speaker(name){
+  name=name.toLowerCase();
+
+  if(name==="ana") return {t:"rv"};
+  if(name==="regina") return {t:"google"};
+
+  if(name==="lucas") return {t:"synth", pitch:0.6};
+  if(name==="sofia") return {t:"synth", pitch:1.8};
+  if(name==="bruno") return {t:"google", rate:0.7};
+  if(name==="helena") return {t:"rv", pitch:0.6, rate:0.8};
+
+  return {t:"synth", pitch:1};
+}
+
+/* SPEAK */
+async function say(name,text){
+  const s=speaker(name);
+
+  if(s.t==="synth"){
+    const u=new SpeechSynthesisUtterance(text);
+    u.voice=findPT();
+    u.lang="pt-BR";
+    u.pitch=s.pitch||1;
+    u.rate=1.2;
+    synth.speak(u);
+    await new Promise(r=>u.onend=r);
+  }
+
+  if(s.t==="google"){
+    await google(text,s.rate||1);
+  }
+
+  if(s.t==="rv"){
+    await rv(text,s.rate||1,s.pitch||1);
+  }
+}
+
+/* FLOW */
+async function line(n){
+  const l=lines[n];
+  const m=l.match(/^([^:]+):\s*(.+)$/);
+  const box=document.getElementById("karaoke");
+
+  if(!m){
+    box.textContent=l;
+    return google(l);
+  }
+
+  box.innerHTML=`<span class="name" style="color:${colors[m[1]]||"#fff"}">${m[1]}:</span> ${m[2]}`;
+  await say(m[1],m[2]);
+}
+
+async function start(){
+  lines=document.getElementById("texto").value.split("\n").filter(l=>l.trim());
+  i=0;
+  for(i=0;i<lines.length;i++){
+    await line(i);
+  }
+}
+
+function pause(){paused=true;synth.pause();}
+function resume(){paused=false;synth.resume();}
+function stop(){synth.cancel();}
+</script>
+
+</body>
+</html>

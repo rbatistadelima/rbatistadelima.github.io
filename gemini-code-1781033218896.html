@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronograma Interativo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-dragdata@2.2.4/dist/chartjs-plugin-dragdata.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html5sortable@0.13.0/dist/html5sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow: hidden; 
+        }
+        #tableContainer {
+            overflow: hidden !important;
+        }
+        .sortable-placeholder {
+            background: #f3f4f6;
+            border: 2px dashed #1a1a1a;
+        }
+    </style>
+</head>
+<body class="bg-[#ffffff] text-[#1a1a1a] h-screen w-screen flex flex-col justify-between p-3 gap-3 select-none">
+
+    <header class="bg-[#ffffff] px-4 py-2 flex flex-col sm:flex-row justify-between items-center gap-3 border-2 border-[#1a1a1a] shrink-0">
+        <div>
+            <h1 class="text-sm font-bold tracking-tight text-[#1a1a1a]">
+                Cronograma
+            </h1>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2">
+                <label for="patternSelect" class="text-xs font-semibold text-[#1a1a1a]">Configuração Ativa:</label>
+                <select id="patternSelect" class="bg-[#ffffff] border-2 border-[#1a1a1a] text-[#1a1a1a] font-medium text-xs focus:outline-none p-1.5 cursor-pointer min-w-[200px]">
+                    <optgroup label="Fábrica" id="systemGroup">
+                        <option value="instagram">Instagram Picos</option>
+                        <option value="abertura">Abertura Rápida</option>
+                        <option value="continuo">Distribuição Linear</option>
+                    </optgroup>
+                    <optgroup label="Customizados" id="customGroup">
+                        </optgroup>
+                </select>
+                <button id="savePatternBtn" class="bg-[#1a1a1a] text-[#ffffff] hover:bg-[#333333] px-3 py-1.5 text-xs font-medium transition-colors">
+                    [+] Salvar Nova Config
+                </button>
+                <button id="resetPatternBtn" class="bg-[#ffffff] border-2 border-[#1a1a1a] text-[#1a1a1a] hover:bg-[#f3f4f6] px-3 py-1.5 text-xs font-medium transition-colors">
+                    Resetar
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main id="dashboardMain" class="flex-grow grid grid-cols-12 gap-3 min-h-0 bg-white">
+        
+        <section class="col-span-8 bg-[#ffffff] border-2 border-[#1a1a1a] p-3 flex flex-col justify-between relative overflow-hidden">
+            <div class="flex justify-between items-center pb-2 border-b border-[#f0f0f0] shrink-0">
+                <button id="toggleChartModeBtn" class="bg-[#ffffff] text-[#1a1a1a] border-2 border-[#1a1a1a] hover:bg-[#f3f4f6] font-semibold text-xs px-3 py-1 transition-colors cursor-pointer">
+                    Visualização: Intervalo
+                </button>
+                <button id="captureScreenBtn" class="bg-[#ffffff] text-xs font-semibold text-gray-600 hover:text-black border border-gray-300 hover:border-black px-2 py-1 transition-colors flex items-center gap-1 cursor-pointer">
+                    📷 Salvar como Imagem
+                </button>
+            </div>
+            <div class="flex-grow relative w-full h-full min-h-0 mt-2">
+                <canvas id="syncLineChart"></canvas>
+            </div>
+        </section>
+
+        <section class="col-span-4 bg-[#ffffff] border-2 border-[#1a1a1a] p-3 flex flex-col justify-between overflow-hidden">
+            
+            <div class="flex justify-end items-center pb-2 border-b-2 border-[#1a1a1a] shrink-0">
+                <button id="exportTextBtn" class="bg-[#ffffff] text-[#1a1a1a] border-2 border-[#1a1a1a] hover:bg-[#f3f4f6] font-semibold text-xs px-3 py-1 transition-colors cursor-pointer">
+                    Copiar Dados
+                </button>
+            </div>
+            
+            <div class="flex-grow flex flex-col min-h-0 mt-2">
+                <div id="tableContainer" class="w-full flex-grow flex flex-col justify-between border-t border-l border-[#1a1a1a]">
+                    </div>
+            </div>
+
+            <div class="mt-2 shrink-0">
+                <button id="addMediaBtn" class="w-full bg-[#1a1a1a] hover:bg-[#333333] text-[#ffffff] font-semibold text-xs py-2 transition-colors tracking-wide">
+                    [+] Inserir Item
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="h-0.5 shrink-0"></footer>
+
+    <script>
+        const ctx = document.getElementById('syncLineChart').getContext('2d');
+        let chartInstance;
+        let currentChartMode = 'intervalos'; 
+
+        const timeSlots = [
+            "10:00", "10:15", "10:30", "10:45", "11:00", "11:15", "11:30", "11:45",
+            "12:00", "12:15", "12:30", "12:45", "13:00", "13:15", "13:30", "13:45",
+            "14:00", "14:15", "14:30", "14:45", "15:00", "15:15", "15:30", "15:45",
+            "16:00", "16:15", "16:30", "16:45", "17:00", "17:15", "17:30", "17:45",
+            "18:00", "18:15", "18:30", "18:45", "19:00", "19:15", "19:30", "19:45", "20:00"
+        ];
+
+        function timeToMinutes(slotIdx) {
+            return slotIdx * 15;
+        }
+
+        const basePatterns = {
+            instagram: [["id_0",0,"Abertura"], ["id_1",8,"Contexto Inicial"], ["id_2",9,"Chamada Principal"], ["id_3",12,"Demonstração"], ["id_4",16,"Dados Técnicos"], ["id_5",24,"Ação Estrutural"], ["id_6",25,"Distribuição"], ["id_7",26,"Resposta"], ["id_8",32,"Bastidores"], ["id_9",33,"Validação"], ["id_10",34,"Fechamento"]],
+            abertura:  [["id_0",0,"Abertura"], ["id_1",1,"Contexto Inicial"], ["id_2",2,"Chamada Principal"], ["id_3",12,"Demonstração"], ["id_4",17,"Dados Técnicos"], ["id_5",22,"Ação Estrutural"], ["id_6",27,"Distribuição"], ["id_7",32,"Resposta"], ["id_8",35,"Bastidores"], ["id_9",38,"Validação"], ["id_10",40,"Fechamento"]],
+            continuo:  [["id_0",0,"Abertura"], ["id_1",4,"Contexto Inicial"], ["id_2",8,"Chamada Principal"], ["id_3",12,"Demonstração"], ["id_4",16,"Dados Técnicos"], ["id_5",20,"Ação Estrutural"], ["id_6",24,"Distribuição"], ["id_7",28,"Resposta"], ["id_8",32,"Bastidores"], ["id_9",36,"Validação"], ["id_10",40,"Fechamento"]]
+        };
+
+        let currentSequenceState = [];
+
+        function getActivePatternKey() {
+            return document.getElementById('patternSelect').value;
+        }
+
+        function getCustomPatterns() {
+            const saved = localStorage.getItem('c_custom_configs_v9');
+            return saved ? JSON.parse(saved) : {};
+        }
+
+        function updateDropdown() {
+            const customGroup = document.getElementById('customGroup');
+            customGroup.innerHTML = '';
+            const customs = getCustomPatterns();
+            Object.keys(customs).forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = `custom_${key}`;
+                opt.textContent = key;
+                customGroup.appendChild(opt);
+            });
+        }
+
+        function loadState() {
+            const key = getActivePatternKey();
+            if (key.startsWith('custom_')) {
+                const cleanKey = key.replace('custom_', '');
+                const customs = getCustomPatterns();
+                currentSequenceState = customs[cleanKey] || JSON.parse(JSON.stringify(basePatterns['instagram']));
+            } else {
+                const saved = localStorage.getItem(`c_data_v9_${key}`);
+                if (saved) {
+                    currentSequenceState = JSON.parse(saved);
+                } else {
+                    currentSequenceState = JSON.parse(JSON.stringify(basePatterns[key]));
+                }
+            }
+        }
+
+        function autoSaveState() {
+            const key = getActivePatternKey();
+            if (!key.startsWith('custom_')) {
+                localStorage.setItem(`c_data_v9_${key}`, JSON.stringify(currentSequenceState));
+            } else {
+                const cleanKey = key.replace('custom_', '');
+                const customs = getCustomPatterns();
+                customs[cleanKey] = currentSequenceState;
+                localStorage.setItem('c_custom_configs_v9', JSON.stringify(customs));
+            }
+        }
+
+        function formatIntervalText(minutes) {
+            if (minutes <= 0 || isNaN(minutes)) return "--";
+            if (minutes < 60) return `+${minutes}m`;
+            const hrs = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return mins > 0 ? `+${hrs}h${mins}m` : `+${hrs}h`;
+        }
+
+        function renderTable() {
+            const container = document.getElementById('tableContainer');
+            container.innerHTML = '';
+
+            currentSequenceState.forEach((item, index) => {
+                const mediaId = item[0];
+                const currentTimeSlotIdx = item[1];
+                const currentTitle = item[2];
+
+                let stringIntervalo = 'START';
+                if (index > 0) {
+                    const previousTimeSlotIdx = currentSequenceState[index - 1][1];
+                    const intervalMinutes = timeToMinutes(currentTimeSlotIdx) - timeToMinutes(previousTimeSlotIdx);
+                    stringIntervalo = formatIntervalText(intervalMinutes);
+                }
+
+                const displayNum = String(index + 1).padStart(2, '0');
+
+                const row = document.createElement('div');
+                row.className = "sortable-row flex flex-grow flex-shrink items-center border-b border-r border-[#1a1a1a] min-h-0 h-full text-xs bg-white hover:bg-[#f9f9f9]";
+                row.setAttribute('data-id', mediaId);
+
+                let selectOptions = '';
+                timeSlots.forEach((time, slotIdx) => {
+                    selectOptions += `<option value="${slotIdx}" ${slotIdx === currentTimeSlotIdx ? 'selected' : ''}>${time}</option>`;
+                });
+
+                row.innerHTML = `
+                    <div class="cursor-grab text-[#1a1a1a] font-bold px-2 flex items-center justify-center border-r border-[#1a1a1a] h-full select-none text-[11px] bg-[#f5f5f5] gap-1 min-w-[45px]">
+                        <span class="text-[#a1a1a1]">☰</span> ${displayNum}
+                    </div>
+                    <div class="flex-grow h-full px-2 flex items-center border-r border-[#1a1a1a] min-w-0">
+                        <input type="text" data-index="${index}" class="media-title-input bg-transparent border-none focus:outline-none font-bold text-[#1a1a1a] w-full truncate py-0" value="${currentTitle}">
+                    </div>
+                    <div class="w-20 h-full flex items-center justify-center border-r border-[#1a1a1a] px-1">
+                        <select data-index="${index}" class="time-table-select bg-transparent text-[#1a1a1a] text-[11px] font-semibold cursor-pointer focus:outline-none w-full text-center">
+                            ${selectOptions}
+                        </select>
+                    </div>
+                    <div class="w-20 h-full flex items-center justify-center bg-[#fdfdfd] text-[10px] font-medium text-[#555555] px-1 text-center">
+                        ${stringIntervalo}
+                    </div>
+                    <div class="w-7 h-full flex items-center justify-center border-l border-[#1a1a1a]">
+                        <button data-index="${index}" class="delete-item-btn text-[#a1a1a1] hover:text-red-600 text-sm font-bold w-full h-full flex items-center justify-center" title="Remover">
+                            ×
+                        </button>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+
+            // Listeners dos inputs e selects da tabela
+            document.querySelectorAll('.media-title-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.getAttribute('data-index'), 10);
+                    currentSequenceState[idx][2] = e.target.value;
+                    renderChart();
+                    autoSaveState();
+                });
+            });
+
+            document.querySelectorAll('.delete-item-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idxToDelete = parseInt(e.target.getAttribute('data-index'), 10);
+                    currentSequenceState.splice(idxToDelete, 1);
+                    renderChart();
+                    renderTable();
+                    autoSaveState();
+                });
+            });
+
+            document.querySelectorAll('.time-table-select').forEach(el => {
+                el.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.getAttribute('data-index'), 10);
+                    currentSequenceState[idx][1] = parseInt(e.target.value, 10);
+                    renderChart();
+                    renderTable();
+                    autoSaveState();
+                });
+            });
+
+            if(currentSequenceState.length > 0) {
+                sortable('#tableContainer', {
+                    items: '.sortable-row',
+                    placeholderClass: 'sortable-placeholder'
+                })[0].addEventListener('sortupdate', function() {
+                    const rows = container.querySelectorAll('.sortable-row');
+                    const newSequence = [];
+                    rows.forEach((row) => {
+                        const id = row.getAttribute('data-id');
+                        const currentItem = currentSequenceState.find(d => d[0] === id);
+                        if(currentItem) newSequence.push(currentItem);
+                    });
+                    currentSequenceState = newSequence;
+                    renderChart();
+                    renderTable();
+                    autoSaveState();
+                });
+            }
+        }
+
+        function renderChart() {
+            if (chartInstance) chartInstance.destroy();
+
+            const staticXLabels = currentSequenceState.map((_, index) => `${index + 1}`);
+            let targetDatasetData = [];
+            let configYScale = {};
+
+            if (currentChartMode === 'horarios') {
+                targetDatasetData = currentSequenceState.map(item => item[1]);
+                configYScale = {
+                    min: 0,
+                    max: timeSlots.length - 1,
+                    grid: { display: true, color: '#f0f0f0' },
+                    ticks: {
+                        color: '#1a1a1a',
+                        font: { size: 10, weight: '500' },
+                        stepSize: 4,
+                        callback: function(value) { return timeSlots[value]; }
+                    }
+                };
+            } else {
+                targetDatasetData = currentSequenceState.map((item, index) => {
+                    if (index === 0) return 0;
+                    const diffMinutes = timeToMinutes(item[1]) - timeToMinutes(currentSequenceState[index - 1][1]);
+                    return Math.max(0, diffMinutes);
+                });
+
+                configYScale = {
+                    min: 0,
+                    max: 240, 
+                    grid: { display: true, color: '#f0f0f0' },
+                    ticks: {
+                        color: '#1a1a1a',
+                        font: { size: 10, weight: '500' },
+                        stepSize: 30,
+                        callback: function(value) {
+                            if (value === 0) return "+0m";
+                            if (value < 60) return `+${value}m`;
+                            const hrs = Math.floor(value / 60);
+                            const mins = value % 60;
+                            return mins > 0 ? `+${hrs}h${mins}m` : `+${hrs}h`;
+                        }
+                    }
+                };
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: staticXLabels, 
+                    datasets: [{
+                        data: targetDatasetData,
+                        borderColor: '#1a1a1a',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0, 
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#1a1a1a',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        dragData: {
+                            round: 0,
+                            showTooltip: true,
+                            onDrag: function (e, datasetIndex, index, value) {
+                                if (currentChartMode === 'horarios') {
+                                    // Valida limites do array de tempos
+                                    if (value < 0) value = 0;
+                                    if (value > timeSlots.length - 1) value = timeSlots.length - 1;
+                                    
+                                    currentSequenceState[index][1] = value;
+                                } else {
+                                    // CORREÇÃO LOGICA DE ARRASTO POR INTERVALO:
+                                    if (index === 0) return false; // Bloqueia arrasto do item inicial estrutural (sempre +0m)
+                                    if (value < 0) value = 0;
+                                    
+                                    // Calcula o novo índice de tempo baseado no item anterior somado ao valor arrastado
+                                    const basePreviousMinutes = timeToMinutes(currentSequenceState[index - 1][1]);
+                                    const targetMinutes = basePreviousMinutes + value;
+                                    let targetSlotIdx = Math.round(targetMinutes / 15);
+                                    
+                                    if (targetSlotIdx > timeSlots.length - 1) targetSlotIdx = timeSlots.length - 1;
+                                    currentSequenceState[index][1] = targetSlotIdx;
+                                }
+                                renderTable(); // Atualiza em tempo real enquanto arrasta
+                            },
+                            onDragEnd: function (e, datasetIndex, index, value) {
+                                renderChart(); // Renderiza o estado final travado
+                                autoSaveState();
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#ffffff',
+                            titleColor: '#1a1a1a',
+                            bodyColor: '#444444',
+                            borderColor: '#1a1a1a',
+                            borderWidth: 2,
+                            titleFont: { size: 12, weight: 'bold' },
+                            bodyFont: { size: 11 },
+                            padding: 8,
+                            cornerRadius: 4,
+                            displayColors: false,
+                            callbacks: {
+                                title: function(context) {
+                                    const idx = context[0].dataIndex;
+                                    const item = currentSequenceState[idx];
+                                    const displayNum = String(idx + 1).padStart(2, '0');
+                                    return `${displayNum}: ${item[2]}`;
+                                },
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    const currentHour = timeSlots[currentSequenceState[idx][1]];
+                                    if(idx === 0) {
+                                        return `${currentHour} | START`;
+                                    } else {
+                                        const diff = timeToMinutes(currentSequenceState[idx][1]) - timeToMinutes(currentSequenceState[idx-1][1]);
+                                        return `${currentHour} | ${formatIntervalText(diff)}`;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            grid: { display: true, color: '#f0f0f0' }, 
+                            ticks: { 
+                                color: '#1a1a1a', 
+                                font: { size: 11, weight: 'bold' },
+                                padding: 10
+                            } 
+                        },
+                        y: configYScale
+                    }
+                }
+            });
+        }
+
+        // Alternador de Visualização
+        document.getElementById('toggleChartModeBtn').addEventListener('click', (e) => {
+            if(currentChartMode === 'horarios') {
+                currentChartMode = 'intervalos';
+                e.target.textContent = "Visualização: Intervalo";
+            } else {
+                currentChartMode = 'horarios';
+                e.target.textContent = "Visualização: Horário";
+            }
+            renderChart();
+        });
+
+        // CORREÇÃO DO SALVAMENTO COMO IMAGEM (Escopo focado no Main e com Delay de renderização)
+        document.getElementById('captureScreenBtn').addEventListener('click', () => {
+            const btn = document.getElementById('captureScreenBtn');
+            btn.innerText = "Processando...";
+            btn.disabled = true;
+
+            setTimeout(() => {
+                html2canvas(document.getElementById('dashboardMain'), {
+                    scale: 2, 
+                    backgroundColor: '#ffffff',
+                    useCORS: true,
+                    logging: false
+                }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = `cronograma-dashboard.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    
+                    // Restaura o botão após o download ser computado
+                    btn.innerText = "📷 Salvar como Imagem";
+                    btn.disabled = false;
+                }).catch(err => {
+                    console.error("Erro na captura:", err);
+                    btn.innerText = "📷 Salvar como Imagem";
+                    btn.disabled = false;
+                });
+            }, 300); 
+        });
+
+        // Exportar texto formatado
+        document.getElementById('exportTextBtn').addEventListener('click', () => {
+            if (currentSequenceState.length === 0) return;
+            const textLines = currentSequenceState.map((item, index) => {
+                const time = timeSlots[item[1]];
+                let intervalStr = " (START)";
+                if (index > 0) {
+                    const diff = timeToMinutes(item[1]) - timeToMinutes(currentSequenceState[index - 1][1]);
+                    intervalStr = ` (${formatIntervalText(diff)})`;
+                }
+                return `${index + 1}. ${time} - ${item[2]}${intervalStr}`;
+            });
+            navigator.clipboard.writeText(textLines.join('\n'));
+        });
+
+        // Adicionar item automático
+        document.getElementById('addMediaBtn').addEventListener('click', () => {
+            const nextIndex = currentSequenceState.length + 1;
+            const uniqueId = 'id_' + Date.now();
+            const lastTime = currentSequenceState.length > 0 ? currentSequenceState[currentSequenceState.length - 1][1] : 0;
+            
+            currentSequenceState.push([uniqueId, lastTime, `Item ${nextIndex}`]);
+
+            renderChart();
+            renderTable();
+            autoSaveState();
+        });
+
+        // Salvar configuração customizada
+        document.getElementById('savePatternBtn').addEventListener('click', () => {
+            const name = prompt("Defina o nome da nova configuração:");
+            if (!name || !name.trim()) return;
+            const cleanName = name.trim();
+
+            const customs = getCustomPatterns();
+            customs[cleanName] = currentSequenceState;
+            localStorage.setItem('c_custom_configs_v9', JSON.stringify(customs));
+
+            updateDropdown();
+            document.getElementById('patternSelect').value = `custom_${cleanName}`;
+            autoSaveState();
+        });
+
+        // Resetar padrão ativo
+        document.getElementById('resetPatternBtn').addEventListener('click', () => {
+            const key = getActivePatternKey();
+            if (key.startsWith('custom_')) {
+                if(confirm("Deseja deletar essa configuração customizada?")) {
+                    const cleanKey = key.replace('custom_', '');
+                    const customs = getCustomPatterns();
+                    delete customs[cleanKey];
+                    localStorage.setItem('c_custom_configs_v9', JSON.stringify(customs));
+                    updateDropdown();
+                    document.getElementById('patternSelect').value = 'instagram';
+                    loadState();
+                }
+            } else {
+                localStorage.removeItem(`c_data_v9_${key}`);
+                loadState();
+            }
+            renderChart();
+            renderTable();
+            autoSaveState();
+        });
+
+        document.getElementById('patternSelect').addEventListener('change', () => {
+            loadState();
+            renderChart();
+            renderTable();
+        });
+
+        // Inicialização técnica
+        updateDropdown();
+        loadState();
+        renderChart();
+        renderTable();
+    </script>
+</body>
+</html>

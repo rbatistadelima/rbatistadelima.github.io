@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronograma Dinâmico</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- HTML5 Sortable -->
+    <script src="https://cdn.jsdelivr.net/npm/html5sortable@0.13.0/dist/html5sortable.min.js"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden; 
+        }
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #121214; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #3e3e42; }
+        .sortable-placeholder {
+            background: transparent;
+            border: 1px dashed #4b5563;
+            height: 34px;
+        }
+    </style>
+</head>
+<body class="bg-[#0c0c0e] text-gray-200 h-screen w-screen flex flex-col justify-between p-3 gap-3 select-none">
+
+    <!-- Painel de Controle Superior (Seco e Direto) -->
+    <header class="bg-[#121214] px-4 py-2 flex flex-col sm:flex-row justify-between items-center gap-3 border border-[#26262b] shrink-0">
+        <div>
+            <h1 class="text-xs font-bold uppercase tracking-wider text-gray-400">
+                CRONOGRAMA DE PUBLICATIVOS
+            </h1>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+                <label for="patternSelect" class="text-[10px] uppercase tracking-wider text-gray-500">Arquivo:</label>
+                <select id="patternSelect" class="bg-[#1a1a1e] border border-[#2d2d34] text-gray-300 font-medium text-xs focus:outline-none focus:border-gray-500 p-1 cursor-pointer min-w-[200px]">
+                    <option value="instagram">Instagram Picos</option>
+                    <option value="abertura">Abertura Rápida</option>
+                    <option value="continuo">Distribuição Linear</option>
+                </select>
+                <button id="resetPatternBtn" class="bg-[#1a1a1e] border border-[#2d2d34] text-gray-400 hover:text-white hover:border-gray-500 px-2 py-1 text-[10px] uppercase font-medium transition-colors">
+                    Resetar
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Área de Trabalho Principal -->
+    <main class="flex-grow grid grid-cols-12 gap-3 min-h-0">
+        
+        <!-- Área Visual do Gráfico (8 Colunas) -->
+        <section class="col-span-8 bg-[#121214] border border-[#26262b] p-3 flex flex-col relative overflow-hidden">
+            <div class="flex-grow relative w-full h-full min-h-0">
+                <canvas id="syncLineChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Área de Dados e Lista (4 Colunas) -->
+        <section class="col-span-4 bg-[#121214] border border-[#26262b] p-3 flex flex-col justify-between overflow-hidden">
+            
+            <!-- Ações Rápidas do Topo -->
+            <div class="flex justify-between items-center pb-2 border-b border-[#26262b] shrink-0 gap-2">
+                <button id="toggleChartModeBtn" class="bg-[#1a1a1e] text-gray-300 border border-[#2d2d34] hover:bg-[#222228] font-medium text-[10px] px-2.5 py-1 transition-colors cursor-pointer uppercase tracking-wider">
+                    Mapeamento: Horários
+                </button>
+                <button id="exportTextBtn" class="bg-[#1a1a1e] text-gray-300 border border-[#2d2d34] hover:bg-[#222228] font-medium text-[10px] px-2.5 py-1 transition-colors cursor-pointer uppercase tracking-wider">
+                    Copiar Dados
+                </button>
+            </div>
+            
+            <!-- Listagem Compactada de Itens -->
+            <div id="tableContainer" class="flex-grow overflow-y-auto custom-scroll mt-2 pr-0.5 space-y-1 max-h-[calc(100vh-200px)]">
+                <!-- Inserido dinamicamente via JS -->
+            </div>
+
+            <!-- Entrada de Novo Dado -->
+            <div class="bg-[#1a1a1e] border border-[#2d2d34] p-1.5 mt-2 flex items-center gap-2 shrink-0">
+                <input type="text" id="newMediaTitle" placeholder="Inserir novo item..." class="bg-[#121214] border border-[#2d2d34] px-2 py-1 text-xs font-medium text-white placeholder-gray-600 focus:outline-none focus:border-gray-500 flex-grow">
+                <button id="addMediaBtn" class="bg-[#2d2d34] hover:bg-[#3e3e45] text-white font-medium text-[11px] px-3 py-1 transition-colors shrink-0 uppercase tracking-wide">
+                    Incluir
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Base Fina Invisível -->
+    <footer class="h-0.5 shrink-0"></footer>
+
+    <script>
+        const ctx = document.getElementById('syncLineChart').getContext('2d');
+        let chartInstance;
+        let currentChartMode = 'horarios'; 
+
+        const timeSlots = [
+            "10:00", "10:15", "10:30", "10:45", "11:00", "11:15", "11:30", "11:45",
+            "12:00", "12:15", "12:30", "12:45", "13:00", "13:15", "13:30", "13:45",
+            "14:00", "14:15", "14:30", "14:45", "15:00", "15:15", "15:30", "15:45",
+            "16:00", "16:15", "16:30", "16:45", "17:00", "17:15", "17:30", "17:45",
+            "18:00", "18:15", "18:30", "18:45", "19:00", "19:15", "19:30", "19:45", "20:00"
+        ];
+
+        function timeToMinutes(slotIdx) {
+            return slotIdx * 15;
+        }
+
+        const basePatterns = {
+            instagram: [["id_0",0,"Abertura"], ["id_1",4,"Contexto Inicial"], ["id_2",8,"Chamada Principal"], ["id_3",12,"Demonstração"], ["id_4",16,"Dados Técnicos"], ["id_5",20,"Ação Estrutural"], ["id_6",24,"Distribuição"], ["id_7",28,"Resposta"], ["id_8",32,"Bastidores"], ["id_9",36,"Validação"], ["id_10",40,"Fechamento"]],
+            abertura:  [["id_0",0,"Abertura"], ["id_1",1,"Contexto Inicial"], ["id_2",2,"Chamada Principal"], ["id_3",12,"Demonstração"], ["id_4",17,"Dados Técnicos"], ["id_5",22,"Ação Estrutural"], ["id_6",27,"Distribuição"], ["id_7",32,"Resposta"], ["id_8",35,"Bastidores"], ["id_9",38,"Validação"], ["id_10",40,"Fechamento"]],
+            continuo:  [["id_0",0,"Abertura"], ["id_1",4,"Contexto Inicial"], ["id_2",8,"Chamada Principal"], ["id_3",12,"Demonstração"], ["id_4",16,"Dados Técnicos"], ["id_5",20,"Ação Estrutural"], ["id_6",24,"Distribuição"], ["id_7",28,"Resposta"], ["id_8",32,"Bastidores"], ["id_9",36,"Validação"], ["id_10",40,"Fechamento"]]
+        };
+
+        let currentSequenceState = [];
+
+        function getActivePatternKey() {
+            return document.getElementById('patternSelect').value;
+        }
+
+        function loadState() {
+            const key = getActivePatternKey();
+            const saved = localStorage.getItem(`c_data_austero_${key}`);
+            if (saved) {
+                currentSequenceState = JSON.parse(saved);
+            } else {
+                currentSequenceState = JSON.parse(JSON.stringify(basePatterns[key]));
+            }
+        }
+
+        function autoSaveState() {
+            const key = getActivePatternKey();
+            localStorage.setItem(`c_data_austero_${key}`, JSON.stringify(currentSequenceState));
+        }
+
+        function formatIntervalText(minutes) {
+            if (minutes <= 0 || isNaN(minutes)) return "--";
+            if (minutes < 60) return `+${minutes}m`;
+            const hrs = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return mins > 0 ? `+${hrs}h${mins}m` : `+${hrs}h`;
+        }
+
+        function renderTable() {
+            const container = document.getElementById('tableContainer');
+            container.innerHTML = '';
+
+            currentSequenceState.forEach((item, index) => {
+                const mediaId = item[0];
+                const currentTimeSlotIdx = item[1];
+                const currentTitle = item[2];
+
+                let intervalMinutes = 0;
+                if (index < currentSequenceState.length - 1) {
+                    intervalMinutes = timeToMinutes(currentSequenceState[index + 1][1]) - timeToMinutes(currentTimeSlotIdx);
+                }
+
+                const row = document.createElement('div');
+                row.className = "sortable-row flex flex-col py-1 px-2 bg-[#16161a] border border-[#26262b] gap-1 hover:border-gray-600";
+                row.setAttribute('data-id', mediaId);
+
+                let selectOptions = '';
+                timeSlots.forEach((time, slotIdx) => {
+                    selectOptions += `<option value="${slotIdx}" ${slotIdx === currentTimeSlotIdx ? 'selected' : ''}>${time}</option>`;
+                });
+
+                row.innerHTML = `
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 flex-grow max-w-[80%]">
+                            <div class="cursor-grab text-gray-600 hover:text-gray-300 font-mono text-[9px] select-none">::</div>
+                            <input type="text" data-index="${index}" class="media-title-input bg-transparent border-b border-transparent focus:border-gray-500 focus:outline-none text-xs font-medium text-gray-200 py-0 w-full" value="${currentTitle}">
+                        </div>
+                        <button data-index="${index}" class="delete-item-btn text-gray-600 hover:text-gray-300 transition-colors text-[9px] uppercase font-mono tracking-tighter" title="Remover">
+                            [x]
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between border-t border-[#26262b] pt-1 mt-0.5">
+                        <select data-index="${index}" class="time-table-select mono bg-[#121214] border border-[#2d2d34] text-gray-300 text-[10px] px-1 py-0.5 cursor-pointer focus:outline-none">
+                            ${selectOptions}
+                        </select>
+                        <span class="mono text-[10px] text-gray-500 bg-[#121214] px-1.5 py-0.5 border border-[#2d2d34]">
+                            ${index === currentSequenceState.length - 1 ? 'END' : formatIntervalText(intervalMinutes)}
+                        </span>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+
+            // Handlers da lista
+            document.querySelectorAll('.media-title-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.getAttribute('data-index'), 10);
+                    currentSequenceState[idx][2] = e.target.value;
+                    renderChart();
+                    autoSaveState();
+                });
+            });
+
+            document.querySelectorAll('.delete-item-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idxToDelete = parseInt(e.target.getAttribute('data-index'), 10);
+                    currentSequenceState.splice(idxToDelete, 1);
+                    renderChart();
+                    renderTable();
+                    autoSaveState();
+                });
+            });
+
+            document.querySelectorAll('.time-table-select').forEach(el => {
+                el.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.getAttribute('data-index'), 10);
+                    currentSequenceState[idx][1] = parseInt(e.target.value, 10);
+                    renderChart();
+                    renderTable();
+                    autoSaveState();
+                });
+            });
+
+            if(currentSequenceState.length > 0) {
+                sortable('#tableContainer', {
+                    items: '.sortable-row',
+                    placeholderClass: 'sortable-placeholder'
+                })[0].addEventListener('sortupdate', function() {
+                    const rows = container.querySelectorAll('.sortable-row');
+                    const newSequence = [];
+                    rows.forEach((row) => {
+                        const id = row.getAttribute('data-id');
+                        const currentItem = currentSequenceState.find(d => d[0] === id);
+                        if(currentItem) newSequence.push(currentItem);
+                    });
+                    currentSequenceState = newSequence;
+                    renderChart();
+                    renderTable();
+                    autoSaveState();
+                });
+            }
+        }
+
+        function renderChart() {
+            if (chartInstance) chartInstance.destroy();
+
+            const maxIntervalLimit = timeSlots.length - 1;
+            const dynamicLabels = currentSequenceState.map((item, index) => `${index + 1}`);
+
+            let targetDatasetData = [];
+            let configYScale = {};
+
+            if (currentChartMode === 'horarios') {
+                targetDatasetData = currentSequenceState.map(item => item[1]);
+                configYScale = {
+                    grid: { color: '#1a1a1f' },
+                    min: 0,
+                    max: timeSlots.length - 1,
+                    ticks: {
+                        color: '#8e8e93',
+                        font: { size: 9, family: 'monospace' },
+                        stepSize: 4,
+                        callback: function(value) { return timeSlots[value]; }
+                    }
+                };
+            } else {
+                let lastCalculatedInterval = maxIntervalLimit / 2;
+                targetDatasetData = currentSequenceState.map((item, index) => {
+                    if (index < currentSequenceState.length - 1) {
+                        const diff = currentSequenceState[index + 1][1] - item[1];
+                        if (diff <= 0) return maxIntervalLimit;
+                        const invertedValue = Math.max(1, maxIntervalLimit - diff);
+                        if(index === currentSequenceState.length - 2) lastCalculatedInterval = invertedValue;
+                        return invertedValue;
+                    }
+                    return lastCalculatedInterval;
+                });
+                configYScale = {
+                    grid: { color: '#1a1a1f' },
+                    min: 0,
+                    max: maxIntervalLimit,
+                    ticks: {
+                        color: '#8e8e93',
+                        font: { size: 9, family: 'monospace' },
+                        stepSize: 10,
+                        callback: function(value) {
+                            if(value === maxIntervalLimit) return "FREQ MAX";
+                            if(value === 0) return "FREQ MIN";
+                            return "";
+                        }
+                    }
+                };
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dynamicLabels,
+                    datasets: [{
+                        data: targetDatasetData,
+                        borderColor: '#e5e7eb',
+                        backgroundColor: 'transparent',
+                        borderWidth: 1.5,
+                        tension: 0.02,
+                        pointBackgroundColor: '#121214',
+                        pointBorderColor: '#e5e7eb',
+                        pointBorderWidth: 1.5,
+                        pointRadius: 3.5,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#16161a',
+                            titleColor: '#ffffff',
+                            bodyColor: '#a1a1aa',
+                            borderColor: '#26262b',
+                            borderWidth: 1,
+                            titleFont: { size: 11, family: 'monospace', weight: 'bold' },
+                            bodyFont: { size: 10, family: 'monospace' },
+                            padding: 6,
+                            cornerRadius: 0,
+                            displayColors: false,
+                            callbacks: {
+                                title: function(context) {
+                                    const idx = context[0].dataIndex;
+                                    const item = currentSequenceState[idx];
+                                    if(!item) return "";
+                                    const currentHour = timeSlots[item[1]];
+                                    return `[${idx + 1}] ${item[2]}\nHORA: ${currentHour}`;
+                                },
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    if(idx === currentSequenceState.length - 1) return "ITEM FINAL";
+                                    const diffMin = timeToMinutes(currentSequenceState[idx + 1][1]) - timeToMinutes(currentSequenceState[idx][1]);
+                                    return `ESPERA: ${formatIntervalText(diffMin)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            grid: { color: '#1a1a1f' }, 
+                            ticks: { color: '#636366', font: { size: 10, family: 'monospace' } } 
+                        },
+                        y: configYScale
+                    }
+                }
+            });
+        }
+
+        // Alternador de Gráfico
+        document.getElementById('toggleChartModeBtn').addEventListener('click', (e) => {
+            if(currentChartMode === 'horarios') {
+                currentChartMode = 'intervalos';
+                e.target.textContent = "Mapeamento: Intervalos";
+            } else {
+                currentChartMode = 'horarios';
+                e.target.textContent = "Mapeamento: Horários";
+            }
+            renderChart();
+        });
+
+        // Copiar para Área de Transferência
+        document.getElementById('exportTextBtn').addEventListener('click', () => {
+            if (currentSequenceState.length === 0) return;
+            const textLines = currentSequenceState.map((item, index) => {
+                const time = timeSlots[item[1]];
+                let intervalStr = "";
+                if (index < currentSequenceState.length - 1) {
+                    const diff = timeToMinutes(currentSequenceState[index+1][1]) - timeToMinutes(item[1]);
+                    intervalStr = ` (${formatIntervalText(diff)})`;
+                }
+                return `${index + 1}. ${time} - ${item[2]}${intervalStr}`;
+            });
+            navigator.clipboard.writeText(textLines.join('\n'));
+        });
+
+        // Incluir Novo Item
+        document.getElementById('addMediaBtn').addEventListener('click', () => {
+            const titleInput = document.getElementById('newMediaTitle');
+            const title = titleInput.value.trim();
+            if (!title) return;
+
+            const uniqueId = 'id_' + Date.now();
+            const lastTime = currentSequenceState.length > 0 ? currentSequenceState[currentSequenceState.length - 1][1] : 0;
+            
+            currentSequenceState.push([uniqueId, lastTime, title]);
+            titleInput.value = '';
+
+            renderChart();
+            renderTable();
+            autoSaveState();
+        });
+
+        // Resetar Padrão
+        document.getElementById('resetPatternBtn').addEventListener('click', () => {
+            const key = getActivePatternKey();
+            localStorage.removeItem(`c_data_austero_${key}`);
+            loadState();
+            renderChart();
+            renderTable();
+            autoSaveState();
+        });
+
+        // Troca de arquivo selecionado
+        document.getElementById('patternSelect').addEventListener('change', () => {
+            loadState();
+            renderChart();
+            renderTable();
+        });
+
+        // Inicialização primária
+        loadState();
+        renderChart();
+        renderTable();
+    </script>
+</body>
+</html>

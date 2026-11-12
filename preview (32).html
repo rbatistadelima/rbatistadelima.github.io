@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ TTS Timeline Scheduler (Kaori Fixed)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+
+<script type="module">
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1";
+
+/* =========================================================
+   🧠 TIMELINE LOCK (FIXED SLOT SCHEDULER)
+========================================================= */
+
+let audioLock = Promise.resolve();
+
+function lock(fn, estimatedMs = 1500){
+
+  audioLock = audioLock.then(() => {
+    return new Promise(async (resolve) => {
+
+      let done = false;
+
+      const timer = setTimeout(() => {
+        if (!done) {
+          done = true;
+          resolve();
+        }
+      }, estimatedMs + 500); // safety buffer
+
+      try {
+        await fn();
+      } catch (e) {
+        console.error("TTS error:", e);
+      }
+
+      if (!done) {
+        done = true;
+        clearTimeout(timer);
+        resolve();
+      }
+
+    });
+  });
+
+  return audioLock;
+}
+
+/* =========================================================
+   🧠 KAORI (REAL MMS TTS)
+========================================================= */
+
+let kaoriPipeline = null;
+let kaoriReady = false;
+
+async function preloadKaori(){
+
+  document.getElementById("status").innerText =
+    "Carregando Kaori (IA)...";
+
+  kaoriPipeline = await pipeline(
+    "text-to-speech",
+    "Xenova/mms-tts-por"
+  );
+
+  try { await kaoriPipeline("ok"); } catch(e){}
+
+  kaoriReady = true;
+
+  document.getElementById("status").innerText =
+    "Kaori pronta ✔";
+}
+
+window.addEventListener("DOMContentLoaded", preloadKaori);
+
+/* =========================================================
+   🔊 KAORI AUDIO
+========================================================= */
+
+async function kaoriSpeak(text){
+
+  const out = await kaoriPipeline(text);
+
+  const ctx = new AudioContext();
+  await ctx.resume();
+
+  const buffer = ctx.createBuffer(
+    1,
+    out.audio.length,
+    out.sampling_rate
+  );
+
+  buffer.copyToChannel(out.audio, 0);
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+
+  src.connect(ctx.destination);
+
+  return new Promise(resolve => {
+    src.onended = () => {
+      ctx.close();
+      resolve();
+    };
+    src.start();
+  });
+}
+
+/* =========================================================
+   🎤 BROWSER VOICES
+========================================================= */
+
+let voices = [];
+
+speechSynthesis.onvoiceschanged = () => {
+  voices = speechSynthesis.getVoices();
+};
+
+function pickMale(){
+  return voices.find(v=>/male|daniel/i.test(v.name))
+    || voices.find(v=>v.lang?.includes("pt"))
+    || voices[0];
+}
+
+function pickFemale(){
+  return voices.find(v=>/female|luciana/i.test(v.name))
+    || voices.find(v=>v.lang?.includes("pt"))
+    || voices[0];
+}
+
+function speakBrowser(text, voice){
+
+  return lock(() => new Promise(resolve => {
+
+    const u = new SpeechSynthesisUtterance(text);
+    u.voice = voice;
+    u.lang = "pt-BR";
+
+    u.onend = () => setTimeout(resolve, 50);
+    u.onerror = () => setTimeout(resolve, 50);
+
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+
+  }), text.length * 60);
+}
+
+/* =========================================================
+   🌐 GOOGLE TTS
+========================================================= */
+
+function googleTTS(text){
+
+  return lock(() => new Promise(resolve => {
+
+    const a = new Audio(
+      "https://translate.google.com/translate_tts?ie=UTF-8&q=" +
+      encodeURIComponent(text) +
+      "&tl=pt-BR&client=tw-ob"
+    );
+
+    a.onended = () => setTimeout(resolve, 50);
+    a.onerror = () => setTimeout(resolve, 50);
+
+    a.play().catch(() => resolve());
+
+  }), text.length * 70);
+}
+
+/* =========================================================
+   📢 RESPONSIVEVOICE (SAFE)
+========================================================= */
+
+function rv(text){
+
+  return lock(() => new Promise(resolve => {
+
+    if (!window.responsiveVoice) return resolve();
+
+    responsiveVoice.speak(text, "Brazilian Portuguese Female", {
+      onend: () => setTimeout(resolve, 50),
+      onerror: () => setTimeout(resolve, 50)
+    });
+
+    setTimeout(resolve, 7000); // fallback safety
+
+  }), 1200);
+}
+
+/* =========================================================
+   🎯 KAORI ROUTER
+========================================================= */
+
+function speak(name, text){
+
+  const n = name.toLowerCase();
+
+  if (n.includes("kaori")) {
+
+    return lock(async () => {
+
+      while (!kaoriReady) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+
+      await kaoriSpeak(text);
+
+    }, text.length * 90);
+  }
+
+  if (n === "ana") return rv(text);
+
+  if (n === "regina") return googleTTS(text);
+
+  if (n === "daniel") return speakBrowser(text, pickMale());
+
+  return speakBrowser(text, pickFemale());
+}
+
+/* =========================================================
+   🚀 TIMELINE ENGINE
+========================================================= */
+
+async function start(){
+
+  const lines = document.getElementById("texto")
+    .value.split("\n")
+    .map(l => l.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+
+    const m = line.match(/^([^:]+):\s*(.*)$/);
+    if (!m) continue;
+
+    const name = m[1];
+    const text = m[2];
+
+    document.getElementById("karaoke").innerHTML =
+      `<b>${name}:</b> ${text}`;
+
+    await speak(name, text);
+  }
+}
+
+window.start = start;
+
+</script>
+
+<style>
+body{margin:0;padding:14px;background:#0f0f12;color:#fff;font-family:Arial}
+textarea{width:100%;height:140px;background:#121214;color:#fff;border:0;padding:10px}
+.karaoke{margin-top:10px;padding:12px;background:#141417;border-radius:8px}
+button{margin-top:10px;padding:10px;border:0;border-radius:8px;cursor:pointer}
+.status{color:#aaa;margin-bottom:10px}
+</style>
+
+</head>
+
+<body>
+
+<div class="status" id="status">Inicializando...</div>
+
+<textarea id="texto">
+Daniel: Agora ninguém fala por cima de Kaori.
+Ana: Sistema de fila estável.
+Regina: Google TTS sincronizado.
+Kaori: Mesmo lenta, eu não quebro mais o sistema.
+Daniel: Execução virou timeline determinística.
+</textarea>
+
+<div class="karaoke"></div>
+
+<button onclick="start()">▶ Play</button>
+
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🌍 10 Idiomas + Masculino/Feminino (PT text)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<style>
+html,body{
+  margin:0;
+  height:100%;
+  background:#0f0f12;
+  color:#fff;
+  font-family:Arial, Helvetica, sans-serif;
+}
+
+body{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:14px;
+  gap:12px;
+}
+
+textarea{
+  width:90%;
+  max-width:1000px;
+  height:170px;
+  background:#121214;
+  color:#fff;
+  border:0;
+  border-radius:8px;
+  padding:10px;
+  resize:vertical;
+}
+
+.karaoke{
+  width:90%;
+  max-width:1000px;
+  background:#141417;
+  padding:16px;
+  border-radius:8px;
+  min-height:120px;
+  font-size:1.1rem;
+}
+
+.controls{
+  position:fixed;
+  bottom:18px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:8px;
+  background:rgba(0,0,0,.6);
+  padding:8px;
+  border-radius:10px;
+}
+
+button{
+  background:#222;
+  color:#fff;
+  border:0;
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+.name{
+  font-weight:bold;
+  margin-right:6px;
+}
+</style>
+</head>
+
+<body>
+
+<textarea id="texto">
+Português BR masculino: Bom dia, tudo bem?
+Português BR feminino: Bom dia, tudo bem?
+Português PT masculino: Olá, como estás?
+Português PT feminino: Olá, como estás?
+Espanhol ES masculino: Hola, ¿cómo estás?
+Espanhol ES feminino: Hola, ¿cómo estás?
+Francês masculino: Bonjour, comment ça va?
+Francês feminino: Bonjour, comment ça va?
+Italiano masculino: Ciao, come stai?
+Italiano feminino: Ciao, come stai?
+Alemão masculino: Guten Tag, wie geht's?
+Alemão feminino: Guten Tag, wie geht's?
+</textarea>
+
+<div class="karaoke" id="karaoke">...</div>
+
+<div class="controls">
+<button onclick="start()">▶</button>
+<button onclick="pause()">⏸</button>
+<button onclick="resume()">⏯</button>
+<button onclick="stop()">🛑</button>
+</div>
+
+<script>
+let synth = window.speechSynthesis;
+let voices = [];
+let lines = [];
+
+speechSynthesis.onvoiceschanged = () => {
+  voices = synth.getVoices();
+};
+voices = synth.getVoices();
+
+/* 🎯 Seleciona voz por idioma + tentativa de gênero */
+function getVoice(lang, gender){
+  lang = lang.toLowerCase();
+
+  let list = voices.filter(v =>
+    v.lang?.toLowerCase().startsWith(lang)
+  );
+
+  if(!list.length) list = voices;
+
+  if(gender === "female"){
+    return list.find(v =>
+      /female|feminina|woman|google uk female|lucia|victoria/i.test(v.name)
+    ) || list[0];
+  }
+
+  if(gender === "male"){
+    return list.find(v =>
+      /male|masculina|man|david|jorge|google uk male/i.test(v.name)
+    ) || list[0];
+  }
+
+  return list[0];
+}
+
+/* 🌍 MAPA DE PERSONAGENS */
+function speaker(name){
+  name = name.toLowerCase();
+
+  if(name.includes("português br masculino"))
+    return {lang:"pt-BR", gender:"male"};
+
+  if(name.includes("português br feminino"))
+    return {lang:"pt-BR", gender:"female"};
+
+  if(name.includes("português pt masculino"))
+    return {lang:"pt-PT", gender:"male"};
+
+  if(name.includes("português pt feminino"))
+    return {lang:"pt-PT", gender:"female"};
+
+  if(name.includes("espanhol es masculino"))
+    return {lang:"es-ES", gender:"male"};
+
+  if(name.includes("espanhol es feminino"))
+    return {lang:"es-ES", gender:"female"};
+
+  if(name.includes("francês masculino"))
+    return {lang:"fr-FR", gender:"male"};
+
+  if(name.includes("francês feminino"))
+    return {lang:"fr-FR", gender:"female"};
+
+  if(name.includes("italiano masculino"))
+    return {lang:"it-IT", gender:"male"};
+
+  if(name.includes("italiano feminino"))
+    return {lang:"it-IT", gender:"female"};
+
+  if(name.includes("alemão masculino"))
+    return {lang:"de-DE", gender:"male"};
+
+  if(name.includes("alemão feminino"))
+    return {lang:"de-DE", gender:"female"};
+
+  return {lang:"pt-BR", gender:"male"};
+}
+
+/* 🔊 SPEECH ENGINE */
+async function say(name, text){
+  const s = speaker(name);
+
+  const u = new SpeechSynthesisUtterance(text);
+
+  u.lang = s.lang;
+  u.voice = getVoice(s.lang, s.gender);
+
+  u.rate = 1;
+  u.pitch = 1;
+
+  synth.speak(u);
+
+  await new Promise(r => u.onend = r);
+}
+
+/* 📜 EXECUÇÃO */
+async function line(i){
+  const l = lines[i];
+  const m = l.match(/^([^:]+):\s*(.+)$/);
+  const box = document.getElementById("karaoke");
+
+  if(!m){
+    box.textContent = l;
+    return;
+  }
+
+  box.innerHTML =
+    `<span class="name">${m[1]}:</span> ${m[2]}`;
+
+  await say(m[1], m[2]);
+}
+
+async function start(){
+  lines = document.getElementById("texto")
+    .value.split("\n")
+    .filter(l => l.trim());
+
+  for(let i=0;i<lines.length;i++){
+    await line(i);
+  }
+}
+
+function pause(){ synth.pause(); }
+function resume(){ synth.resume(); }
+function stop(){ synth.cancel(); }
+</script>
+
+</body>
+</html>

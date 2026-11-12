@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demonstração de TTS Gratuito (Português)</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --primary: #2563eb;
+            --text-main: #1f2937;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h2 { margin-top: 0; margin-bottom: 20px; font-size: 24px; }
+
+        .control-group {
+            margin-bottom: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label { font-size: 14px; font-weight: 600; color: #4b5563; }
+
+        select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+
+        textarea { resize: vertical; min-height: 100px; }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        input[type="range"] { flex-grow: 1; }
+        .slider-val { font-size: 14px; min-width: 28px; text-align: right; }
+
+        .btn-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-speak { background-color: var(--primary); color: white; }
+        .btn-speak:hover { background-color: #1d4ed8; }
+        .btn-stop { background-color: #ef4444; color: white; }
+        .btn-stop:hover { background-color: #dc2626; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Texto para Voz (TTS) Nascido no Navegador</h2>
+    
+    <div class="control-group">
+        <label for="text-input">Texto a ser Lido:</label>
+        <textarea id="text-input">Olá! Esta é uma demonstração de síntese de voz totalmente gratuita, rodando direto no seu navegador sem precisar de chaves de API.</textarea>
+    </div>
+
+    <div class="control-group">
+        <label for="voice-select">Selecione a Voz em Português:</label>
+        <select id="voice-select">
+            <option value="">Carregando vozes disponíveis...</option>
+        </select>
+    </div>
+
+    <div class="control-group">
+        <label for="rate-input">Velocidade da Fala:</label>
+        <div class="slider-container">
+            <input type="range" id="rate-input" min="0.5" max="2" value="1" step="0.1">
+            <span id="rate-val" class="slider-val">1.0x</span>
+        </div>
+    </div>
+
+    <div class="control-group">
+        <label for="pitch-input">Tom de Voz (Pitch):</label>
+        <div class="slider-container">
+            <input type="range" id="pitch-input" min="0.5" max="1.5" value="1" step="0.1">
+            <span id="pitch-val" class="slider-val">1.0</span>
+        </div>
+    </div>
+
+    <div class="btn-container">
+        <button class="btn-speak" onclick="speak()">Ouvir Texto</button>
+        <button class="btn-stop" onclick="stopSpeech()">Parar</button>
+    </div>
+</div>
+
+<script>
+    const voiceSelect = document.getElementById('voice-select');
+    const textInput = document.getElementById('text-input');
+    const rateInput = document.getElementById('rate-input');
+    const pitchInput = document.getElementById('pitch-input');
+    
+    const rateVal = document.getElementById('rate-val');
+    const pitchVal = document.getElementById('pitch-val');
+
+    let voices = [];
+
+    // Updates numerical badges next to sliders
+    rateInput.addEventListener('input', () => rateVal.textContent = `${rateInput.value}x`);
+    pitchInput.addEventListener('input', () => pitchVal.textContent = pitchInput.value);
+
+    function populateVoiceList() {
+        if (typeof speechSynthesis === 'undefined') return;
+
+        // Fetch voices from browser environment
+        voices = speechSynthesis.getVoices();
+        
+        // Filter exclusively for Portuguese (Brazil and Portugal codes)
+        const ptVoices = voices.filter(voice => voice.lang.startsWith('pt-'));
+
+        voiceSelect.innerHTML = '';
+
+        if (ptVoices.length === 0) {
+            const option = document.createElement('option');
+            option.textContent = 'Nenhuma voz em PT encontrada (Usando padrão do sistema)';
+            option.value = '';
+            voiceSelect.appendChild(option);
+            return;
+        }
+
+        ptVoices.forEach(voice => {
+            const option = document.createElement('option');
+            option.textContent = `${voice.name} (${voice.lang})`;
+            option.value = voice.name;
+            voiceSelect.appendChild(option);
+        });
+    }
+
+    // Initialize list. Chrome loads voices asynchronously, triggering an event
+    populateVoiceList();
+    if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = populateVoiceList;
+    }
+
+    function speak() {
+        if (typeof speechSynthesis === 'undefined') return;
+
+        // Drop current speech processing queues
+        speechSynthesis.cancel();
+
+        const text = textInput.value.trim();
+        if (!text) return;
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        // Match chosen custom inputs
+        utterance.rate = parseFloat(rateInput.value);
+        utterance.pitch = parseFloat(pitchInput.value);
+
+        // Map selection back to full native object properties
+        const selectedVoiceName = voiceSelect.value;
+        if (selectedVoiceName) {
+            const chosenVoice = voices.find(v => v.name === selectedVoiceName);
+            if (chosenVoice) utterance.voice = chosenVoice;
+        } else {
+            utterance.lang = 'pt-BR'; // Fallback explicit config
+        }
+
+        speechSynthesis.speak(utterance);
+    }
+
+    function stopSpeech() {
+        if (typeof speechSynthesis !== 'undefined') {
+            speechSynthesis.cancel();
+        }
+    }
+</script>
+
+</body>
+</html>

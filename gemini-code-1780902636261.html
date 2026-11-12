@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8"/>
+    <title>🎙️ TTS Lab — Fila Estrita (Kaori Nativo)</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+    <style>
+        html,body{margin:0;height:100%;background:#0f0f12;color:#fff;font-family:Arial}
+        body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+        textarea{width:90%;max-width:980px;height:140px;background:#121214;color:#fff;border:0;padding:10px;border-radius:4px;}
+        .karaoke{width:90%;max-width:980px;background:#141417;padding:14px;border-radius:8px;min-height:120px;box-sizing:border-box;}
+        button{background:#007bff;color:#fff;border:0;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:bold;}
+        button:hover{background:#0056b3;}
+        button:disabled{opacity:0.5;cursor:not-allowed;}
+        .status{font-size:0.9rem;color:#aaa;}
+    </style>
+
+    <script>
+        /* ---------------- GLOBAL LOCK (SERIALIZAÇÃO RIGOROSA) ---------------- */
+        let audioLock = Promise.resolve();
+        function lock(fn){  
+            audioLock = audioLock.then(fn);  
+            return audioLock;
+        }
+
+        /* ---------------- AUDIO CONTEXT ÚNICO DO NAVEGADOR ---------------- */
+        let globalAudioCtx = null;
+        function getAudioContext() {
+            if (!globalAudioCtx) {
+                globalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            return globalAudioCtx;
+        }
+
+        function initSystem(){
+            document.getElementById("status").innerText = "Sistemas Prontos ✔";
+            document.getElementById("btn-play").disabled = false;
+        }
+        window.addEventListener("DOMContentLoaded", initSystem);
+
+        /* ---------------- PIPELINE KAORI (FETCH -> DECODE -> PLAY) ---------------- */
+        
+        // Função interna para buscar o áudio na API e transformá-lo em AudioBuffer
+        async function fetchKaoriBuffer(text) {
+            // URL DA SUA API DA KAORI (Substitua se necessário pela rota exata)
+            const apiUrl = `https://api.exemplo.com/kaori/tts?text=${encodeURIComponent(text)}`;
+            
+            const ctx = getAudioContext();
+            if (ctx.state === 'suspended') await ctx.resume();
+
+            const response = await fetch(apiUrl);
+            if (!response.ok) throw new Error(`Erro na API da Kaori: ${response.status}`);
+            
+            const arrayBuffer = await response.arrayBuffer();
+            
+            // Promisificando o decodeAudioData clássico para o fluxo async/await
+            return new Promise((resolve, reject) => {
+                ctx.decodeAudioData(arrayBuffer, resolve, reject);
+            });
+        }
+
+        // Função que entra na fila de execução travando o Mutex até o som terminar de tocar
+        function kaoriSpeak(text) {
+            return lock(async () => {
+                logger("Kaori", "Buscando e decodificando áudio...");
+                
+                // Execução linear direta (Sem fallbacks)
+                const audioBuffer = await fetchKaoriBuffer(text);
+                const ctx = getAudioContext();
+
+                return new Promise((resolve) => {
+                    const src = ctx.createBufferSource();
+                    src.buffer = audioBuffer;
+                    src.connect(ctx.destination);
+                    
+                    src.onended = () => {
+                        src.disconnect();
+                        resolve(); // Só libera a fila após a última onda sonora sair do falante
+                    };
+                    
+                    logger("Kaori", text);
+                    src.start(0);
+                });
+            });
+        }
+
+        /* ---------------- MOTORES COMPLEMENTARES (LOCKED) ---------------- */
+        let voices = [];
+        function updateVoices() { voices = speechSynthesis.getVoices(); }
+        updateVoices();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = updateVoices;
+        }
+
+        function speakBrowser(text, isMale){  
+            return lock(() => new Promise(r => {    
+                speechSynthesis.cancel(); // Reseta buffer nativo para evitar race condition
+
+                const u = new SpeechSynthesisUtterance(text);    
+                u.lang = "pt-BR";
+                
+                if (voices.length > 0) {
+                    const target = isMale ? /male|daniel/i : /female|luciana|google/i;
+                    u.voice = voices.find(v => target.test(v.name)) || voices.find(v => v.lang.includes("pt")) || voices[0];
+                }
+
+                // Proteção contra o congelamento silencioso do onend no Chrome
+                const safetyTimer = setTimeout(() => { r(); }, (text.length * 80) + 2500);
+
+                u.onend = () => { clearTimeout(safetyTimer); r(); };    
+                u.onerror = () => { clearTimeout(safetyTimer); r(); };
+
+                speechSynthesis.speak(u);  
+            }));
+        }
+
+        function googleTTS(text){  
+            return lock(() => new Promise(r => {    
+                const a = new Audio("https://translate.google.com/translate_tts?ie=UTF-8&q=" + encodeURIComponent(text) + "&tl=pt-BR&client=tw-ob");    
+                a.onended = r;    
+                a.onerror = r;
+                a.play().catch(r);  
+            }));
+        }
+
+        function rv(text){  
+            return lock(() => new Promise(r => {    
+                responsiveVoice.speak(text, "Brazilian Portuguese Female", { onend: r, onerror: r });  
+            }));
+        }
+
+        /* ---------------- ROTEADOR CENTRAL DE PERSONAGENS ---------------- */
+        function speak(name, text){
+            const n = name.toLowerCase();
+            
+            if(n.includes("kaori")) return kaoriSpeak(text);  
+            if(n === "ana") return rv(text);  
+            if(n === "regina") return googleTTS(text);
+            if(n === "daniel") return speakBrowser(text, true);  
+            
+            return speakBrowser(text, false);
+        }
+
+        /* ---------------- FLUXO DE EXECUÇÃO SEQUENCIAL ---------------- */
+        function logger(name, text) {
+            document.getElementById("karaoke").innerHTML = `<b>${name}:</b> ${text}`;
+        }
+
+        async function start(){
+            document.getElementById("btn-play").disabled = true;
+            
+            const ctx = getAudioContext();
+            if (ctx && ctx.state === 'suspended') await ctx.resume();
+
+            const lines = document.getElementById("texto").value.split("\n").filter(Boolean);
+            
+            for(const line of lines){
+                const m = line.match(/^([^:]+):\s*(.*)$/);    
+                if(!m) continue;
+                
+                const name = m[1].trim();    
+                const text = m[2].trim();    
+                
+                // Executa a chamada bloqueante na nossa Promise Chain global
+                await speak(name, text);  
+                
+                // Pequena folga técnica (250ms) para limpar estática de hardware antes do próximo áudio
+                await new Promise(r => setTimeout(r, 250));
+            }
+            
+            document.getElementById("btn-play").disabled = false;
+        }
+        
+        window.start = start;
+    </script>
+</head>
+<body>
+    <div class="status" id="status">Inicializando motores...</div>
+    <textarea id="texto">Daniel: Eu não devo mais interromper Kaori.
+Regina: Google TTS aguardando na fila.
+Kaori: Agora meu pipeline é limpo, direto e sem fallbacks.
+Daniel: Executando perfeitamente sincronizado.</textarea>
+    <div class="karaoke" id="karaoke"></div>
+    <button id="btn-play" onclick="start()" disabled>▶ Play</button>
+</body>
+</html>

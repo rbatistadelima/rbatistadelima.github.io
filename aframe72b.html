@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Camera Background Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    body, html { margin:0; height:100%; overflow:hidden; background:black; }
+    #startBtn {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      background: white; color: black; padding: 1em 2em;
+      font-size: 1.2em; border-radius: 10px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<button id="startBtn">▶ Enable Camera</button>
+
+<a-scene embedded vr-mode-ui="enabled: true">
+  <a-assets>
+    <video id="bgvideo" autoplay playsinline muted></video>
+  </a-assets>
+
+  <a-entity id="cam" camera look-controls>
+    <!-- Video background -->
+    <a-entity geometry="primitive: plane; height: 2; width: 2"
+              position="0 0 -1"
+              material="shader: flat; src: #bgvideo; side: double; depthTest: false">
+    </a-entity>
+
+    <!-- Reticle -->
+    <a-entity geometry="primitive: ring; radiusInner:0.005; radiusOuter:0.01"
+              material="color: white; shader: flat"
+              position="0 0 -0.5">
+    </a-entity>
+  </a-entity>
+
+  <!-- One box in front -->
+  <a-box position="0 0 -3" color="tomato"></a-box>
+</a-scene>
+
+<script>
+const btn = document.getElementById("startBtn");
+const video = document.getElementById("bgvideo");
+
+btn.addEventListener("click", async () => {
+  btn.style.display = "none";
+
+  // iOS Motion Permission
+  if (typeof DeviceMotionEvent !== "undefined" &&
+      typeof DeviceMotionEvent.requestPermission === "function") {
+    try { await DeviceMotionEvent.requestPermission(); }
+    catch(e) { console.warn("Motion perm:", e); }
+  }
+
+  // Camera Stream
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+    console.log("Camera started.");
+  } catch(e) {
+    console.error("Camera error:", e);
+  }
+
+  // Enter VR mode automatically
+  document.querySelector('a-scene').enterVR();
+});
+</script>
+</body>
+</html>

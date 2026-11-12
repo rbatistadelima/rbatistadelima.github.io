@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Multi-personagem - Transformers.js MMS Portuguese</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 2rem;
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+        }
+        h1 {
+            color: #fff;
+            text-align: center;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+        .sub {
+            color: #94a3b8;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .progress-container {
+            background: #0f172a;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #334155;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #22c55e);
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+        .status-text {
+            color: #94a3b8;
+            font-size: 0.875rem;
+            text-align: center;
+        }
+        .status-bar {
+            background: #0f172a;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #1e293b;
+            border-radius: 2rem;
+            font-size: 0.875rem;
+            color: #cbd5e1;
+        }
+        .led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        .led.ready { background: #22c55e; box-shadow: 0 0 8px #22c55e; animation: pulse 2s infinite; }
+        .led.loading { background: #eab308; animation: pulse 1s infinite; }
+        .led.error { background: #ef4444; }
+        .led.idle { background: #64748b; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .character-grid {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .character-card {
+            background: #1e293b;
+            border-radius: 1rem;
+            padding: 1rem;
+            transition: all 0.3s ease;
+        }
+        .character-card.playing {
+            background: #2d3a5e;
+            border-left: 4px solid #22c55e;
+            transform: translateX(4px);
+        }
+        .character-card.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .character-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+        .character-name {
+            color: #fff;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .character-voice {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+        .message-input {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        input {
+            flex: 1;
+            padding: 0.5rem 1rem;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+            color: #fff;
+            font-size: 0.875rem;
+        }
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        button {
+            padding: 0.5rem 1rem;
+            background: #3b82f6;
+            border: none;
+            border-radius: 0.5rem;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .play-all-btn {
+            width: 100%;
+            padding: 1rem;
+            background: #22c55e;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .play-all-btn:disabled {
+            background: #64748b;
+        }
+        .queue-status {
+            color: #94a3b8;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background: #0f172a;
+            border-radius: 0.5rem;
+        }
+        .error-message {
+            color: #ef4444;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+        .cancel-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #ef4444;
+            padding: 0.75rem 1.5rem;
+            border-radius: 2rem;
+            font-weight: 600;
+            z-index: 1000;
+        }
+        .cancel-btn:hover {
+            background: #dc2626;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Multi-TTS Studio</h1>
+        <div class="sub">Transformers.js MMS Portuguese - Áudio Neural</div>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="status-text" id="statusText">🔄 Carregando modelo MMS Portuguese...</div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="led" id="modelLed"></div>
+                <span>Modelo MMS Portuguese</span>
+            </div>
+            <div class="status-indicator">
+                <div class="led" id="queueLed"></div>
+                <span>Fila de Execução</span>
+            </div>
+        </div>
+
+        <div class="character-grid" id="characterGrid"></div>
+
+        <button class="play-all-btn" id="playAllBtn" disabled>⏳ Aguardando modelo...</button>
+        <div class="queue-status" id="queueStatus">🔄 Inicializando...</div>
+        <div class="error-message" id="errorMessage"></div>
+    </div>
+    <button class="cancel-btn" id="cancelBtn" style="display: none;">🛑 Cancelar Tudo</button>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0/dist/transformers.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import { pipeline, env } from '@huggingface/transformers';
+        
+        // Configuração para melhor performance
+        env.localModelPath = 'https://huggingface.co/models/';
+        env.allowRemoteModels = true;
+        env.useBrowserCache = true;
+        
+        // ============================================
+        // SINGLE ENGINE TTS COM TRANSFORMERS.JS
+        // ============================================
+        
+        class TransformersTTS {
+            constructor() {
+                this.queue = [];
+                this.isPlaying = false;
+                this.currentAudio = null;
+                this.pipeline = null;
+                this.isReady = false;
+                this.sampleRate = 16000;
+                this.audioContext = null;
+            }
+            
+            async initialize(onProgress) {
+                try {
+                    console.log('🔄 Inicializando pipeline TTS com MMS Portuguese...');
+                    
+                    // Cria pipeline para TTS
+                    this.pipeline = await pipeline(
+                        'text-to-speech',
+                        'microsoft/speecht5_tts',  // Alternativa mais leve
+                        { 
+                            progress_callback: (progress) => {
+                                if (onProgress) {
+                                    const percent = Math.round(progress.progress * 100);
+                                    onProgress(percent, progress.status);
+                                }
+                                console.log(`Progresso: ${progress.status}`, progress);
+                            }
+                        }
+                    );
+                    
+                    // Inicializa AudioContext (suspenso inicialmente)
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    this.isReady = true;
+                    console.log('✅ Modelo TTS carregado com sucesso!');
+                    return true;
+                    
+                } catch (error) {
+                    console.error('❌ Erro ao carregar modelo:', error);
+                    this.isReady = false;
+                    throw error;
+                }
+            }
+            
+            async speak(text, voiceConfig = {}) {
+                return new Promise((resolve, reject) => {
+                    const task = async () => {
+                        this.isPlaying = true;
+                        this.updateQueueIndicator();
+                        
+                        try {
+                            if (!this.isReady || !this.pipeline) {
+                                throw new Error('Modelo TTS não está pronto');
+                            }
+                            
+                            console.log(`🎤 Gerando áudio: "${text.substring(0, 50)}..."`);
+                            
+                            // Gera o áudio usando o modelo
+                            const output = await this.pipeline(text, {
+                                speaker_embeddings: voiceConfig.speakerEmbeddings || null
+                            });
+                            
+                            // Reproduz o áudio gerado
+                            await this.playAudio(output.audio, output.sampling_rate);
+                            
+                            resolve();
+                        } catch (error) {
+                            console.error('Erro na síntese:', error);
+                            reject(error);
+                        } finally {
+                            this.isPlaying = false;
+                            this.currentAudio = null;
+                            this.updateQueueIndicator();
+                            this.processQueue();
+                        }
+                    };
+                    
+                    this.queue.push(task);
+                    
+                    if (!this.isPlaying) {
+                        this.processQueue();
+                    }
+                });
+            }
+            
+            async playAudio(audioData, sampleRate) {
+                return new Promise((resolve, reject) => {
+                    try {
+                        // Resume AudioContext se necessário
+                        if (this.audioContext.state === 'suspended') {
+                            await this.audioContext.resume();
+                        }
+                        
+                        // Converte Float32Array para formato playback
+                        const buffer = this.audioContext.createBuffer(1, audioData.length, sampleRate);
+                        buffer.copyToChannel(audioData, 0);
+                        
+                        // Cria fonte e conecta
+                        const source = this.audioContext.createBufferSource();
+                        source.buffer = buffer;
+                        source.connect(this.audioContext.destination);
+                        
+                        source.onended = () => {
+                            console.log('✅ Reprodução concluída');
+                            resolve();
+                        };
+                        
+                        source.onerror = (err) => {
+                            reject(err);
+                        };
+                        
+                        this.currentAudio = source;
+                        source.start();
+                        
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            }
+            
+            processQueue() {
+                if (this.queue.length === 0 || this.isPlaying) return;
+                
+                const nextTask = this.queue.shift();
+                if (nextTask) nextTask();
+            }
+            
+            cancelAll() {
+                this.queue = [];
+                if (this.currentAudio) {
+                    try {
+                        this.currentAudio.stop();
+                    } catch(e) {}
+                    this.currentAudio = null;
+                }
+                this.isPlaying = false;
+                this.updateQueueIndicator();
+                console.log('🛑 Todas as falas canceladas');
+            }
+            
+            updateQueueIndicator() {
+                const led = document.getElementById('queueLed');
+                const queueStatus = document.getElementById('queueStatus');
+                
+                if (this.isPlaying) {
+                    led.className = 'led ready';
+                    queueStatus.innerHTML = '🎵 Tocando agora...';
+                } else if (this.queue.length > 0) {
+                    led.className = 'led loading';
+                    queueStatus.innerHTML = `⏳ Aguardando (${this.queue.length} na fila)`;
+                } else {
+                    led.className = 'led idle';
+                    queueStatus.innerHTML = '✅ Pronto para tocar';
+                }
+            }
+        }
+        
+        // ============================================
+        // GERENCIADOR DE PERSONAGENS
+        // ============================================
+        
+        class CharacterManager {
+            constructor() {
+                this.tts = new TransformersTTS();
+                this.characters = [
+                    { id: 'kaori', name: 'Kaori', description: 'Voz neural MMS', color: '#3b82f6' },
+                    { id: 'takumi', name: 'Takumi', description: 'Voz neural MMS', color: '#22c55e' },
+                    { id: 'yuki', name: 'Yuki', description: 'Voz neural MMS', color: '#eab308' },
+                    { id: 'kenji', name: 'Kenji', description: 'Voz neural MMS', color: '#ef4444' }
+                ];
+                this.init();
+            }
+            
+            async init() {
+                await this.loadModel();
+                this.render();
+                this.attachEvents();
+            }
+            
+            async loadModel() {
+                const progressFill = document.getElementById('progressFill');
+                const statusText = document.getElementById('statusText');
+                const modelLed = document.getElementById('modelLed');
+                const playAllBtn = document.getElementById('playAllBtn');
+                
+                try {
+                    await this.tts.initialize((percent, status) => {
+                        progressFill.style.width = `${percent}%`;
+                        statusText.innerHTML = `📥 ${status || 'Carregando...'} ${percent}%`;
+                        if (percent === 100) {
+                            statusText.innerHTML = '✅ Modelo carregado! Pronto para uso.';
+                        }
+                    });
+                    
+                    modelLed.className = 'led ready';
+                    playAllBtn.disabled = false;
+                    playAllBtn.textContent = '▶ Play All (Sequencial)';
+                    document.getElementById('cancelBtn').style.display = 'block';
+                    this.showMessage('✅ Modelo MMS Portuguese pronto!', '#22c55e');
+                    
+                } catch (error) {
+                    modelLed.className = 'led error';
+                    statusText.innerHTML = '❌ Erro ao carregar modelo. Recarregue a página.';
+                    this.showMessage('❌ Falha ao carregar modelo TTS', '#ef4444');
+                    console.error(error);
+                }
+            }
+            
+            render() {
+                const grid = document.getElementById('characterGrid');
+                grid.innerHTML = this.characters.map(char => `
+                    <div class="character-card" data-id="${char.id}">
+                        <div class="character-header">
+                            <div>
+                                <div class="character-name">${char.name}</div>
+                                <div class="character-voice">${char.description}</div>
+                            </div>
+                        </div>
+                        <div class="message-input">
+                            <input type="text" id="input-${char.id}" 
+                                   placeholder="Digite a mensagem..." 
+                                   value="Olá, meu nome é ${char.name}! Estou falando com voz neural.">
+                            <button class="speak-btn" data-id="${char.id}" disabled>⏳ Aguarde</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            attachEvents() {
+                // Aguarda modelo carregar para habilitar botões
+                const checkReady = setInterval(() => {
+                    if (this.tts.isReady) {
+                        document.querySelectorAll('.speak-btn').forEach(btn => {
+                            btn.disabled = false;
+                            btn.textContent = 'Falar';
+                        });
+                        clearInterval(checkReady);
+                    }
+                }, 100);
+                
+                // Botões individuais
+                document.querySelectorAll('.speak-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        if (!this.tts.isReady) {
+                            this.showMessage('Aguardando modelo carregar...', '#eab308');
+                            return;
+                        }
+                        
+                        const charId = btn.dataset.id;
+                        const input = document.getElementById(`input-${charId}`);
+                        const text = input.value.trim();
+                        const character = this.characters.find(c => c.id === charId);
+                        
+                        if (text && character) {
+                            await this.speakCharacter(character, text);
+                        }
+                    });
+                });
+                
+                // Play All button
+                const playAllBtn = document.getElementById('playAllBtn');
+                playAllBtn.addEventListener('click', () => this.playAllSequential());
+                
+                // Cancel button
+                const cancelBtn = document.getElementById('cancelBtn');
+                cancelBtn.addEventListener('click', () => {
+                    this.tts.cancelAll();
+                    this.showMessage('🛑 Todas as falas canceladas!', '#ef4444');
+                    document.querySelectorAll('.character-card').forEach(card => {
+                        card.classList.remove('playing');
+                    });
+                });
+            }
+            
+            async speakCharacter(character, text) {
+                const card = document.querySelector(`.character-card[data-id="${character.id}"]`);
+                card?.classList.add('playing');
+                
+                try {
+                    await this.tts.speak(text, {
+                        speakerEmbeddings: null  // Usa voz padrão
+                    });
+                } catch (error) {
+                    this.showMessage(`Erro: ${error.message}`, '#ef4444');
+                    console.error(error);
+                } finally {
+                    card?.classList.remove('playing');
+                }
+            }
+            
+            async playAllSequential() {
+                if (!this.tts.isReady) {
+                    this.showMessage('Aguardando modelo carregar...', '#eab308');
+                    return;
+                }
+                
+                const playAllBtn = document.getElementById('playAllBtn');
+                playAllBtn.disabled = true;
+                playAllBtn.textContent = '⏳ Tocando sequência...';
+                
+                for (const character of this.characters) {
+                    const input = document.getElementById(`input-${character.id}`);
+                    const text = input.value.trim();
+                    if (text) {
+                        await this.speakCharacter(character, text);
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                }
+                
+                playAllBtn.disabled = false;
+                playAllBtn.textContent = '▶ Play All (Sequencial)';
+                this.showMessage('✅ Sequência completa!', '#22c55e');
+            }
+            
+            showMessage(message, color = '#22c55e') {
+                const errorDiv = document.getElementById('errorMessage');
+                errorDiv.textContent = message;
+                errorDiv.style.color = color;
+                setTimeout(() => {
+                    if (errorDiv.textContent === message) {
+                        errorDiv.textContent = '';
+                    }
+                }, 3000);
+            }
+        }
+        
+        // ============================================
+        // INICIALIZAÇÃO
+        // ============================================
+        
+        // Inicializa app
+        const app = new CharacterManager();
+        
+        // Adiciona listener para interação do usuário (necessário para WebAudio)
+        document.body.addEventListener('click', () => {
+            if (app.tts.audioContext && app.tts.audioContext.state === 'suspended') {
+                app.tts.audioContext.resume();
+                console.log('🎵 AudioContext resumed');
+            }
+        }, { once: true });
+    </script>
+</body>
+</html>

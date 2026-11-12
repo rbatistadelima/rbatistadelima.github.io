@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grade Horária de Stories - Gramore</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            overflow: hidden; /* Remove scrolldown da página principal */
+        }
+        /* Custom scrollbar suave apenas para a área horizontal e vertical interna se necessário */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #059669; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen w-screen flex flex-col justify-between p-4 gap-3 select-none">
+
+    <!-- Top Navigation & Controls -->
+    <header class="bg-gray-800 rounded-xl px-6 py-3 flex flex-col md:flex-row justify-between items-center gap-4 border border-gray-700 shrink-0 shadow-lg">
+        <div class="flex items-center gap-4">
+            <div class="bg-emerald-600 text-white font-extrabold px-3 py-1 rounded-lg text-sm tracking-wider">GRAMORE</div>
+            <div>
+                <h1 class="text-base font-bold text-white tracking-wide">Monitor de Stories • Naturaltech 2026</h1>
+                <p class="text-xs text-gray-400">Tempo vertical (10h - 20h) | Conteúdo e Mídias horizontais</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <label for="patternSelect" class="text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Padrão:</label>
+            <select id="patternSelect" class="bg-gray-900 border border-gray-600 text-white text-xs rounded-lg focus:ring-emerald-500 focus:border-emerald-500 p-2 font-medium cursor-pointer transition-all w-full md:w-64">
+                <option value="abertura">Abertura Rápida (Foco Sinal/Início)</option>
+                <option value="comercial">Padrão Comercial (Picos de Venda)</option>
+                <option value="continuo">Padrão Contínuo (Linear de 1h em 1h)</option>
+            </select>
+            <div class="bg-gray-900/50 border border-gray-700 px-3 py-1.5 rounded-lg text-right hidden sm:block">
+                <span class="text-[10px] font-bold text-emerald-400 block tracking-widest">ESTANDE</span>
+                <span class="text-xs font-black text-white">Rua A/2 • 003</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container: Fullscreen No-Scroll Workspace -->
+    <main class="flex-grow bg-gray-800 rounded-xl border border-gray-700 p-3 flex flex-col overflow-hidden shadow-2xl">
+        
+        <!-- Grid Header Fixo -->
+        <div class="grid grid-cols-12 gap-2 text-left pb-2 border-b border-gray-700 text-[10px] font-bold uppercase tracking-wider text-gray-400 shrink-0">
+            <div class="col-span-1 text-center bg-gray-900/40 py-1 rounded">Tempo</div>
+            <div class="col-span-2 pl-2 flex items-center">Gatilho / Tema</div>
+            <div class="col-span-9 pl-2 flex items-center">Estrutura de Conteúdo Horizontal (Legendas, Mídias e Orientação)</div>
+        </div>
+
+        <!-- Linhas do Tempo Verticais (Container com scroll interno controlado apenas para as linhas) -->
+        <div id="timelineContainer" class="flex-grow overflow-y-auto divide-y divide-gray-700/60 pr-1">
+            <!-- Inserido dinamicamente via JavaScript -->
+        </div>
+
+    </main>
+
+    <!-- Mini Footer -->
+    <footer class="flex justify-between items-center text-[10px] text-gray-500 px-2 shrink-0">
+        <div>Direção: Eric Cortez (Ops) & Francisco Bilac (Comercial)</div>
+        <div class="font-semibold tracking-wider text-emerald-500">Cultive o que te faz bem • Junho, 2026</div>
+    </footer>
+
+    <!-- Logica de dados e renderização do layout customizado -->
+    <script>
+        const strategies = {
+            abertura: [
+                { time: "10:00", title: "1. Começo", text: "Portas abertas para a Naturaltech 2026! 🌿 Se quer crescer com segurança, venha nos visitar!", type: "FOTO / ARTE", tip: "Foto com todo o time unida" },
+                { time: "10:15", title: "2. A Caminho", text: "Caminho simples: entrou na feira, siga direto até a Rua A/2. Stand 003 bem no início!", type: "VÍDEO POV", tip: "Andando do portal até a placa A/2" },
+                { time: "10:30", title: "3. Convite", text: "Vídeo com nossos Diretores convidando donos de empórios, restaurantes e hortifrutis.", type: "VÍDEO COM DIREÇÃO", tip: "Erick ou Francisco falando (Legendar!)" },
+                { time: "13:00", title: "4. Produto", text: "Close-up macro nos grãos e especiarias premium. Qualidade que se vê de perto.", type: "VÍDEO MACRO", tip: "Luz lateral para destacar texturas" },
+                { time: "14:15", title: "5. Estande / Qualidade", text: "Exposição de laudos técnicos e controle de rastreabilidade por lote de origem.", type: "FOTO / TAKE", tip: "Foco nos documentos sobre a mesa" },
+                { time: "15:30", title: "6. Catálogo", text: "Consultor mostrando a facilidade de unificar compras em um portfólio de +800 itens.", type: "VÍDEO CURTO", tip: "Folheando catálogo físico ou tablet" },
+                { time: "16:45", title: "7. Plataforma", text: "Agilidade B2B: comprando no stand e gerenciando notas e boletos pelo nosso app/site.", type: "TELA GRAVADA", tip: "Mão mexendo no app no meio da feira" },
+                { time: "18:00", title: "8. Consultores", text: "Estande movimentado! Equipe desenhando estratégias de alto giro com os clientes.", type: "BASTIDORES", tip: "Mesas de negociação cheias (com áudio em alta)" },
+                { time: "18:45", title: "9. Equipe / Cultura", text: "Time Gramore reunido. Respeito, ética e o compromisso de cultivar o que te faz bem.", type: "FOTO DO TIME", tip: "Foto com clima de energia lá no alto" },
+                { time: "19:30", title: "10. Depoimento", text: "Prova social: a palavra de um lojista que renovou seu estoque com condições exclusivas.", type: "VÍDEO 15s", tip: "Entrevista rápida de celular com cliente" },
+                { time: "20:00", title: "11. Fim do dia", text: "Agradecimento pelo primeiro dia de feira de sucesso e convite para o dia seguinte.", type: "VÍDEO / TAKE", tip: "Luzes do stand baixando / tchau da equipe" }
+            ],
+            comercial: [
+                { time: "10:00", title: "1. Começo", text: "O grande dia chegou! A Gramore já está ativa no Distrito Anhembi.", type: "ARTE INSTITUCIONAL", tip: "Contagem regressiva finalizada" },
+                { time: "12:00", title: "2. A Caminho", text: "Do portal de entrada até o Stand 003 na Rua A/2. Venha nos visitar.", type: "VÍDEO ACELERADO", tip: "Caminhada rápida cortando corredores" },
+                { time: "12:30", title: "3. Convite", text: "Nossos diretores trazem as oportunidades de mercado reservadas para hoje.", type: "VÍDEO", tip: "Francisco Bilac detalhando soluções B2B" },
+                { time: "13:15", title: "4. Produto", text: "Estética visual de alto padrão: grãos e farináceos para o varejo e indústria.", type: "VÍDEO ESTÉTICO", tip: "Mostrar derramamento de sementes / potes" },
+                { time: "14:30", title: "5. Estande / Qualidade", text: "Certificações e infraestrutura de mais de 5.000m² suportando o seu negócio.", type: "FOTO", tip: "Selos de qualidade impressos / banners" },
+                { time: "17:00", title: "6. Catálogo", text: "Variedade real com saída para seu empório não sofrer com produto parado.", type: "VÍDEO", tip: "Mostrando a espessura física do catálogo" },
+                { time: "17:30", title: "7. Plataforma", text: "Facilidade tecnológica de reposição ágil pelo aplicativo.", type: "SCREENSHOT + FUNÇÃO", tip: "Demonstração rápida da aba 'Meus Pedidos'" },
+                { time: "18:15", title: "8. Consultores", text: "Negócios acontecendo em tempo real. Soluções personalizadas para sua região.", type: "TAKE DINÂMICO", tip: "Consultores sorrindo e apertando mãos" },
+                { time: "19:00", title: "9. Equipe / Cultura", text: "O lado humano por trás da distribuição nacional da Gramore.", type: "FOTO", tip: "Abraço ou cumprimento corporativo integrado" },
+                { time: "19:30", title: "10. Depoimento", text: "Lojistas reais compartilhando seus resultados com a nossa parceria.", type: "VÍDEO DEPOIMENTO", tip: "Lojista segurando sacola institucional" },
+                { time: "20:00", title: "11. Fim do dia", text: "Fechamento de balanço e metas do dia 1 superadas. Até amanhã às 10h!", type: "FOTO / TAKE", tip: "Métricas simbólicas do sucesso do dia" }
+            ],
+            continuo: [
+                { time: "10:00", title: "1. Começo", text: "Abertura oficial dos portões. Gramore pronta no Stand 003.", type: "FOTO", tip: "Stand pronto e brilhando vazio" },
+                { time: "11:00", title: "2. A Caminho", text: "Localize nosso stand na Rua A/2 para otimizar suas compras na feira.", type: "VÍDEO CORREDOR", tip: "Enquadramento da rua A/2" },
+                { time: "12:00", title: "3. Convite", text: "A palavra do nosso comercial focado em fazer a sua loja crescer com segurança.", type: "VÍDEO DIRETOR", tip: "Foco em quem busca abrir lojas" },
+                { time: "13:00", title: "4. Produto", text: "Explore nosso mix estratégico de mais de 800 produtos selecionados.", type: "FOTO", tip: "Visão limpa da estante de exposição" },
+                { time: "14:00", title: "5. Estande / Qualidade", text: "Rastreabilidade e rigor de homologação de fornecedores de ponta a ponta.", type: "VÍDEO", tip: "Foco no selo de rastreabilidade do lote" },
+                { time: "15:00", title: "6. Catálogo", text: "Especiarias, temperos e grãos estruturados para o seu Food Service.", type: "FOTO", tip: "Mix de temperos coloridos em displays" },
+                { time: "16:00", title: "7. Plataforma", text: "Notas fiscais, laudos e fichas técnicas acessadas em um clique.", type: "VÍDEO CURTO", tip: "Navegação rápida no painel do cliente" },
+                { time: "17:00", title: "8. Consultores", text: "Nosso time de representantes pronto para desenhar o mix ideal com você.", type: "FOTO", tip: "Consultor mostrando amostras ao cliente" },
+                { time: "18:00", title: "9. Equipe / Cultura", text: "Valores fundamentais: ética, respeito e comprometimento no mercado.", type: "VÍDEO GRUPO", tip: "Grito de guerra ou cumprimento do time" },
+                { time: "19:00", title: "10. Depoimento", text: "O sucesso de quem conta com um parceiro comprometido de verdade.", type: "VÍDEO depoimento", tip: "Cliente relatando facilidade de entrega" },
+                { time: "20:00", title: "11. Fim do dia", text: "Encerramos as atividades da feira por hoje. Esperamos você amanhã!", type: "FOTO", tip: "Equipe dando tchau acenando" }
+            ]
+        };
+
+        function renderTimeline(patternKey) {
+            const data = strategies[patternKey];
+            const container = document.getElementById('timelineContainer');
+            container.innerHTML = ''; // Limpa dados anteriores
+
+            data.forEach((item, index) => {
+                const row = document.createElement('div');
+                // Estrutura de grid alinhada com o Header fixo
+                row.className = "grid grid-cols-12 gap-2 py-2 items-center hover:bg-gray-700/30 transition-colors group";
+                
+                row.innerHTML = `
+                    <!-- TEMPO VOA VERTICALMENTE (Coluna 1) -->
+                    <div class="col-span-1 text-center font-extrabold text-xs tracking-tight text-emerald-400 bg-emerald-950/40 py-2 rounded-xl border border-emerald-800/40 shadow-inner">
+                        ${item.time}
+                    </div>
+                    
+                    <!-- TITULO / TEMA DO STORY (Coluna 2) -->
+                    <div class="col-span-2 pl-2">
+                        <h4 class="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">${item.title}</h4>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 font-mono inline-block mt-1 font-bold tracking-wide">${item.type}</span>
+                    </div>
+                    
+                    <!-- DISTRIBUIÇÃO HORIZONTAL DE ELEMENTOS (Coluna 3 à 12) -->
+                    <div class="col-span-9 flex flex-row items-stretch gap-2 overflow-x-auto pb-1 pl-2">
+                        
+                        <!-- CARD HORIZONTAL 1: Legenda Copiável -->
+                        <div class="min-w-[340px] max-w-[400px] bg-gray-900/80 p-2.5 rounded-xl border border-gray-700 flex flex-col justify-between shrink-0">
+                            <span class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest block mb-1">✍️ Texto do Story / Legenda</span>
+                            <p class="text-xs text-gray-300 italic font-medium leading-relaxed">"${item.text}"</p>
+                        </div>
+
+                        <!-- CARD HORIZONTAL 2: Orientação de Produção / Vídeo -->
+                        <div class="min-w-[240px] bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-800/40 flex flex-col justify-between shrink-0">
+                            <div>
+                                <span class="text-[9px] font-bold text-amber-400 uppercase tracking-widest block mb-1">🎬 Orientação Captura</span>
+                                <p class="text-xs text-gray-200 font-semibold">${item.tip}</p>
+                            </div>
+                            <span class="text-[9px] text-emerald-300/70 block mt-2 font-mono">Formato: Vertical 9:16</span>
+                        </div>
+
+                        <!-- CARD HORIZONTAL 3: Sugestão de Áudio comercial seguro -->
+                        <div class="min-w-[180px] bg-gray-900/40 p-2.5 rounded-xl border border-gray-700/60 flex flex-col justify-center shrink-0">
+                            <span class="text-[9px] font-bold text-blue-400 uppercase tracking-widest block mb-0.5">🎵 Áudio Sugerido</span>
+                            <span class="text-xs font-bold text-gray-100">${index < 3 ? 'Upbeat / Corporate' : index < 7 ? 'Lo-Fi / Chill Food' : 'Aesthetic Business'}</span>
+                            <span class="text-[9px] text-gray-500 mt-1 block">Sem direitos autorais</span>
+                        </div>
+                        
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        // Listener do Dropdown de padrões
+        document.getElementById('patternSelect').addEventListener('change', (e) => {
+            renderTimeline(e.target.value);
+        });
+
+        // Inicializa com o padrão de abertura rápida customizada
+        renderTimeline('abertura');
+    </script>
+</body>
+</html>

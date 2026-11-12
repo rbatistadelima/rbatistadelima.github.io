@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8"/>
+    <title>🎙️ Kaori TTS — Pré-carga Dupla + Zero Intervalo</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: linear-gradient(135deg, #0f0f12 0%, #1a1a24 100%);
+            color: #fff;
+            font-family: system-ui, sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container { max-width: 1000px; margin: 0 auto; }
+        
+        .status-bar {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .status-grid {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .status-item {
+            background: rgba(0,0,0,0.3);
+            padding: 12px 20px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .led {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .led-green { background: #22c55e; box-shadow: 0 0 8px #22c55e; animation: pulse 2s infinite; }
+        .led-yellow { background: #eab308; animation: pulse 1s infinite; }
+        .led-gray { background: #64748b; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #2a2a35;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 16px;
+        }
+        
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #a78bfa, #ec4899);
+            transition: width 0.3s;
+        }
+        
+        .character-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .character {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            gap: 12px;
+            transition: all 0.2s;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .character.playing {
+            background: rgba(139,92,246,0.2);
+            border-color: #a78bfa;
+            transform: translateX(5px);
+        }
+        
+        .character.preloading {
+            background: rgba(234,179,8,0.1);
+            border-color: #eab308;
+        }
+        
+        .avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #a78bfa, #ec4899);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .info { flex: 1; }
+        .name { font-weight: bold; font-size: 1rem; }
+        .voice-type { font-size: 0.7rem; color: #94a3b8; }
+        
+        .input-area {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .input-area input {
+            flex: 1;
+            background: #121214;
+            border: 1px solid #2a2a35;
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #fff;
+            font-size: 0.8rem;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #a78bfa, #ec4899);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
+        
+        .btn-play { padding: 12px 28px; font-size: 1rem; margin-right: 12px; }
+        .btn-cancel { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        
+        .karaoke {
+            background: #121214;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 16px 0;
+            border-left: 3px solid #a78bfa;
+            min-height: 80px;
+        }
+        
+        .karaoke b { color: #a78bfa; }
+        
+        .queue-status {
+            background: #121214;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+        
+        .preload-badge {
+            font-size: 0.7rem;
+            background: rgba(234,179,8,0.2);
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-left: 8px;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status-bar">
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="led" id="modelLed"></div>
+                    <span id="modelText">Carregando Kaori...</span>
+                </div>
+                <div class="status-item">
+                    <div class="led" id="preloadLed"></div>
+                    <span>Pré-carga Ativa</span>
+                </div>
+                <div class="status-item">
+                    <div class="led" id="queueLed"></div>
+                    <span id="queueText">Fila: 0</span>
+                </div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div style="font-size: 0.7rem; text-align: center; margin-top: 8px;" id="progressMsg">
+                Inicializando...
+            </div>
+        </div>
+        
+        <div class="character-list" id="characterList"></div>
+        
+        <div class="karaoke" id="karaoke">
+            💬 Clique em Play - sem intervalos entre falas!
+        </div>
+        
+        <div class="btn-group">
+            <button id="playAllBtn" class="btn-play" disabled>▶ PLAY ALL</button>
+            <button id="cancelBtn" class="btn-cancel" disabled>⏹️ CANCELAR</button>
+        </div>
+        
+        <div class="queue-status" id="queueStatus">
+            ✅ Sistema pronto - pré-carga dupla ativada
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0/dist/transformers.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import { pipeline } from '@huggingface/transformers';
+        
+        // ============================================
+        // KAORI COM PRÉ-CARGA DUPLA (ZERO INTERVALO)
+        // ============================================
+        
+        class KaoriPreload {
+            constructor() {
+                this.pipeline = null;
+                this.ready = false;
+                this.ctx = null;
+                this.queue = [];
+                this.isPlaying = false;
+                this.cache = new Map();
+                this.preloadedAudio = null;      // Áudio pré-carregado
+                this.preloadedText = null;        // Texto do áudio pré-carregado
+                this.nextPreload = null;           // Próximo áudio a ser pré-carregado
+                
+                this.characters = [
+                    { id: 'kaori', name: 'Kaori', emoji: '🎙️', text: 'Olá! Eu sou a Kaori. Este é o primeiro teste.' },
+                    { id: 'kaori2', name: 'Kaori', emoji: '🎙️', text: 'Segunda frase, já pré-carregada enquanto a primeira tocava.' },
+                    { id: 'kaori3', name: 'Kaori', emoji: '🎙️', text: 'Terceira frase. Sem intervalo, transição perfeita!' },
+                    { id: 'kaori4', name: 'Kaori', emoji: '🎙️', text: 'Quarta e última frase. Sistema funcionando perfeitamente.' }
+                ];
+                
+                this.init();
+            }
+            
+            async init() {
+                await this.loadModel();
+                this.setupAudio();
+                this.render();
+                this.attachEvents();
+                
+                document.body.addEventListener('click', async () => {
+                    if (this.ctx && this.ctx.state === 'suspended') {
+                        await this.ctx.resume();
+                        console.log('🎵 AudioContext ativado');
+                    }
+                }, { once: true });
+            }
+            
+            async loadModel() {
+                const modelLed = document.getElementById('modelLed');
+                const progressFill = document.getElementById('progressFill');
+                const progressMsg = document.getElementById('progressMsg');
+                
+                try {
+                    modelLed.className = 'led-yellow';
+                    progressMsg.innerHTML = 'Baixando modelo neural (300MB)...';
+                    
+                    this.pipeline = await pipeline(
+                        'text-to-speech',
+                        'Xenova/mms-tts-por',
+                        {
+                            progress_callback: (p) => {
+                                const percent = Math.round(p.progress * 100);
+                                progressFill.style.width = `${percent}%`;
+                                if (p.status === 'downloading') {
+                                    progressMsg.innerHTML = `Baixando: ${percent}%`;
+                                } else if (p.status === 'loading') {
+                                    progressMsg.innerHTML = `Carregando: ${percent}%`;
+                                }
+                            }
+                        }
+                    );
+                    
+                    progressMsg.innerHTML = 'Aquecendo modelo para resposta rápida...';
+                    
+                    // Warmup
+                    await this.pipeline("Sistema inicializado.");
+                    await this.pipeline("Pronto para uso.");
+                    
+                    this.ready = true;
+                    modelLed.className = 'led-green';
+                    progressMsg.innerHTML = '✅ Kaori pronta! Pré-carga dupla ativada.';
+                    progressFill.style.width = '100%';
+                    
+                    document.getElementById('playAllBtn').disabled = false;
+                    document.getElementById('cancelBtn').disabled = false;
+                    
+                    console.log('✅ Kaori pronto - modo pré-carga ativo');
+                    
+                } catch (err) {
+                    console.error(err);
+                    modelLed.className = 'led-gray';
+                    progressMsg.innerHTML = '❌ Erro ao carregar. Recarregue a página.';
+                }
+            }
+            
+            setupAudio() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            render() {
+                const container = document.getElementById('characterList');
+                container.innerHTML = this.characters.map((char, idx) => `
+                    <div class="character" data-id="${char.id}" data-index="${idx}">
+                        <div class="avatar">${char.emoji}</div>
+                        <div class="info">
+                            <div class="name">${char.name} ${idx > 0 ? `(Frase ${idx + 1})` : ''}</div>
+                            <div class="voice-type">Kaori Neural • MMS Portuguese</div>
+                            <div class="input-area">
+                                <input type="text" id="input-${char.id}" value="${char.text}">
+                                <button class="speak-btn" data-id="${char.id}" data-text="${char.text}" disabled>🔊 Falar</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                const check = setInterval(() => {
+                    if (this.ready) {
+                        document.querySelectorAll('.speak-btn').forEach(btn => {
+                            btn.disabled = false;
+                        });
+                        clearInterval(check);
+                    }
+                }, 100);
+            }
+            
+            attachEvents() {
+                document.querySelectorAll('.speak-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        if (!this.ready) return;
+                        const id = btn.dataset.id;
+                        const input = document.getElementById(`input-${id}`);
+                        const text = input.value.trim();
+                        if (text) {
+                            await this.speak([{ text, id }]);
+                        }
+                    });
+                });
+                
+                document.getElementById('playAllBtn').onclick = () => this.playAll();
+                document.getElementById('cancelBtn').onclick = () => this.cancel();
+            }
+            
+            // PRÉ-CARREGA UMA FRASE ANTECIPADAMENTE
+            async preload(text) {
+                if (!this.ready || !text) return null;
+                
+                // Se já tá em cache, usa
+                if (this.cache.has(text)) {
+                    console.log(`📦 Pré-carga em cache: "${text.substring(0, 30)}..."`);
+                    return this.cache.get(text);
+                }
+                
+                console.log(`⏳ Pré-carregando: "${text.substring(0, 30)}..."`);
+                const start = performance.now();
+                
+                try {
+                    const audio = await this.pipeline(text);
+                    
+                    // Guarda em cache
+                    if (this.cache.size < 50) {
+                        this.cache.set(text, audio);
+                    }
+                    
+                    const time = (performance.now() - start).toFixed(0);
+                    console.log(`✅ Pré-carga concluída em ${time}ms`);
+                    
+                    // Atualiza LED de pré-carga
+                    document.getElementById('preloadLed').className = 'led-green';
+                    setTimeout(() => {
+                        if (!this.isPlaying) {
+                            document.getElementById('preloadLed').className = 'led-gray';
+                        }
+                    }, 500);
+                    
+                    return audio;
+                    
+                } catch (err) {
+                    console.error('Erro na pré-carga:', err);
+                    return null;
+                }
+            }
+            
+            // Toca áudio (usando pré-carga se disponível)
+            async playAudio(audioData, text) {
+                if (!audioData) return null;
+                
+                if (this.ctx.state === 'suspended') {
+                    await this.ctx.resume();
+                }
+                
+                const buffer = this.ctx.createBuffer(1, audioData.audio.length, audioData.sampling_rate);
+                buffer.copyToChannel(audioData.audio, 0);
+                
+                const source = this.ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(this.ctx.destination);
+                source.start();
+                
+                return new Promise((resolve) => {
+                    source.onended = () => {
+                        console.log(`✅ Finalizado: "${text.substring(0, 30)}..."`);
+                        resolve();
+                    };
+                });
+            }
+            
+            // Fala com pré-carga automática da próxima frase
+            async speak(phrases, index = 0) {
+                if (index >= phrases.length) return;
+                
+                const current = phrases[index];
+                const next = phrases[index + 1];
+                
+                // Atualiza UI do personagem atual
+                const card = document.querySelector(`.character[data-id="${current.id}"]`);
+                card?.classList.add('playing');
+                
+                this.updateKaraoke(current.id, current.text);
+                this.updateQueueStatus(true, phrases.length - index - 1);
+                
+                // PRÉ-CARREGA A PRÓXIMA FRASE ENQUANTO A ATUAL TOCA
+                let nextAudio = null;
+                if (next) {
+                    // Dispara pré-carga em background (não bloqueia)
+                    nextAudio = this.preload(next.text);
+                }
+                
+                // Obtém áudio atual (prioriza pré-carga se disponível)
+                let currentAudio;
+                if (this.preloadedAudio && this.preloadedText === current.text) {
+                    currentAudio = this.preloadedAudio;
+                    console.log(`⚡ Usando áudio pré-carregado: "${current.text.substring(0, 30)}"`);
+                    this.preloadedAudio = null;
+                } else {
+                    currentAudio = await this.preload(current.text);
+                }
+                
+                // Toca áudio atual
+                await this.playAudio(currentAudio, current.text);
+                
+                card?.classList.remove('playing');
+                
+                // Aguarda pré-carga da próxima (já está rodando em background)
+                if (nextAudio) {
+                    const nextAudioData = await nextAudio;
+                    this.preloadedAudio = nextAudioData;
+                    this.preloadedText = next.text;
+                    console.log(`📦 Próxima frase já está pronta: "${next.text.substring(0, 30)}"`);
+                }
+                
+                // Recursão para próxima frase (sem intervalo!)
+                await this.speak(phrases, index + 1);
+            }
+            
+            async playAll() {
+                if (!this.ready || this.isPlaying) return;
+                
+                this.isPlaying = true;
+                const btn = document.getElementById('playAllBtn');
+                btn.disabled = true;
+                btn.textContent = '⏳ TOCANDO...';
+                
+                // Prepara lista de falas
+                const phrases = [];
+                for (const char of this.characters) {
+                    const input = document.getElementById(`input-${char.id}`);
+                    const text = input.value.trim();
+                    if (text) {
+                        phrases.push({ text, id: char.id });
+                    }
+                }
+                
+                // PRÉ-CARREGA A PRIMEIRA FRASE IMEDIATAMENTE
+                if (phrases.length > 0) {
+                    console.log('🚀 Pré-carregando primeira frase...');
+                    const firstAudio = await this.preload(phrases[0].text);
+                    this.preloadedAudio = firstAudio;
+                    this.preloadedText = phrases[0].text;
+                }
+                
+                // Inicia execução (sem intervalo entre falas)
+                await this.speak(phrases, 0);
+                
+                this.isPlaying = false;
+                btn.disabled = false;
+                btn.textContent = '▶ PLAY ALL';
+                this.updateKaraoke('✅ FIM', 'Todas as falas executadas sem intervalos!');
+                this.updateQueueStatus(false, 0);
+                
+                // Limpa pré-carga
+                this.preloadedAudio = null;
+                this.preloadedText = null;
+            }
+            
+            cancel() {
+                this.queue = [];
+                this.isPlaying = false;
+                this.preloadedAudio = null;
+                this.preloadedText = null;
+                
+                document.querySelectorAll('.character').forEach(c => c.classList.remove('playing', 'preloading'));
+                this.updateKaraoke('⏸️ CANCELADO', 'Execução interrompida');
+                this.updateQueueStatus(false, 0);
+                
+                const btn = document.getElementById('playAllBtn');
+                btn.disabled = false;
+                btn.textContent = '▶ PLAY ALL';
+            }
+            
+            updateKaraoke(name, text) {
+                const el = document.getElementById('karaoke');
+                const displayName = name === 'kaori' ? 'Kaori' : (name === 'kaori2' ? 'Kaori' : (name === 'kaori3' ? 'Kaori' : 'Kaori'));
+                el.innerHTML = `<b>${displayName}:</b> ${text}`;
+            }
+            
+            updateQueueStatus(playing, remaining) {
+                const queueLed = document.getElementById('queueLed');
+                const queueText = document.getElementById('queueText');
+                
+                if (playing) {
+                    queueLed.className = 'led-green';
+                    queueText.innerHTML = `Fila: ${remaining}`;
+                    document.getElementById('queueStatus').innerHTML = `🎵 Tocando... ${remaining > 0 ? `Próxima já pré-carregada ⚡` : ''}`;
+                } else {
+                    queueLed.className = 'led-gray';
+                    queueText.innerHTML = 'Fila: 0';
+                    document.getElementById('queueStatus').innerHTML = '✅ Sistema pronto - pré-carga dupla ativada';
+                }
+            }
+        }
+        
+        // Inicia app
+        window.app = new KaoriPreload();
+    </script>
+</body>
+</html>

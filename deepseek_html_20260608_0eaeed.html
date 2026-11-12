@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Multi-personagem - Sistema Estável</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 2rem;
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+        }
+        h1 {
+            color: #fff;
+            text-align: center;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+        .sub {
+            color: #94a3b8;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .status-bar {
+            background: #0f172a;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: #1e293b;
+            border-radius: 2rem;
+            font-size: 0.875rem;
+            color: #cbd5e1;
+        }
+        .led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        .led.ready { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .led.loading { background: #eab308; animation: pulse 1s infinite; }
+        .led.error { background: #ef4444; }
+        .led.idle { background: #64748b; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .character-grid {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .character-card {
+            background: #1e293b;
+            border-radius: 1rem;
+            padding: 1rem;
+            transition: all 0.3s ease;
+        }
+        .character-card.playing {
+            background: #2d3a5e;
+            border-left: 4px solid #22c55e;
+            transform: translateX(4px);
+        }
+        .character-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+        .character-name {
+            color: #fff;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .character-voice {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+        .message-input {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        input {
+            flex: 1;
+            padding: 0.5rem 1rem;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+            color: #fff;
+            font-size: 0.875rem;
+        }
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        button {
+            padding: 0.5rem 1rem;
+            background: #3b82f6;
+            border: none;
+            border-radius: 0.5rem;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        button:hover:not(:disabled) {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .play-all-btn {
+            width: 100%;
+            padding: 1rem;
+            background: #22c55e;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .play-all-btn:hover:not(:disabled) {
+            background: #16a34a;
+        }
+        .queue-status {
+            color: #94a3b8;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background: #0f172a;
+            border-radius: 0.5rem;
+        }
+        .error-message {
+            color: #ef4444;
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 0.5rem;
+        }
+        .voice-select {
+            margin-top: 0.5rem;
+            padding: 0.25rem;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+            color: #cbd5e1;
+            font-size: 0.75rem;
+            width: 100%;
+        }
+        .voice-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Multi-TTS Studio</h1>
+        <div class="sub">Áudio sequencial sem interrupções</div>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="led" id="ttsLed"></div>
+                <span>Web Speech API</span>
+            </div>
+            <div class="status-indicator">
+                <div class="led" id="queueLed"></div>
+                <span>Fila de Execução</span>
+            </div>
+        </div>
+
+        <div class="character-grid" id="characterGrid"></div>
+
+        <button class="play-all-btn" id="playAllBtn">▶ Play All (Sequencial)</button>
+        <div class="queue-status" id="queueStatus">✅ Sistema pronto</div>
+        <div class="error-message" id="errorMessage"></div>
+    </div>
+
+    <script>
+        // ============================================
+        // ARQUITETURA: SEQUENTIAL QUEUE + WEB SPEECH API
+        // ============================================
+        
+        class SequentialTTS {
+            constructor() {
+                this.queue = [];
+                this.isPlaying = false;
+                this.currentUtterance = null;
+                this.voices = [];
+                this.voicesLoaded = false;
+                this.init();
+            }
+
+            async init() {
+                await this.loadVoices();
+                this.updateStatus();
+            }
+
+            loadVoices() {
+                return new Promise((resolve) => {
+                    if (!window.speechSynthesis) {
+                        console.error('Web Speech API não suportada');
+                        resolve([]);
+                        return;
+                    }
+
+                    const load = () => {
+                        this.voices = window.speechSynthesis.getVoices();
+                        if (this.voices.length > 0) {
+                            this.voicesLoaded = true;
+                            console.log(`✅ ${this.voices.length} vozes carregadas`);
+                            resolve(this.voices);
+                        } else {
+                            // Tenta novamente em 100ms
+                            setTimeout(() => load(), 100);
+                        }
+                    };
+
+                    load();
+                    
+                    // Evento para quando vozes mudam
+                    window.speechSynthesis.onvoiceschanged = () => {
+                        this.voices = window.speechSynthesis.getVoices();
+                        this.voicesLoaded = true;
+                        console.log(`🔄 Vozes atualizadas: ${this.voices.length}`);
+                        this.updateStatus();
+                    };
+                });
+            }
+
+            // Método principal - adiciona à fila e processa
+            speak(text, config) {
+                return new Promise((resolve, reject) => {
+                    const task = async () => {
+                        this.isPlaying = true;
+                        this.updateQueueLed();
+                        
+                        try {
+                            await this.executeSpeech(text, config);
+                            resolve();
+                        } catch (error) {
+                            console.error('Erro na fala:', error);
+                            reject(error);
+                        } finally {
+                            this.isPlaying = false;
+                            this.currentUtterance = null;
+                            this.updateQueueLed();
+                            this.processQueue();
+                        }
+                    };
+                    
+                    this.queue.push(task);
+                    
+                    if (!this.isPlaying) {
+                        this.processQueue();
+                    }
+                });
+            }
+
+            executeSpeech(text, config) {
+                return new Promise((resolve, reject) => {
+                    // Cancela qualquer utterance anterior da mesma engine
+                    if (window.speechSynthesis) {
+                        window.speechSynthesis.cancel();
+                    }
+                    
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    
+                    // Configurações
+                    utterance.lang = config.lang || 'pt-BR';
+                    utterance.rate = config.rate || 1.0;
+                    utterance.pitch = config.pitch || 1.0;
+                    utterance.volume = config.volume || 1.0;
+                    
+                    // Seleciona voz específica se disponível
+                    if (config.voiceName && this.voicesLoaded) {
+                        const selectedVoice = this.voices.find(v => 
+                            v.name === config.voiceName || 
+                            (config.voiceName === 'Google Português do Brasil' && v.name.includes('Google') && v.lang === 'pt-BR')
+                        );
+                        if (selectedVoice) {
+                            utterance.voice = selectedVoice;
+                            console.log(`🎤 Usando voz: ${selectedVoice.name}`);
+                        } else {
+                            // Fallback: primeira voz pt-BR disponível
+                            const ptVoice = this.voices.find(v => v.lang === 'pt-BR');
+                            if (ptVoice) utterance.voice = ptVoice;
+                        }
+                    } else if (this.voicesLoaded) {
+                        // Tenta encontrar voz pt-BR automaticamente
+                        const ptVoice = this.voices.find(v => v.lang === 'pt-BR');
+                        if (ptVoice) utterance.voice = ptVoice;
+                    }
+                    
+                    utterance.onend = () => {
+                        console.log('✅ Fala concluída');
+                        resolve();
+                    };
+                    
+                    utterance.onerror = (event) => {
+                        console.error('Erro no utterance:', event);
+                        reject(new Error(`Erro na síntese: ${event.error}`));
+                    };
+                    
+                    this.currentUtterance = utterance;
+                    window.speechSynthesis.speak(utterance);
+                });
+            }
+
+            processQueue() {
+                if (this.queue.length === 0 || this.isPlaying) {
+                    return;
+                }
+                
+                const nextTask = this.queue.shift();
+                if (nextTask) {
+                    nextTask();
+                }
+            }
+
+            cancelAll() {
+                // Limpa fila
+                this.queue = [];
+                
+                // Cancela áudio atual
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+                
+                this.isPlaying = false;
+                this.currentUtterance = null;
+                this.updateQueueLed();
+                console.log('🛑 Todas as falas canceladas');
+            }
+
+            updateQueueLed() {
+                const led = document.getElementById('queueLed');
+                const queueStatus = document.getElementById('queueStatus');
+                
+                if (this.isPlaying) {
+                    led.className = 'led ready';
+                    queueStatus.innerHTML = '🎵 Tocando agora...';
+                } else if (this.queue.length > 0) {
+                    led.className = 'led loading';
+                    queueStatus.innerHTML = `⏳ Aguardando (${this.queue.length} na fila)`;
+                } else {
+                    led.className = 'led idle';
+                    queueStatus.innerHTML = '✅ Pronto para tocar';
+                }
+            }
+
+            updateStatus() {
+                const led = document.getElementById('ttsLed');
+                if (this.voicesLoaded && this.voices.length > 0) {
+                    led.className = 'led ready';
+                } else if (window.speechSynthesis) {
+                    led.className = 'led loading';
+                } else {
+                    led.className = 'led error';
+                }
+            }
+
+            getAvailableVoices() {
+                return this.voices.filter(v => v.lang === 'pt-BR');
+            }
+        }
+
+        // ============================================
+        // GERENCIADOR DE PERSONAGENS
+        // ============================================
+        
+        class CharacterManager {
+            constructor() {
+                this.tts = new SequentialTTS();
+                this.characters = [
+                    { 
+                        id: 'ana', 
+                        name: 'Ana', 
+                        description: 'Voz feminina suave',
+                        config: { lang: 'pt-BR', rate: 1.0, pitch: 1.1, volume: 1.0 }
+                    },
+                    { 
+                        id: 'carlos', 
+                        name: 'Carlos', 
+                        description: 'Voz masculina firme',
+                        config: { lang: 'pt-BR', rate: 0.95, pitch: 0.9, volume: 1.0 }
+                    },
+                    { 
+                        id: 'maria', 
+                        name: 'Maria', 
+                        description: 'Voz feminina expressiva',
+                        config: { lang: 'pt-BR', rate: 1.05, pitch: 1.15, volume: 1.0 }
+                    },
+                    { 
+                        id: 'roberto', 
+                        name: 'Roberto', 
+                        description: 'Voz masculina grave',
+                        config: { lang: 'pt-BR', rate: 0.9, pitch: 0.85, volume: 1.0 }
+                    }
+                ];
+                this.init();
+            }
+
+            async init() {
+                // Aguarda vozes carregarem
+                await this.tts.loadVoices();
+                this.render();
+                this.attachEvents();
+                
+                // Mostra vozes disponíveis no console
+                const ptVoices = this.tts.getAvailableVoices();
+                console.log('🎤 Vozes PT-BR disponíveis:', ptVoices.map(v => v.name));
+            }
+
+            render() {
+                const grid = document.getElementById('characterGrid');
+                grid.innerHTML = this.characters.map(char => `
+                    <div class="character-card" data-id="${char.id}">
+                        <div class="character-header">
+                            <div>
+                                <div class="character-name">${char.name}</div>
+                                <div class="character-voice">${char.description}</div>
+                            </div>
+                        </div>
+                        <div class="message-input">
+                            <input type="text" id="input-${char.id}" 
+                                   placeholder="Digite a mensagem..." 
+                                   value="Olá, eu sou ${char.name}! Como você está?">
+                            <button class="speak-btn" data-id="${char.id}">Falar</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            attachEvents() {
+                // Botões individuais
+                document.querySelectorAll('.speak-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const charId = btn.dataset.id;
+                        const input = document.getElementById(`input-${charId}`);
+                        const text = input.value.trim();
+                        const character = this.characters.find(c => c.id === charId);
+                        
+                        if (text && character) {
+                            this.speakCharacter(character, text);
+                        }
+                    });
+                });
+                
+                // Play All button
+                const playAllBtn = document.getElementById('playAllBtn');
+                playAllBtn.addEventListener('click', () => this.playAllSequential());
+            }
+
+            async speakCharacter(character, text) {
+                const card = document.querySelector(`.character-card[data-id="${character.id}"]`);
+                card?.classList.add('playing');
+                
+                try {
+                    // Adiciona pequena pausa entre personagens diferentes para respirar
+                    if (this.tts.isPlaying) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                    
+                    await this.tts.speak(text, character.config);
+                } catch (error) {
+                    this.showError(`Erro ao falar com ${character.name}: ${error.message}`);
+                } finally {
+                    card?.classList.remove('playing');
+                }
+            }
+
+            async playAllSequential() {
+                const playAllBtn = document.getElementById('playAllBtn');
+                playAllBtn.disabled = true;
+                playAllBtn.textContent = '⏳ Tocando sequência...';
+                
+                for (const character of this.characters) {
+                    const input = document.getElementById(`input-${character.id}`);
+                    const text = input.value.trim();
+                    if (text) {
+                        await this.speakCharacter(character, text);
+                        // Pequena pausa entre personagens
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                }
+                
+                playAllBtn.disabled = false;
+                playAllBtn.textContent = '▶ Play All (Sequencial)';
+                this.showMessage('✅ Sequência completa!', '#22c55e');
+            }
+
+            showError(message) {
+                const errorDiv = document.getElementById('errorMessage');
+                errorDiv.textContent = message;
+                errorDiv.style.color = '#ef4444';
+                setTimeout(() => {
+                    if (errorDiv.textContent === message) {
+                        errorDiv.textContent = '';
+                    }
+                }, 3000);
+            }
+
+            showMessage(message, color = '#22c55e') {
+                const errorDiv = document.getElementById('errorMessage');
+                errorDiv.textContent = message;
+                errorDiv.style.color = color;
+                setTimeout(() => {
+                    if (errorDiv.textContent === message) {
+                        errorDiv.textContent = '';
+                    }
+                }, 2000);
+            }
+        }
+
+        // ============================================
+        // INICIALIZAÇÃO
+        // ============================================
+        
+        // Garante que tudo está pronto antes de começar
+        window.addEventListener('DOMContentLoaded', () => {
+            // Verifica suporte
+            if (!window.speechSynthesis) {
+                document.body.innerHTML = `
+                    <div class="container" style="text-align: center; color: white;">
+                        <h1>❌ Erro</h1>
+                        <p>Seu navegador não suporta Web Speech API.</p>
+                        <p>Por favor, use Chrome, Edge ou Safari atualizado.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Inicializa app
+            window.app = new CharacterManager();
+            
+            // Botão de cancelar (opcional)
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = '🛑 Cancelar tudo';
+            cancelBtn.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #ef4444;
+                padding: 0.75rem 1.5rem;
+                border-radius: 2rem;
+                font-weight: 600;
+            `;
+            cancelBtn.onclick = () => {
+                if (window.app && window.app.tts) {
+                    window.app.tts.cancelAll();
+                    window.app.showMessage('🛑 Todas as falas canceladas!', '#ef4444');
+                    // Remove classe playing de todos os cards
+                    document.querySelectorAll('.character-card').forEach(card => {
+                        card.classList.remove('playing');
+                    });
+                }
+            };
+            document.body.appendChild(cancelBtn);
+        });
+    </script>
+</body>
+</html>

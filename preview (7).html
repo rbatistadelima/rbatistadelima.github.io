@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ TTS Multilíngue Latino</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+
+<style>
+html,body{height:100%;margin:0;background:#0f0f12;color:#fff;font-family:Arial}
+body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+textarea{width:90%;max-width:980px;height:150px;background:#121214;color:#fff;border:0;border-radius:8px;padding:10px}
+.karaoke{width:90%;max-width:980px;background:#141417;padding:16px;border-radius:8px;min-height:120px}
+button{background:#222;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+.controls{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;background:rgba(0,0,0,.6);padding:8px;border-radius:10px}
+.name{font-weight:bold;margin-right:6px}
+</style>
+</head>
+
+<body>
+
+<textarea id="texto">
+Daniel: Bom dia!
+Maria: Tudo bem por aí?
+Regina: Estou ótima...
+Ana: Cheguei agora!
+Lucas: Vocês estão animados demais...
+Sofia: EU AMO ISSO!!!
+Bruno: Vamos com calma hoje...
+Helena: Isso vai ser interessante...
+</textarea>
+
+<div class="karaoke" id="karaoke">...</div>
+
+<div class="controls">
+<button onclick="start()">▶</button>
+<button onclick="pause()">⏸</button>
+<button onclick="resume()">▶⏯</button>
+<button onclick="stop()">🛑</button>
+</div>
+
+<script>
+let synth = window.speechSynthesis;
+let voices = [];
+let lines = [];
+
+function refresh(){
+  voices = synth.getVoices();
+}
+speechSynthesis.onvoiceschanged = refresh;
+refresh();
+
+function findVoiceByLang(lang){
+  return voices.find(v => v.lang?.toLowerCase().startsWith(lang)) || voices[0];
+}
+
+/* 🌍 PERSONAGENS MULTILÍNGUES */
+function speaker(name){
+  name = name.toLowerCase();
+
+  if(name === "daniel") return {type:"synth", lang:"pt", pitch:1};
+
+  if(name === "maria") return {type:"synth", lang:"es", pitch:1.5};   // espanhol rápido/agudo
+
+  if(name === "regina") return {type:"google", rate:1};               // pt neutro
+
+  if(name === "ana") return {type:"rv", voice:"Spanish Female", rate:1};
+
+  if(name === "lucas") return {type:"synth", lang:"fr", pitch:0.6};   // francês grave
+
+  if(name === "sofia") return {type:"synth", lang:"it", pitch:2.0};   // italiano agudo
+
+  if(name === "bruno") return {type:"google", rate:0.6};             // lento pesado
+
+  if(name === "helena") return {type:"rv", voice:"French Female", rate:0.75};
+
+  return {type:"synth", lang:"pt"};
+}
+
+/* 🔊 GOOGLE */
+function google(text, rate=1){
+  const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=pt-BR&client=tw-ob`;
+  const a = new Audio(url);
+  a.playbackRate = rate;
+  return new Promise(r => {
+    a.onended = r;
+    a.play().catch(r);
+  });
+}
+
+/* 🔊 RESPONSIVEVOICE */
+function rv(text, voice, rate=1){
+  return new Promise(r => {
+    responsiveVoice.speak(text, voice, {
+      rate,
+      volume:1,
+      onend:r
+    });
+  });
+}
+
+/* 🎤 ENGINE */
+async function say(name,text){
+  const s = speaker(name);
+
+  if(s.type === "synth"){
+    const u = new SpeechSynthesisUtterance(text);
+
+    u.voice = findVoiceByLang(s.lang || "pt");
+    u.lang = s.lang || "pt-BR";
+
+    u.rate = 1.1;
+    u.pitch = s.pitch || 1;
+
+    synth.speak(u);
+    await new Promise(r => u.onend = r);
+  }
+
+  if(s.type === "google"){
+    await google(text, s.rate || 1);
+  }
+
+  if(s.type === "rv"){
+    await rv(text, s.voice, s.rate || 1);
+  }
+}
+
+/* 📜 FLOW */
+async function line(n){
+  const l = lines[n];
+  const m = l.match(/^([^:]+):\s*(.+)$/);
+  const box = document.getElementById("karaoke");
+
+  if(!m){
+    box.textContent = l;
+    return google(l);
+  }
+
+  box.innerHTML = `<span class="name">${m[1]}:</span> ${m[2]}`;
+  await say(m[1], m[2]);
+}
+
+async function start(){
+  lines = document.getElementById("texto").value
+    .split("\n")
+    .filter(l => l.trim());
+
+  for(let i=0;i<lines.length;i++){
+    await line(i);
+  }
+}
+
+function pause(){ synth.pause(); }
+function resume(){ synth.resume(); }
+function stop(){ synth.cancel(); }
+</script>
+
+</body>
+</html>

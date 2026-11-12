@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ TTS por Idioma (limpo)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+
+<style>
+html,body{margin:0;height:100%;background:#0f0f12;color:#fff;font-family:Arial}
+body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+textarea{width:90%;max-width:980px;height:150px;background:#121214;color:#fff;border:0;border-radius:8px;padding:10px}
+.karaoke{width:90%;max-width:980px;background:#141417;padding:14px;border-radius:8px;min-height:120px}
+button{background:#222;color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+.controls{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:8px;background:rgba(0,0,0,.6);padding:8px;border-radius:10px}
+.name{font-weight:bold;margin-right:6px}
+</style>
+</head>
+
+<body>
+
+<textarea id="texto">
+Português: Olá, tudo bem?
+Espanhol: Hola, ¿cómo estás?
+Francês: Bonjour, comment ça va?
+Italiano: Ciao, come stai?
+Português: Estamos testando vozes.
+</textarea>
+
+<div class="karaoke" id="karaoke">...</div>
+
+<div class="controls">
+<button onclick="start()">▶</button>
+<button onclick="pause()">⏸</button>
+<button onclick="resume()">▶⏯</button>
+<button onclick="stop()">🛑</button>
+</div>
+
+<script>
+let synth = window.speechSynthesis;
+let voices = [];
+let lines = [];
+
+function refresh(){
+  voices = synth.getVoices();
+}
+speechSynthesis.onvoiceschanged = refresh;
+refresh();
+
+/* 🔍 pega voz por idioma + gênero aproximado */
+function getVoice(lang, gender){
+  lang = lang.toLowerCase();
+
+  let list = voices.filter(v => v.lang?.toLowerCase().startsWith(lang));
+
+  if(!list.length) list = voices;
+
+  // tentativa de separar masculino/feminino por nome
+  if(gender === "female"){
+    return list.find(v => /female|feminina|woman/i.test(v.name)) || list[0];
+  }
+
+  if(gender === "male"){
+    return list.find(v => /male|masculina|man/i.test(v.name)) || list[0];
+  }
+
+  return list[0];
+}
+
+/* 🌍 MAPA DE IDIOMAS */
+function speaker(name){
+  name = name.toLowerCase();
+
+  switch(name){
+
+    case "português masculino":
+    case "portugues masculino":
+      return {type:"synth", lang:"pt", gender:"male"};
+
+    case "português feminino":
+    case "portugues feminino":
+      return {type:"synth", lang:"pt", gender:"female"};
+
+    case "espanhol masculino":
+      return {type:"synth", lang:"es", gender:"male"};
+
+    case "espanhol feminino":
+      return {type:"synth", lang:"es", gender:"female"};
+
+    case "francês masculino":
+      return {type:"synth", lang:"fr", gender:"male"};
+
+    case "francês feminino":
+      return {type:"synth", lang:"fr", gender:"female"};
+
+    case "italiano masculino":
+      return {type:"synth", lang:"it", gender:"male"};
+
+    case "italiano feminino":
+      return {type:"synth", lang:"it", gender:"female"};
+
+    default:
+      return {type:"synth", lang:"pt"};
+  }
+}
+
+/* 🔊 SPEECH */
+async function say(name,text){
+  const s = speaker(name);
+
+  const u = new SpeechSynthesisUtterance(text);
+
+  u.voice = getVoice(s.lang, s.gender);
+  u.lang = s.lang || "pt-BR";
+  u.rate = 1;
+  u.pitch = 1;
+
+  synth.speak(u);
+
+  await new Promise(r => u.onend = r);
+}
+
+/* 📜 FLOW */
+async function line(i){
+  const l = lines[i];
+  const m = l.match(/^([^:]+):\s*(.+)$/);
+  const box = document.getElementById("karaoke");
+
+  if(!m){
+    box.textContent = l;
+    return;
+  }
+
+  box.innerHTML = `<span class="name">${m[1]}:</span> ${m[2]}`;
+  await say(m[1], m[2]);
+}
+
+async function start(){
+  lines = document.getElementById("texto")
+    .value.split("\n")
+    .filter(l => l.trim());
+
+  for(let i=0;i<lines.length;i++){
+    await line(i);
+  }
+}
+
+function pause(){ synth.pause(); }
+function resume(){ synth.resume(); }
+function stop(){ synth.cancel(); }
+</script>
+
+</body>
+</html>

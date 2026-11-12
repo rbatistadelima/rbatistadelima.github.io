@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ Laboratório TTS — Regina fix</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+html,body{height:100%;margin:0;background:#0f0f12;color:#fff;font-family:Arial,Helvetica,sans-serif}
+body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+#voiceNames{display:flex;gap:8px;flex-wrap:wrap}
+#voiceNames input{background:#141415;border:1px solid #222;color:#fff;padding:6px 8px;border-radius:6px}
+textarea{width:90%;max-width:980px;height:140px;border-radius:8px;padding:10px;background:#121214;border:0;color:#fff;resize:vertical}
+.karaoke{width:90%;max-width:980px;padding:18px;border-radius:8px;background:#141417;min-height:120px;font-size:1.15rem;white-space:pre-wrap}
+.controls{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:rgba(10,10,10,0.6);padding:8px;border-radius:12px;display:flex;gap:8px;opacity:0;transition:opacity .18s}
+body.show-controls:hover .controls{opacity:1}
+button{background:#222;border:0;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+.name{font-weight:700;margin-right:8px}
+.immersive #texto, .immersive #voiceNames { display:none; }
+</style>
+</head>
+
+<body class="show-controls">
+
+<div id="voiceNames">
+  <label>Daniel: <input id="nameDaniel" value="Daniel"></label>
+  <label>Maria: <input id="nameMaria" value="Maria"></label>
+  <label>Regina: <input id="nameRegina" value="Regina"></label>
+  <label>Lucas: <input id="nameLucas" value="Lucas"></label>
+</div>
+
+<textarea id="texto">
+Daniel: Bom dia, Regina! Como vai?
+Regina: **Tudo ótimo!** E você?
+Maria: //Parece que vocês dormiram pouco hoje...//
+Lucas: Estou chegando agora, pessoal!
+Daniel: Haha, talvez um pouco! Mas animado para o dia!
+Regina: Que bom! //Hoje teremos gravações importantes...//
+</textarea>
+
+<div class="karaoke" id="karaoke">Legenda aparecerá aqui...</div>
+
+<div class="controls">
+  <button onclick="startScript()">▶ Ler</button>
+  <button onclick="pauseSpeech()">⏸</button>
+  <button onclick="resumeSpeech()">⏯</button>
+  <button onclick="prevLine()">⏮</button>
+  <button onclick="nextLine()">⏭</button>
+  <button onclick="stopAll()">🛑</button>
+  <button onclick="toggleImmersive()">🕶️ Modo Imersivo</button>
+</div>
+
+<script>
+let synth = window.speechSynthesis;
+let voices = [];
+let lines = [];
+let currentIndex = 0;
+let isPaused = false;
+let immersiveMode = false;
+
+const colors = {
+  Daniel:'#ff6b6b',
+  Maria:'#7bed9f',
+  Regina:'#7ea2ff',
+  Lucas:'#feca57'
+};
+
+function refreshVoices(){ voices = synth.getVoices() || []; }
+if(typeof speechSynthesis !== 'undefined') speechSynthesis.onvoiceschanged = refreshVoices;
+refreshVoices();
+
+function includesIgnoreCase(a,b){
+  return (a||'').toLowerCase().includes((b||'').toLowerCase());
+}
+
+function findPtVoice(preferContains){
+  if(!voices.length) return null;
+
+  if(preferContains){
+    const v = voices.find(v =>
+      v.lang?.toLowerCase().startsWith('pt') &&
+      includesIgnoreCase(v.name, preferContains)
+    );
+    if(v) return v;
+  }
+
+  return voices.find(v => v.lang?.toLowerCase().startsWith('pt')) || voices[0];
+}
+
+function processarMarcacoes(texto){
+  const regex = /(\*\*[^*]+\*\*|\/\/[^/]+\/\/)/g;
+  let partes=[], last=0, m;
+
+  while((m=regex.exec(texto))!==null){
+    if(m.index>last) partes.push({texto:texto.slice(last,m.index), efeito:'normal'});
+    const p=m[0];
+    if(p.startsWith('**')) partes.push({texto:p.slice(2,-2), efeito:'negrito'});
+    if(p.startsWith('//')) partes.push({texto:p.slice(2,-2), efeito:'devagar'});
+    last=regex.lastIndex;
+  }
+  if(last<texto.length) partes.push({texto:texto.slice(last), efeito:'normal'});
+  return partes;
+}
+
+function getSpeakerSpec(nome){
+  const n = nome.trim().toLowerCase();
+
+  const daniel = document.getElementById('nameDaniel').value.toLowerCase();
+  const maria  = document.getElementById('nameMaria').value.toLowerCase();
+  const regina = document.getElementById('nameRegina').value.toLowerCase();
+  const lucas  = document.getElementById('nameLucas').value.toLowerCase();
+
+  if(n === daniel || n === 'daniel'){
+    return {tipo:'synth', voz: voices.find(v=>includesIgnoreCase(v.name,'Daniel')) || findPtVoice(), who:'Daniel'};
+  }
+
+  if(n === maria || n === 'maria'){
+    return {tipo:'synth', voz: voices.find(v=>includesIgnoreCase(v.name,'Maria')) || findPtVoice(), who:'Maria'};
+  }
+
+  if(n === regina || n === 'regina'){
+    return {tipo:'google', who:'Regina'};
+  }
+
+  if(n === lucas || n === 'lucas'){
+    return {tipo:'synth', voz: findPtVoice(), who:'Lucas'};
+  }
+
+  return {tipo:'synth', voz: findPtVoice(), who:'fallback'};
+}
+
+async function speakPartsBySpeaker(nome, partes){
+  const spec = getSpeakerSpec(nome);
+
+  for(const p of partes){
+    if(isPaused) await new Promise(r=>{
+      const i=setInterval(()=>{ if(!isPaused){clearInterval(i);r();}},100);
+    });
+
+    let rate=1.2, pitch=1, volume=1;
+
+    if(spec.who === 'Regina') volume=0.85;
+    if(spec.who === 'Lucas') { rate=1.15; pitch=1.05; }
+
+    if(p.efeito==='negrito') { rate*=1.4; pitch*=1.2; }
+    if(p.efeito==='devagar') { rate*=0.6; pitch*=0.7; }
+
+    if(spec.voz){
+      const u = new SpeechSynthesisUtterance(p.texto);
+      u.voice = spec.voz;
+      u.lang = spec.voz.lang || 'pt-BR';
+      u.rate = rate;
+      u.pitch = pitch;
+      u.volume = volume;
+
+      synth.speak(u);
+      await new Promise(res=>{
+        u.onend = res;
+        const chk=setInterval(()=>{
+          if(!synth.speaking){clearInterval(chk);res();}
+        },100);
+      });
+    }
+  }
+}
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function lerLinha(i){
+  const linha = lines[i];
+  const karaoke = document.getElementById('karaoke');
+
+  const m = linha.match(/^([^:]+):\s*(.+)$/);
+  if(!m){
+    karaoke.textContent = linha;
+    return;
+  }
+
+  const nome = m[1];
+  const frase = m[2];
+  const partes = processarMarcacoes(frase);
+
+  let html = `<span class="name">${escapeHtml(nome)}:</span> `;
+  partes.forEach(p=>{
+    if(p.efeito==='negrito') html+=`<strong>${escapeHtml(p.texto)}</strong>`;
+    else if(p.efeito==='devagar') html+=`<em>${escapeHtml(p.texto)}</em>`;
+    else html+=escapeHtml(p.texto);
+  });
+
+  karaoke.innerHTML = html;
+  await speakPartsBySpeaker(nome, partes);
+}
+
+async function startScript(){
+  refreshVoices();
+  await new Promise(r=>setTimeout(r,200));
+
+  lines = document.getElementById('texto').value.split('\n').filter(l=>l.trim());
+  currentIndex = 0;
+
+  for(let i=0;i<lines.length;i++){
+    currentIndex=i;
+    await lerLinha(i);
+  }
+}
+
+function pauseSpeech(){ isPaused=true; synth.pause(); }
+function resumeSpeech(){ isPaused=false; synth.resume(); }
+function stopAll(){ synth.cancel(); }
+
+async function nextLine(){
+  synth.cancel();
+  if(currentIndex<lines.length-1){
+    currentIndex++;
+    await lerLinha(currentIndex);
+  }
+}
+
+async function prevLine(){
+  synth.cancel();
+  if(currentIndex>0){
+    currentIndex--;
+    await lerLinha(currentIndex);
+  }
+}
+
+function toggleImmersive(){
+  immersiveMode=!immersiveMode;
+  document.body.classList.toggle('immersive', immersiveMode);
+}
+
+function refreshVoices(){ voices = synth.getVoices() || []; }
+</script>
+
+</body>
+</html>

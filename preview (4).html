@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Multi TTS Engine Demo</title>
+
+<style>
+body {
+  font-family: system-ui;
+  background: #0f1115;
+  color: #e8e8e8;
+  padding: 20px;
+}
+
+select, input, button {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border-radius: 8px;
+  border: none;
+}
+
+select, input {
+  background: #1b1f2a;
+  color: white;
+}
+
+button {
+  background: #4c7dff;
+  color: white;
+  cursor: pointer;
+}
+
+.small {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 10px;
+}
+
+.box {
+  padding: 10px;
+  background: #1b1f2a;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+</style>
+</head>
+<body>
+
+<h2>🔊 Multi TTS Service Demo</h2>
+
+<input id="text" value="Olá! Isto é um teste de síntese de voz." />
+
+<select id="engine">
+  <option value="browser">Browser (Android/iOS)</option>
+  <option value="google">Google Cloud TTS</option>
+  <option value="azure">Azure Speech</option>
+  <option value="polly">Amazon Polly (demo)</option>
+</select>
+
+<div class="box">
+  <div><b>API Keys (optional)</b></div>
+  <input id="googleKey" placeholder="Google API Key (Cloud TTS)" />
+  <input id="azureKey" placeholder="Azure Speech Key" />
+  <input id="azureRegion" placeholder="Azure Region (e.g. brazilsouth)" />
+</div>
+
+<select id="voiceSelect"></select>
+
+<button onclick="speak()">🔊 Speak</button>
+<button onclick="stop()">⛔ Stop</button>
+
+<div class="small" id="info"></div>
+
+<script>
+const voiceSelect = document.getElementById("voiceSelect");
+const info = document.getElementById("info");
+
+let browserVoices = [];
+
+function loadBrowserVoices() {
+  browserVoices = speechSynthesis.getVoices();
+
+  voiceSelect.innerHTML = "";
+
+  browserVoices.forEach((v, i) => {
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = `${v.name} (${v.lang})`;
+    voiceSelect.appendChild(opt);
+  });
+
+  info.innerText = "Browser voices loaded: " + browserVoices.length;
+}
+
+speechSynthesis.onvoiceschanged = loadBrowserVoices;
+loadBrowserVoices();
+
+document.getElementById("engine").onchange = updateUI;
+
+function updateUI() {
+  const engine = document.getElementById("engine").value;
+
+  if (engine === "browser") {
+    voiceSelect.style.display = "block";
+  } else {
+    voiceSelect.style.display = "none";
+  }
+}
+
+updateUI();
+
+function stop() {
+  speechSynthesis.cancel();
+}
+
+/* ---------------------------
+   BROWSER TTS
+----------------------------*/
+function speakBrowser(text) {
+  const utter = new SpeechSynthesisUtterance(text);
+
+  const v = browserVoices[voiceSelect.value];
+  if (v) utter.voice = v;
+
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utter);
+}
+
+/* ---------------------------
+   GOOGLE CLOUD TTS
+----------------------------*/
+async function speakGoogle(text) {
+  const key = document.getElementById("googleKey").value;
+  if (!key) return alert("Google API key required");
+
+  const res = await fetch(
+    "https://texttospeech.googleapis.com/v1/text:synthesize?key=" + key,
+    {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        input: { text },
+        voice: {
+          languageCode: "pt-BR",
+          name: "pt-BR-Standard-A"
+        },
+        audioConfig: {
+          audioEncoding: "MP3"
+        }
+      })
+    }
+  );
+
+  const data = await res.json();
+  playBase64(data.audioContent);
+}
+
+/* ---------------------------
+   AZURE TTS
+----------------------------*/
+async function speakAzure(text) {
+  const key = document.getElementById("azureKey").value;
+  const region = document.getElementById("azureRegion").value;
+
+  if (!key || !region) {
+    return alert("Azure key + region required");
+  }
+
+  const res = await fetch(
+    `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`,
+    {
+      method: "POST",
+      headers: {
+        "Ocp-Apim-Subscription-Key": key,
+        "Content-Type": "application/ssml+xml",
+        "X-Microsoft-OutputFormat": "audio-16khz-128kbitrate-mono-mp3"
+      },
+      body: `
+        <speak version='1.0' xml:lang='pt-BR'>
+          <voice xml:lang='pt-BR' name='pt-BR-FranciscaNeural'>
+            ${text}
+          </voice>
+        </speak>
+      `
+    }
+  );
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  new Audio(url).play();
+}
+
+/* ---------------------------
+   POLLY (SIMPLIFIED DEMO)
+----------------------------*/
+function speakPolly(text) {
+  alert("Polly requires backend with AWS SigV4 signing.\nThis is a placeholder demo.");
+}
+
+/* ---------------------------
+   PLAY AUDIO BASE64 (Google)
+----------------------------*/
+function playBase64(base64) {
+  const audio = new Audio("data:audio/mp3;base64," + base64);
+  audio.play();
+}
+
+/* ---------------------------
+   MAIN SPEAK FUNCTION
+----------------------------*/
+function speak() {
+  const text = document.getElementById("text").value;
+  const engine = document.getElementById("engine").value;
+
+  if (!text) return;
+
+  if (engine === "browser") return speakBrowser(text);
+  if (engine === "google") return speakGoogle(text);
+  if (engine === "azure") return speakAzure(text);
+  if (engine === "polly") return speakPolly(text);
+}
+</script>
+
+</body>
+</html>

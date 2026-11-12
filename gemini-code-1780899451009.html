@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo: Alternativas de TTS em Português</title>
+    <script src="https://js.puter.com/v2/"></script>
+    
+    <script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --primary: #0f172a;
+            --accent-puter: #10b981;
+            --accent-rv: #3b82f6;
+            --text: #334155;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 40px 20px;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .wrapper {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        }
+
+        h2 { margin-top: 0; color: var(--primary); font-size: 24px; }
+        p.subtitle { color: #64748b; margin-top: -12px; margin-bottom: 24px; font-size: 14px; }
+
+        .field {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 15px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        .engine-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .card-engine {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            background: #fafafa;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card-engine h3 { margin: 0 0 8px 0; font-size: 16px; }
+        .card-engine p { font-size: 12px; color: #64748b; margin: 0 0 16px 0; }
+
+        button {
+            width: 100%;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            color: white;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+        button:disabled { background-color: #cbd5e1; cursor: not-allowed; }
+
+        .btn-puter { background-color: var(--accent-puter); }
+        .btn-rv { background-color: var(--accent-rv); }
+        
+        .btn-stop {
+            background-color: #ef4444;
+            margin-top: 16px;
+        }
+
+        .status-msg {
+            margin-top: 12px;
+            font-size: 13px;
+            font-style: italic;
+            color: #64748b;
+            text-align: center;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <h2>Demo: Alternativas de TTS Sem API Key</h2>
+    <p class="subtitle">Executando integrações diretas via CDN para Português.</p>
+
+    <div class="field">
+        <label for="text-to-speak">Texto para conversão:</label>
+        <textarea id="text-to-speak">Olá! Este teste demonstra a reprodução em português usando serviços externos com chamadas diretas.</textarea>
+    </div>
+
+    <div class="engine-grid">
+        <div class="card-engine">
+            <div>
+                <h3>1. Puter.js AI</h3>
+                <p>Usa IA em nuvem de forma gratuita distribuída pela biblioteca do Puter.</p>
+            </div>
+            <button class="btn-puter" onclick="playPuter()">Falar (Puter)</button>
+        </div>
+
+        <div class="card-engine">
+            <div>
+                <h3>2. ResponsiveVoice</h3>
+                <p>Engine de acessibilidade HTML5 dedicada (Voz Feminina).</p>
+            </div>
+            <button class="btn-rv" onclick="playResponsiveVoice()">Falar (Responsive)</button>
+        </div>
+    </div>
+
+    <button class="btn-stop" onclick="stopAll()">Interromper Áudio</button>
+    <div id="status" class="status-msg">Pronto. Escolha uma engine acima.</div>
+</div>
+
+<script>
+    const textInput = document.getElementById('text-to-speak');
+    const statusDiv = document.getElementById('status');
+    let currentPuterAudio = null;
+
+    function setStatus(msg) {
+        statusDiv.textContent = msg;
+    }
+
+    // --- 1. Puter.js Implementation ---
+    async function playPuter() {
+        stopAll();
+        const txt = textInput.value.trim();
+        if(!txt) return;
+
+        setStatus("Processando áudio com Puter.js...");
+        
+        try {
+            // Generates speech cloud-side via Puter API layer and yields a standard Audio Object
+            currentPuterAudio = await puter.ai.txt2speech(txt, "pt-BR");
+            
+            setStatus("Reproduzindo áudio (Puter.js)...");
+            currentPuterAudio.play();
+            
+            currentPuterAudio.onended = () => {
+                setStatus("Reprodução concluída.");
+            };
+        } catch (error) {
+            console.error(error);
+            setStatus("Erro na requisição do Puter.js.");
+        }
+    }
+
+    // --- 2. ResponsiveVoice.js Implementation ---
+    function playResponsiveVoice() {
+        stopAll();
+        const txt = textInput.value.trim();
+        if(!txt) return;
+
+        setStatus("Reproduzindo áudio (ResponsiveVoice)...");
+        
+        // Triggers the ResponsiveVoice global engine target directly
+        responsiveVoice.speak(txt, "Brazilian Portuguese Female", {
+            onend: () => {
+                setStatus("Reprodução concluída.");
+            }
+        });
+    }
+
+    // --- Global Audio Kill Switch ---
+    function stopAll() {
+        setStatus("Áudio interrompido.");
+        
+        // 1. Terminate native ResponsiveVoice playback loop
+        if (typeof responsiveVoice !== 'undefined' && responsiveVoice.isPlaying()) {
+            responsiveVoice.cancel();
+        }
+
+        // 2. Terminate instances generated by the Puter.js context 
+        if (currentPuterAudio) {
+            currentPuterAudio.pause();
+            currentPuterAudio.currentTime = 0;
+        }
+    }
+</script>
+
+</body>
+</html>

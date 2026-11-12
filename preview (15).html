@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>🎙️ TTS Lab — Kaori com IA real</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<script src="https://code.responsivevoice.org/responsivevoice.js"></script>
+
+<style>
+html,body{margin:0;height:100%;background:#0f0f12;color:#fff;font-family:Arial}
+body{display:flex;flex-direction:column;align-items:center;padding:14px;gap:12px}
+textarea{width:90%;max-width:980px;height:140px;background:#121214;color:#fff;border:0;padding:10px}
+.karaoke{width:90%;max-width:980px;background:#141417;padding:14px;border-radius:8px;min-height:120px}
+button{background:#222;color:#fff;border:0;padding:10px;border-radius:8px;cursor:pointer}
+</style>
+
+<!-- Transformers.js -->
+<script type="module">
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1";
+
+let ttsKaori = null;
+let loading = false;
+
+/* ---------------- KAORI INIT (WASM AI TTS) ---------------- */
+
+async function initKaori(){
+  if (ttsKaori || loading) return;
+  loading = true;
+
+  console.log("Kaori: carregando modelo MMS...");
+
+  ttsKaori = await pipeline(
+    "text-to-speech",
+    "Xenova/mms-tts-por"
+  );
+
+  console.log("Kaori pronta!");
+}
+
+/* ---------------- EXPOSE GLOBAL ---------------- */
+
+window.Kaori = {
+  speak: async (text) => {
+    await initKaori();
+
+    const result = await ttsKaori(text);
+
+    const audioCtx = new AudioContext();
+    const buffer = audioCtx.createBuffer(1, result.sampling_rate, result.sampling_rate);
+    buffer.copyToChannel(result.audio, 0);
+
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audioCtx.destination);
+    source.start();
+
+    return new Promise(r => source.onended = r);
+  },
+
+  isReady: () => !!ttsKaori
+};
+
+</script>
+</head>
+
+<body>
+
+<textarea id="texto">
+Daniel: Olá!
+Maria: Teste de voz feminina.
+Regina: Google TTS.
+Ana: ResponsiveVoice.
+Kaori: Agora eu sou IA neural rodando no navegador.
+</textarea>
+
+<div class="karaoke" id="karaoke"></div>
+
+<button onclick="start()">▶ Play</button>
+
+<script>
+let synth = speechSynthesis;
+let voices = [];
+
+speechSynthesis.onvoiceschanged = () => voices = speechSynthesis.getVoices();
+voices = speechSynthesis.getVoices();
+
+function pickFemale(){
+  return voices.find(v => /female|luciana|google português/i.test(v.name))
+    || voices.find(v=>v.lang?.includes("pt"))
+    || voices[0];
+}
+
+function pickMale(){
+  return voices.find(v => /male|daniel/i.test(v.name))
+    || voices.find(v=>v.lang?.includes("pt"))
+    || voices[0];
+}
+
+function speakBrowser(text, voice){
+  return new Promise(r=>{
+    const u = new SpeechSynthesisUtterance(text);
+    u.voice = voice;
+    u.lang = "pt-BR";
+    u.onend = r;
+    synth.speak(u);
+  });
+}
+
+function googleTTS(text){
+  const a = new Audio(
+    "https://translate.google.com/translate_tts?ie=UTF-8&q="
+    + encodeURIComponent(text) +
+    "&tl=pt-BR&client=tw-ob"
+  );
+  return new Promise(r=>{
+    a.onended=r;
+    a.play().catch(r);
+  });
+}
+
+function rv(text){
+  return new Promise(r=>{
+    responsiveVoice.speak(text,"Brazilian Portuguese Female",{onend:r});
+  });
+}
+
+/* ---------------- ROUTER ---------------- */
+
+async function speak(name,text){
+  const n = name.toLowerCase();
+
+  if(n.includes("kaori")){
+    document.getElementById("karaoke").innerHTML =
+      "<b>Kaori (IA):</b> " + text;
+
+    if(window.Kaori?.isReady?.()){
+      return window.Kaori.speak(text);
+    } else {
+      return window.Kaori.speak(text); // ainda carrega
+    }
+  }
+
+  if(n==="ana") return rv(text);
+  if(n==="regina") return googleTTS(text);
+
+  if(n==="maria") return speakBrowser(text,pickFemale());
+  if(n==="daniel") return speakBrowser(text,pickMale());
+
+  return speakBrowser(text,pickFemale());
+}
+
+/* ---------------- FLOW ---------------- */
+
+async function start(){
+  const lines = document.getElementById("texto").value.split("\n").filter(Boolean);
+
+  for(const line of lines){
+    const m = line.match(/^([^:]+):\s*(.*)$/);
+    if(!m) continue;
+
+    const name = m[1];
+    const text = m[2];
+
+    document.getElementById("karaoke").innerHTML =
+      `<b>${name}:</b> ${text}`;
+
+    await speak(name,text);
+  }
+}
+
+</script>
+
+</body>
+</html>

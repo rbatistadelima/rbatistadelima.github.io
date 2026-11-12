@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8"/>
+    <title>🎙️ Kaori TTS Ultra-Rápido</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: linear-gradient(135deg, #0f0f12 0%, #1a1a24 100%);
+            color: #fff;
+            font-family: system-ui, sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .status-row {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .status-badge {
+            background: rgba(0,0,0,0.3);
+            padding: 8px 16px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.875rem;
+        }
+        
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .dot.green { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .dot.yellow { background: #eab308; animation: pulse 1s infinite; }
+        .dot.gray { background: #64748b; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #2a2a35;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+        
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #a78bfa, #ec4899);
+            transition: width 0.3s;
+        }
+        
+        .character-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .character {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        
+        .character.playing {
+            background: rgba(139,92,246,0.2);
+            border-left: 3px solid #a78bfa;
+            transform: translateX(4px);
+        }
+        
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #a78bfa, #ec4899);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .info {
+            flex: 1;
+        }
+        
+        .name {
+            font-weight: bold;
+            font-size: 1rem;
+        }
+        
+        .voice-type {
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+        
+        .input-area {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .input-area input {
+            flex: 1;
+            background: #121214;
+            border: 1px solid #2a2a35;
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #fff;
+            font-size: 0.8rem;
+        }
+        
+        .input-area input:focus {
+            outline: none;
+            border-color: #a78bfa;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #a78bfa, #ec4899);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            filter: brightness(1.1);
+        }
+        
+        .btn-play {
+            padding: 12px 24px;
+            font-size: 1rem;
+            margin-right: 12px;
+        }
+        
+        .btn-cancel {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+        
+        .karaoke {
+            background: #121214;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px 0;
+            border-left: 3px solid #a78bfa;
+            min-height: 70px;
+        }
+        
+        .karaoke b { color: #a78bfa; }
+        
+        .queue-status {
+            background: #121214;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+        
+        .timer {
+            font-family: monospace;
+            color: #22c55e;
+            font-size: 0.7rem;
+            margin-left: 8px;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2 style="text-align: center; margin-bottom: 20px;">🎙️ Kaori TTS</h2>
+            
+            <div class="status-row">
+                <div class="status-badge">
+                    <div class="dot" id="modelDot"></div>
+                    <span id="modelText">Carregando modelo...</span>
+                </div>
+                <div class="status-badge">
+                    <div class="dot" id="queueDot"></div>
+                    <span>Fila</span>
+                </div>
+                <div class="status-badge">
+                    <span>⚡ Cache ativo</span>
+                </div>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div style="font-size: 0.7rem; text-align: center; margin-top: 8px; color: #64748b;" id="progressText">
+                Inicializando...
+            </div>
+        </div>
+        
+        <div class="character-list" id="characterList"></div>
+        
+        <div class="karaoke" id="karaoke">
+            💬 Aguardando comando...
+        </div>
+        
+        <div class="btn-group">
+            <button id="playAllBtn" class="btn-play" disabled>▶ PLAY ALL</button>
+            <button id="cancelBtn" class="btn-cancel" disabled>⏹️ CANCELAR</button>
+        </div>
+        
+        <div class="queue-status" id="queueStatus">
+            ✅ Sistema pronto
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0/dist/transformers.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import { pipeline } from '@huggingface/transformers';
+        
+        // ============================================
+        // KAORI ULTRA-RÁPIDO COM PRÉ-CARREGAMENTO
+        // ============================================
+        
+        class KaoriRapido {
+            constructor() {
+                this.pipeline = null;
+                this.ready = false;
+                this.ctx = null;
+                this.lock = Promise.resolve();
+                this.cache = new Map();
+                this.characters = [
+                    { id: 'kaori', name: 'Kaori', emoji: '🎙️', text: 'Olá! Eu sou a Kaori, minha resposta é rápida e neural.' },
+                    { id: 'akira', name: 'Akira', emoji: '🎌', text: 'Teste de voz do Akira, funcionando perfeitamente.' },
+                    { id: 'yumi', name: 'Yumi', emoji: '🌸', text: 'Yumi aqui, qualidade de áudio excelente.' },
+                    { id: 'kenji', name: 'Kenji', emoji: '⚡', text: 'Kenji confirmando, sistema estável e rápido.' }
+                ];
+                this.init();
+            }
+            
+            async init() {
+                await this.loadModel();
+                this.setupAudio();
+                this.render();
+                this.attachEvents();
+                
+                // Ativa AudioContext no primeiro clique
+                document.body.addEventListener('click', async () => {
+                    if (this.ctx && this.ctx.state === 'suspended') {
+                        await this.ctx.resume();
+                        console.log('AudioContext ativado');
+                    }
+                }, { once: true });
+            }
+            
+            async loadModel() {
+                const modelDot = document.getElementById('modelDot');
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+                
+                try {
+                    modelDot.className = 'dot yellow';
+                    progressText.innerHTML = 'Baixando modelo neural (300MB)...';
+                    
+                    this.pipeline = await pipeline(
+                        'text-to-speech',
+                        'Xenova/mms-tts-por',
+                        {
+                            progress_callback: (p) => {
+                                const percent = Math.round(p.progress * 100);
+                                progressFill.style.width = `${percent}%`;
+                                if (p.status === 'downloading') {
+                                    progressText.innerHTML = `Baixando: ${percent}%`;
+                                } else if (p.status === 'loading') {
+                                    progressText.innerHTML = `Carregando: ${percent}%`;
+                                }
+                            }
+                        }
+                    );
+                    
+                    progressText.innerHTML = 'Aquecendo para resposta rápida...';
+                    
+                    // PRÉ-AQUECIMENTO CRÍTICO - gera cache neural
+                    const warmups = ['Teste um.', 'Teste dois.', 'Pronto.'];
+                    for (const text of warmups) {
+                        await this.pipeline(text);
+                        await new Promise(r => setTimeout(r, 50));
+                    }
+                    
+                    this.ready = true;
+                    modelDot.className = 'dot green';
+                    progressText.innerHTML = '✅ Pronto! Resposta instantânea.';
+                    progressFill.style.width = '100%';
+                    
+                    document.getElementById('playAllBtn').disabled = false;
+                    document.getElementById('cancelBtn').disabled = false;
+                    
+                    console.log('✅ Kaori carregado e aquecido');
+                    
+                } catch (err) {
+                    console.error(err);
+                    modelDot.className = 'dot gray';
+                    progressText.innerHTML = '❌ Erro ao carregar. Recarregue a página.';
+                }
+            }
+            
+            setupAudio() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            render() {
+                const container = document.getElementById('characterList');
+                container.innerHTML = this.characters.map(char => `
+                    <div class="character" data-id="${char.id}">
+                        <div class="avatar">${char.emoji}</div>
+                        <div class="info">
+                            <div class="name">${char.name}</div>
+                            <div class="voice-type">Kaori Neural • MMS Portuguese</div>
+                            <div class="input-area">
+                                <input type="text" id="input-${char.id}" value="${char.text}">
+                                <button class="speak-btn" data-id="${char.id}" disabled>🔊 Falar</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                // Habilita botões quando pronto
+                const check = setInterval(() => {
+                    if (this.ready) {
+                        document.querySelectorAll('.speak-btn').forEach(btn => {
+                            btn.disabled = false;
+                        });
+                        clearInterval(check);
+                    }
+                }, 100);
+            }
+            
+            attachEvents() {
+                document.querySelectorAll('.speak-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        if (!this.ready) return;
+                        const id = btn.dataset.id;
+                        const input = document.getElementById(`input-${id}`);
+                        const text = input.value.trim();
+                        const char = this.characters.find(c => c.id === id);
+                        if (text && char) {
+                            await this.speak(char.name, text);
+                        }
+                    });
+                });
+                
+                document.getElementById('playAllBtn').onclick = () => this.playAll();
+                document.getElementById('cancelBtn').onclick = () => this.cancel();
+            }
+            
+            async speak(name, text) {
+                return new Promise((resolve) => {
+                    this.lock = this.lock.then(async () => {
+                        const card = document.querySelector(`.character[data-id="${this.characters.find(c => c.name === name)?.id || 'kaori'}"]`);
+                        card?.classList.add('playing');
+                        this.updateKaraoke(name, text);
+                        this.updateQueueStatus(true);
+                        
+                        const start = performance.now();
+                        
+                        try {
+                            // Verifica cache primeiro
+                            let audio;
+                            if (this.cache.has(text)) {
+                                audio = this.cache.get(text);
+                                console.log(`⚡ Cache: ${(performance.now()-start).toFixed(0)}ms`);
+                            } else {
+                                audio = await this.pipeline(text);
+                                if (this.cache.size < 50) {
+                                    this.cache.set(text, audio);
+                                }
+                                console.log(`🎤 Gerado: ${(performance.now()-start).toFixed(0)}ms`);
+                            }
+                            
+                            if (this.ctx.state === 'suspended') {
+                                await this.ctx.resume();
+                            }
+                            
+                            const buffer = this.ctx.createBuffer(1, audio.audio.length, audio.sampling_rate);
+                            buffer.copyToChannel(audio.audio, 0);
+                            
+                            const source = this.ctx.createBufferSource();
+                            source.buffer = buffer;
+                            source.connect(this.ctx.destination);
+                            source.start();
+                            
+                            const totalTime = (performance.now() - start).toFixed(0);
+                            this.showTimer(totalTime);
+                            
+                            source.onended = () => {
+                                card?.classList.remove('playing');
+                                this.updateQueueStatus(false);
+                                resolve();
+                            };
+                            
+                        } catch (err) {
+                            console.error(err);
+                            card?.classList.remove('playing');
+                            this.updateQueueStatus(false);
+                            resolve();
+                        }
+                    });
+                });
+            }
+            
+            async playAll() {
+                if (!this.ready) return;
+                
+                const btn = document.getElementById('playAllBtn');
+                btn.disabled = true;
+                btn.textContent = '⏳ TOCANDO...';
+                
+                for (const char of this.characters) {
+                    const input = document.getElementById(`input-${char.id}`);
+                    const text = input.value.trim();
+                    if (text) {
+                        await this.speak(char.name, text);
+                        await new Promise(r => setTimeout(r, 80));
+                    }
+                }
+                
+                btn.disabled = false;
+                btn.textContent = '▶ PLAY ALL';
+                this.updateKaraoke('✅ FINALIZADO', 'Todas as falas executadas sem interrupções!');
+            }
+            
+            cancel() {
+                this.lock = Promise.resolve();
+                document.querySelectorAll('.character').forEach(c => c.classList.remove('playing'));
+                this.updateQueueStatus(false);
+                this.updateKaraoke('⏸️ CANCELADO', 'Execução interrompida');
+                document.getElementById('playAllBtn').disabled = false;
+                document.getElementById('playAllBtn').textContent = '▶ PLAY ALL';
+            }
+            
+            updateKaraoke(name, text) {
+                const el = document.getElementById('karaoke');
+                el.innerHTML = `<b>${name}:</b> ${text}`;
+            }
+            
+            updateQueueStatus(playing) {
+                const dot = document.getElementById('queueDot');
+                const status = document.getElementById('queueStatus');
+                if (playing) {
+                    dot.className = 'dot green';
+                    status.innerHTML = '🎵 Falando agora...';
+                } else {
+                    dot.className = 'dot gray';
+                    status.innerHTML = '✅ Pronto para tocar';
+                }
+            }
+            
+            showTimer(ms) {
+                const status = document.getElementById('queueStatus');
+                const time = parseInt(ms);
+                if (time < 100) {
+                    status.innerHTML = `⚡ Resposta em ${ms}ms (cache)`;
+                } else {
+                    status.innerHTML = `🎤 Gerado em ${ms}ms`;
+                }
+                setTimeout(() => {
+                    if (status.innerHTML.includes(ms)) {
+                        status.innerHTML = '✅ Pronto para tocar';
+                    }
+                }, 1500);
+            }
+        }
+        
+        // Inicia app
+        window.app = new KaoriRapido();
+    </script>
+</body>
+</html>

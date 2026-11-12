@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Player de Legendas SRT</title>
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%; width: 100%;
+    font-family: Arial, sans-serif;
+    background: #000;
+    color: #fff;
+    overflow: hidden;
+  }
+
+  #subtitle-container {
+    position: absolute;
+    top: 30%;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    font-size: 24px;
+    line-height: 1.2em;
+    text-align: center;
+    padding: 0 20px;
+  }
+
+  .subtitle {
+    margin: 10px 0;
+    max-width: 80%;
+    word-wrap: break-word;
+  }
+
+  #controls {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 0;
+  }
+
+  #buttons {
+    margin-bottom: 5px;
+  }
+
+  button {
+    margin: 0 5px;
+    padding: 5px 10px;
+    font-size: 16px;
+  }
+
+  #font-controls {
+    margin-left: 10px;
+  }
+
+  #progress-container {
+    width: 90%;
+    display: flex;
+    align-items: center;
+  }
+
+  #progress {
+    flex: 1;
+    height: 10px;
+    background: #444;
+    margin-right: 10px;
+    cursor: pointer;
+    position: relative;
+  }
+
+  #progress-bar {
+    height: 100%;
+    background: #f00;
+    width: 0%;
+  }
+
+  #time-label {
+    min-width: 80px;
+    text-align: right;
+  }
+
+  #drop-area {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border: 2px dashed rgba(255,255,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.5);
+    font-size: 24px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  #drop-area.active {
+    border-color: #fff;
+    color: #fff;
+    pointer-events: all;
+  }
+</style>
+</head>
+<body>
+
+<div id="subtitle-container">
+  <div class="subtitle" style="height:1em;"></div> <!-- Primeira linha em branco -->
+  <div class="subtitle" id="test-subtitle">Teste: legenda inicial</div>
+</div>
+
+<div id="controls">
+  <div id="buttons">
+    <button onclick="prev3s()">⏪ 3s</button>
+    <button onclick="play()">▶️ Play</button>
+    <button onclick="pause()">⏸️ Pause</button>
+    <button onclick="stop()">⏹️ Stop</button>
+    <button onclick="restart()">🔄 Restart</button>
+    <button onclick="next3s()">3s ⏩</button>
+    <button onclick="goEnd()">Fim ⏭️</button>
+    <span id="font-controls">
+      <button onclick="changeFont(1)">A+</button>
+      <button onclick="changeFont(-1)">A-</button>
+    </span>
+  </div>
+  <div id="progress-container">
+    <div id="progress" onclick="seek(event)">
+      <div id="progress-bar"></div>
+    </div>
+    <div id="time-label">00:00 / 00:00</div>
+  </div>
+</div>
+
+<div id="drop-area">Arraste um arquivo SRT aqui</div>
+
+<script>
+let subtitles = [];
+let currentIndex = 0;
+let startTime = null;
+let playing = false;
+let subtitleContainer = document.getElementById('subtitle-container');
+let fontSize = 24;
+
+// --- SRT Parsing ---
+function parseSRT(data) {
+  const srtRegex = /(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})\s+([\s\S]*?)(?=\n\n|\n*$)/g;
+  let result;
+  let subs = [];
+  while ((result = srtRegex.exec(data)) !== null) {
+    subs.push({
+      index: parseInt(result[1]),
+      start: srtTimeToMs(result[2]),
+      end: srtTimeToMs(result[3]),
+      text: result[4].replace(/\r/g,'').trim()
+    });
+  }
+  return subs;
+}
+
+function srtTimeToMs(time) {
+  const parts = time.split(/[:,]/);
+  return (parseInt(parts[0])*3600 + parseInt(parts[1])*60 + parseInt(parts[2]))*1000 + parseInt(parts[3]);
+}
+
+function formatTime(ms) {
+  const totalSeconds = Math.floor(ms/1000);
+  const minutes = String(Math.floor(totalSeconds/60)).padStart(2,'0');
+  const seconds = String(totalSeconds%60).padStart(2,'0');
+  return `${minutes}:${seconds}`;
+}
+
+// --- Subtitle Display ---
+function showSubtitle(index) {
+  subtitleContainer.innerHTML = '<div class="subtitle" style="height:1em;"></div>'; // linha em branco
+  for (let i = 0; i <= index; i++) {
+    let div = document.createElement('div');
+    div.className = 'subtitle';
+    div.innerText = subtitles[i].text;
+    subtitleContainer.appendChild(div);
+  }
+  subtitleContainer.scrollTo({ top: subtitleContainer.scrollHeight, behavior: 'smooth' });
+}
+
+// --- Player Controls ---
+function play() {
+  if (!subtitles.length) return;
+  if (!playing) {
+    playing = true;
+    startTime = Date.now() - (subtitles[currentIndex]?.start || 0);
+    requestAnimationFrame(update);
+  }
+}
+
+function pause() {
+  playing = false;
+}
+
+function stop() {
+  playing = false;
+  currentIndex = 0;
+  showSubtitle(currentIndex);
+  updateProgress();
+}
+
+function restart() {
+  stop();
+  play();
+}
+
+function prev3s() {
+  const time = Math.max(0, getCurrentTime() - 3000);
+  seekToTime(time);
+}
+
+function next3s() {
+  const time = Math.min(subtitles[subtitles.length-1].end, getCurrentTime() + 3000);
+  seekToTime(time);
+}
+
+function goEnd() {
+  seekToTime(subtitles[subtitles.length-1].end);
+}
+
+function changeFont(delta) {
+  fontSize = Math.max(10, fontSize + delta);
+  subtitleContainer.style.fontSize = fontSize + 'px';
+}
+
+function getCurrentTime() {
+  return Date.now() - startTime;
+}
+
+function seekToTime(time) {
+  startTime = Date.now() - time;
+  for (let i = 0; i < subtitles.length; i++) {
+    if (subtitles[i].end > time) {
+      currentIndex = i;
+      break;
+    }
+  }
+  showSubtitle(currentIndex);
+  updateProgress();
+}
+
+function updateProgress() {
+  if (!subtitles.length) return;
+  const elapsed = getCurrentTime();
+  const total = subtitles[subtitles.length-1].end;
+  const percent = Math.min(100, (elapsed / total)*100);
+  document.getElementById('progress-bar').style.width = percent + '%';
+  document.getElementById('time-label').innerText = `${formatTime(elapsed)} / ${formatTime(total)}`;
+}
+
+function seek(event) {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const percent = (event.clientX - rect.left)/rect.width;
+  const time = percent * subtitles[subtitles.length-1].end;
+  seekToTime(time);
+}
+
+function update() {
+  if (!playing) return;
+  const currentTime = getCurrentTime();
+  if (currentIndex < subtitles.length && currentTime >= subtitles[currentIndex].start) {
+    showSubtitle(currentIndex);
+    currentIndex++;
+  }
+  updateProgress();
+  if (currentIndex < subtitles.length) {
+    requestAnimationFrame(update);
+  } else {
+    playing = false;
+  }
+}
+
+// --- Drag & Drop ---
+let dropArea = document.getElementById('drop-area');
+
+function preventDefaults(e) {
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+['dragenter','dragover','dragleave','drop'].forEach(eventName => {
+  dropArea.addEventListener(eventName, preventDefaults, false);
+  document.body.addEventListener(eventName, preventDefaults, false);
+});
+
+['dragenter','dragover'].forEach(eventName => {
+  dropArea.addEventListener(eventName, ()=>dropArea.classList.add('active'), false);
+});
+
+['dragleave','drop'].forEach(eventName => {
+  dropArea.addEventListener(eventName, ()=>dropArea.classList.remove('active'), false);
+});
+
+dropArea.addEventListener('drop', (e)=>{
+  let files = e.dataTransfer.files;
+  if (!files.length) return;
+  let file = files[0];
+  if (!file.name.endsWith('.srt')) {
+    alert('Por favor, envie um arquivo SRT válido.');
+    return;
+  }
+  let reader = new FileReader();
+  reader.onload = function(evt){
+    subtitles = parseSRT(evt.target.result);
+    currentIndex = 0;
+    stop();
+    alert('Arquivo SRT carregado com sucesso!');
+  };
+  reader.readAsText(file);
+});
+</script>
+
+</body>
+</html>

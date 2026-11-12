@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Scroller de Legendas</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      height: 100%; width: 100%;
+      background: #000; color: #fff;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    .scroll-container {
+      width: 100%; height: 100%;
+      overflow: hidden; position: relative;
+    }
+    .scroll-text {
+      position: absolute;
+      width: 100%;
+      text-align: center;
+      font-size: 3.75vw;
+      line-height: 1.3;
+      font-weight: bold;
+      word-wrap: break-word;
+      white-space: normal;
+      top: 0;
+    }
+    .subtitle {
+      margin: 1em 0;
+      padding: 0 1em;
+    }
+    .controls {
+      position: absolute;
+      top: 10px; right: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      opacity: 0; 
+      transition: opacity 0.5s;
+      z-index: 10;
+    }
+    .controls button {
+      background: rgba(255,255,255,0.1);
+      color: white;
+      border: 1px solid #fff;
+      border-radius: 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+    .controls.show { opacity: 1; }
+    .dropzone {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; justify-content: center; align-items: center;
+      border: 3px dashed rgba(255,255,255,0.5);
+      color: rgba(255,255,255,0.7);
+      font-size: 2vw;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .dropzone.active {
+      opacity: 1;
+      background: rgba(255,255,255,0.05);
+      pointer-events: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="scroll-container">
+    <div class="scroll-text" id="scroll-text"></div>
+    <div class="controls" id="controls">
+      <button id="mode-duration">Versão duração</button>
+      <button id="mode-constant">Versão constante</button>
+      <button id="font-inc">A+</button>
+      <button id="font-dec">A-</button>
+      <button id="sync-back">⏪ Atrasar</button>
+      <button id="sync-forward">⏩ Adiantar</button>
+    </div>
+    <div class="dropzone" id="dropzone">Arraste e solte um arquivo .srt aqui</div>
+  </div>
+
+  <script>
+    const scrollText = document.getElementById("scroll-text");
+    const controls = document.getElementById("controls");
+    const dropzone = document.getElementById("dropzone");
+
+    let subs = [];
+    let mode = "duration"; 
+    let startTime = null;
+    let animationId = null;
+    let fontSizeVW = 3.75;
+    let syncOffset = 0; // segundos de ajuste na sincronia
+
+    // Mostrar/ocultar botões com movimento do mouse
+    let mouseTimer;
+    document.addEventListener("mousemove", () => {
+      controls.classList.add("show");
+      clearTimeout(mouseTimer);
+      mouseTimer = setTimeout(() => controls.classList.remove("show"), 2000);
+    });
+
+    // Botões de modo
+    document.getElementById("mode-duration").onclick = () => { mode = "duration"; restart(); };
+    document.getElementById("mode-constant").onclick = () => { mode = "constant"; restart(); };
+
+    // Botões de tamanho
+    document.getElementById("font-inc").onclick = () => {
+      fontSizeVW += 0.5;
+      scrollText.style.fontSize = fontSizeVW + "vw";
+    };
+    document.getElementById("font-dec").onclick = () => {
+      fontSizeVW = Math.max(1, fontSizeVW - 0.5);
+      scrollText.style.fontSize = fontSizeVW + "vw";
+    };
+
+    // Botões de sincronia
+    document.getElementById("sync-back").onclick = () => { syncOffset -= 0.5; restart(); };
+    document.getElementById("sync-forward").onclick = () => { syncOffset += 0.5; restart(); };
+
+    // Conversor de tempo "00:00:04,260" -> segundos
+    function toSeconds(t) {
+      const [hms, ms] = t.split(",");
+      const [h, m, s] = hms.split(":").map(Number);
+      return h * 3600 + m * 60 + s + (ms ? parseInt(ms) / 1000 : 0);
+    }
+
+    // Parser simples de SRT
+    function parseSRT(data) {
+      const blocks = data.split(/\n\n+/);
+      return blocks.map(block => {
+        const lines = block.split("\n").filter(Boolean);
+        if (lines.length >= 2) {
+          const times = lines[1].split(" --> ");
+          return {
+            startTime: toSeconds(times[0].trim()),
+            endTime: toSeconds(times[1].trim()),
+            text: lines.slice(2).join(" ")
+          };
+        }
+        return null;
+      }).filter(Boolean);
+    }
+
+    // Preparar legendas
+    function loadSubs(newSubs) {
+      scrollText.innerHTML = "";
+      subs = newSubs;
+      subs.forEach(sub => {
+        const div = document.createElement("div");
+        div.className = "subtitle";
+        div.textContent = sub.text;
+        scrollText.appendChild(div);
+      });
+      // Centralizar primeira legenda logo de cara
+      if (scrollText.children.length > 0) {
+        const first = scrollText.children[0];
+        scrollText.style.top = -(first.offsetTop - window.innerHeight/2 + first.offsetHeight/2) + "px";
+      }
+      restart();
+    }
+
+    // Reinicia animação
+    function restart() {
+      startTime = null;
+      if (animationId) cancelAnimationFrame(animationId);
+      animationId = requestAnimationFrame(animateScroll);
+    }
+
+    function animateScroll(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const elapsed = (timestamp - startTime) / 1000 + syncOffset;
+
+      if (subs.length === 0) {
+        animationId = requestAnimationFrame(animateScroll);
+        return;
+      }
+
+      const containerHeight = window.innerHeight;
+
+      if (mode === "duration") {
+        for (let i = 0; i < subs.length - 1; i++) {
+          const curr = subs[i];
+          const next = subs[i + 1];
+
+          if (elapsed >= curr.startTime && elapsed <= next.startTime) {
+            const currY = -(scrollText.children[i].offsetTop - containerHeight / 2 + scrollText.children[i].offsetHeight / 2);
+            const nextY = -(scrollText.children[i + 1].offsetTop - containerHeight / 2 + scrollText.children[i + 1].offsetHeight / 2);
+
+            const progress = (elapsed - curr.startTime) / (next.startTime - curr.startTime);
+            const interpY = currY + (nextY - currY) * progress;
+            scrollText.style.top = interpY + "px";
+            break;
+          }
+        }
+      } else if (mode === "constant") {
+        const totalHeight = scrollText.scrollHeight;
+        const totalDuration = subs[subs.length - 1].endTime;
+        const progress = Math.min(elapsed / totalDuration, 1);
+        const interpY = -(totalHeight - containerHeight) * progress;
+        scrollText.style.top = interpY + "px";
+      }

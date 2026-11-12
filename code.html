@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Subtitle Scroller</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    .scroll-container {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+    .scroll-text {
+      position: absolute;
+      width: 100%;
+      text-align: center;
+      font-size: 1.5em;
+      line-height: 1.6em;
+      white-space: pre-line;
+    }
+    .subtitle {
+      margin: 2em 0;
+    }
+    .time {
+      color: #0f0;
+      font-size: 0.8em;
+      display: block;
+      margin-bottom: 0.3em;
+    }
+  </style>
+</head>
+<body>
+  <div class="scroll-container">
+    <div class="scroll-text" id="scroll-text"></div>
+  </div>
+
+  <script>
+    // subtitles data
+    const subs = [
+      { start: "00:00:04,260", end: "00:00:05,770", text: "Um bom headset pode fazer" },
+      { start: "00:00:05,780", end: "00:00:07,289", text: "total diferença na sua gameplay," },
+      { start: "00:00:07,294", end: "00:00:08,504", text: "principalmente se você" },
+      { start: "00:00:08,514", end: "00:00:10,180", text: "for uma pessoa com deficiência visual." },
+      { start: "00:00:12,900", end: "00:00:13,960", text: "Para nós, que temos" },
+      { start: "00:00:13,970", end: "00:00:15,685", text: "uma deficiência visual, fica difícil" },
+      { start: "00:00:15,690", end: "00:00:17,324", text: "ou, para algumas pessoas, até impossível," },
+      { start: "00:00:17,334", end: "00:00:19,730", text: "se locomover no cenário ou procurar inimigos." },
+      { start: "00:00:25,121", end: "00:00:26,871", text: "Então, o som é parte essencial" },
+      { start: "00:00:26,881", end: "00:00:28,631", text: "da gameplay para quem tem" },
+      { start: "00:00:28,636", end: "00:00:30,553", text: "deficiência visual, seja cegueira" },
+      { start: "00:00:30,563", end: "00:00:32,480", text: "ou baixa visão." },
+      { start: "00:00:35,700", end: "00:00:37,017", text: "Mas, mesmo para quem não tem," },
+      { start: "00:00:37,027", end: "00:00:39,550", text: "o som também é muito importante." },
+      { start: "00:00:42,465", end: "00:00:43,463", text: "Até mesmo em jogos," },
+      { start: "00:00:43,473", end: "00:00:45,018", text: "principalmente os de FPS," },
+      { start: "00:00:45,023", end: "00:00:46,917", text: "você precisa identificar de onde" },
+      { start: "00:00:46,927", end: "00:00:49,566", text: "vêm os passos e achar inimigos escondidos." },
+      { start: "00:00:53,500", end: "00:00:55,100", text: "E o som ajuda bastante," },
+      { start: "00:00:55,170", end: "00:00:57,118", text: "até quando não precisa usar a visão." },
+      { start: "00:00:59,270", end: "00:01:01,864", text: "Por isso, você vai precisar de um bom headset," },
+      { start: "00:01:01,874", end: "00:01:02,520", text: "como o Logitech G522." },
+      { start: "00:01:19,340", end: "00:01:20,458", text: "Quem joga sabe que" },
+      { start: "00:01:20,468", end: "00:01:22,779", text: "uma gameplay imersiva exige som de qualidade." },
+      { start: "00:01:24,830", end: "00:01:27,550", text: "Então, vá de Logitech G522." },
+      { start: "00:01:27,930", end: "00:01:28,630", text: "Link na bio." },
+      { start: "00:01:28,870", end: "00:01:29,870", text: "Quem joga sabe." },
+    ];
+
+    const scrollText = document.getElementById("scroll-text");
+
+    // helper: convert timestamp to seconds
+    function toSeconds(t) {
+      const [hms, ms] = t.split(",");
+      const [h, m, s] = hms.split(":").map(Number);
+      return h * 3600 + m * 60 + s + (ms ? parseInt(ms) / 1000 : 0);
+    }
+
+    // render subtitles
+    subs.forEach((sub, i) => {
+      const div = document.createElement("div");
+      div.className = "subtitle";
+      div.innerHTML = `<span class="time">${sub.start} --> ${sub.end}</span>${sub.text}`;
+      scrollText.appendChild(div);
+    });
+
+    let startTime = null;
+
+    function animateScroll(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const elapsed = (timestamp - startTime) / 1000; // in seconds
+
+      // find current subtitle
+      let currentIndex = subs.findIndex(s => toSeconds(s.start) <= elapsed && elapsed <= toSeconds(s.end));
+
+      if (currentIndex !== -1) {
+        const target = scrollText.children[currentIndex];
+        const containerHeight = window.innerHeight;
+        const targetOffset = target.offsetTop - containerHeight / 2 + target.offsetHeight / 2;
+
+        // smooth scroll toward target
+        const currentTop = parseFloat(scrollText.style.top || "0");
+        const newTop = -targetOffset;
+        scrollText.style.top = (currentTop + (newTop - currentTop) * 0.05) + "px";
+      }
+
+      requestAnimationFrame(animateScroll);
+    }
+
+    requestAnimationFrame(animateScroll);
+  </script>
+</body>
+</html>

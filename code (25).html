@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Art Restore WebApp (Fixed Aspect)</title>
+<style>
+html, body {margin:0; height:100%; background:#111; color:#eee; font-family:sans-serif; overflow:hidden;}
+#controls {
+  position:fixed; top:10px; left:10px; background:#222; padding:10px; border-radius:12px;
+  box-shadow:0 0 10px #0008; display:flex; flex-direction:column; gap:8px; z-index:10;
+}
+canvas {width:100%; height:100%; display:block; cursor:grab;}
+select, button, input {background:#333; color:#eee; border:1px solid #555; border-radius:6px; padding:4px;}
+label {font-size:0.9em;}
+</style>
+</head>
+<body>
+<div id="controls">
+  <label>Upload Image <input type="file" id="fileInput" accept="image/*"></label>
+  <label>Filter
+    <select id="filterSelect">
+      <option value="nearest">Nearest Neighbor</option>
+      <option value="scale2x">Scale2x</option>
+      <option value="hq2x">HQ2x (approx)</option>
+      <option value="xbr">xBR (approx)</option>
+    </select>
+  </label>
+  <label>Zoom <input type="range" id="zoomRange" min="1" max="8" step="0.5" value="2"></label>
+  <button id="downloadBtn">Download Restored</button>
+</div>
+<canvas id="glcanvas"></canvas>
+
+<script>
+const canvas = document.getElementById('glcanvas');
+const gl = canvas.getContext('webgl2');
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+let texture, imgAspect=1, imgW=1, imgH=1, program, vao;
+let zoom = 2, offset = [0,0];
+let isDragging = false, prev=[0,0];
+
+const filters = {
+  nearest:`#version 300 es
+  precision mediump float;
+  in vec2 vTex; out vec4 frag;
+  uniform sampler2D tex;
+  void main(){ frag = texture(tex, vTex); }`,
+  scale2x:`#version 300 es
+  precision mediump float;
+  in vec2 vTex; out vec4 frag;
+  uniform sampler2D tex; uniform vec2 res;
+  void main(){
+    vec2 p=1.0/res; vec3 c=texture(tex,vTex).rgb;
+    vec3 l=texture(tex,vTex+vec2(-p.x,0)).rgb;
+    vec3 r=texture(tex,vTex+vec2(p.x,0)).rgb;
+    vec3 u=texture(tex,vTex+vec2(0,p.y)).rgb;
+    vec3 d=texture(tex,vTex+vec2(0,-p.y)).rgb;
+    vec3 avg=(c*2.0+u+d+l+r)/6.0;
+    frag=vec4(mix(avg,c,0.7),1.0);
+  }`,
+  hq2x:`#version 300 es
+  precision mediump float;
+  in vec2 vTex; out vec4 frag;
+  uniform sampler2D tex; uniform vec2 res;
+  void main(){
+    vec2 p=1.0/res; vec3 c=texture(tex,vTex).rgb;
+    vec3 diff=abs(c-texture(tex,vTex+vec2(p.x,0)).rgb)
+             +abs(c-texture(tex,vTex+vec2(-p.x,0)).rgb)
+             +abs(c-texture(tex,vTex+vec2(0,p.y)).rgb)
+             +abs(c-texture(tex,vTex+vec2(0,-p.y)).rgb);
+    float edge=dot(diff,vec3(0.333));
+    frag=vec4(mix(c,vec3(round(c*16.0)/16.0),smoothstep(0.1,0.4,edge)),1.0);
+  }`,
+  xbr:`#version 300 es
+  precision mediump float;
+  in vec2 vTex; out vec4 frag;
+  uniform sampler2D tex; uniform vec2 res;
+  void main(){
+    vec2 p=1.0/res; vec3 c=texture(tex,vTex).rgb;
+    vec3 avg=(texture(tex,vTex+vec2(p.x,0)).rgb+
+              texture(tex,vTex+vec2(-p.x,0)).rgb+
+              texture(tex,vTex+vec2(0,p.y)).rgb+
+              texture(tex,vTex+vec2(0,-p.y)).rgb)/4.0;
+    frag=vec4(mix(avg,c,0.8),1.0);
+  }`
+};
+
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  gl.viewport(0,0,canvas.width,canvas.height);
+  draw();
+}
+
+function makeShader(type,src){
+  const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s));
+  return s;
+}
+function makeProgram(fsSrc){
+  const vsSrc=`#version 300 es
+  precision mediump float;
+  layout(location=0) in vec2 pos;
+  out vec2 vTex;
+  void main(){ vTex=(pos+1.0)/2.0; vTex.y=1.0-vTex.y; gl_Position=vec4(pos,0,1); }`;
+  const vs=makeShader(gl.VERTEX_SHADER,vsSrc);
+  const fs=makeShader(gl.FRAGMENT_SHADER,fsSrc);
+  const p=gl.createProgram(); gl.attachShader(p,vs); gl.attachShader(p,fs); gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(p));
+  return p;
+}
+
+function loadImage(url){
+  const img=new Image(); img.src=url; img.onload=()=>{
+    imgW=img.width; imgH=img.height;
+    imgAspect=imgW/imgH;
+    if(texture) gl.deleteTexture(texture);
+    texture=gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D,texture);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
+    draw();
+  };
+}
+
+function draw(){
+  if(!texture) return;
+  gl.clearColor(0,0,0,1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.useProgram(program);
+  gl.bindVertexArray(vao);
+  gl.bindTexture(gl.TEXTURE_2D,texture);
+
+  // maintain aspect ratio
+  let cw = canvas.width, ch = canvas.height;
+  let iw = imgW * zoom, ih = imgH * zoom;
+  let scale = Math.min(cw/iw, ch/ih);
+  let sx = iw*scale / cw, sy = ih*scale / ch;
+
+  const uLoc = gl.getUniformLocation(program,"res");
+  if(uLoc) gl.uniform2f(uLoc,imgW,imgH);
+
+  const mat = new Float32Array([
+    sx,0,0,0,
+    0,sy,0,0,
+    0,0,1,0,
+    offset[0]/(cw/2), offset[1]/(ch/2),0,1
+  ]);
+
+  // Pass as viewport scaling
+  const loc = gl.getUniformLocation(program, "uMatrix");
+  if(loc) gl.uniformMatrix4fv(loc, false, mat);
+
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+}
+
+function updateProgram(){
+  const type=document.getElementById('filterSelect').value;
+  if(program) gl.deleteProgram(program);
+  program=makeProgram(filters[type]);
+  if(vao) gl.deleteVertexArray(vao);
+  vao=gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const buf=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+  draw();
+}
+
+document.getElementById('fileInput').onchange=e=>{
+  const f=e.target.files[0];
+  if(f){ loadImage(URL.createObjectURL(f)); }
+};
+document.getElementById('filterSelect').onchange=()=>{updateProgram();};
+document.getElementById('zoomRange').oninput=e=>{
+  zoom=parseFloat(e.target.value);
+  draw();
+};
+document.getElementById('downloadBtn').onclick=()=>{
+  const link=document.createElement('a');
+  link.download='restored.png';
+  link.href=canvas.toDataURL();
+  link.click();
+};
+
+canvas.onmousedown=e=>{isDragging=true; prev=[e.clientX,e.clientY]; canvas.style.cursor='grabbing';};
+canvas.onmouseup=()=>{isDragging=false; canvas.style.cursor='grab';};
+canvas.onmousemove=e=>{
+  if(isDragging){
+    offset[0]+=(e.clientX-prev[0])*2/canvas.width;
+    offset[1]-=(e.clientY-prev[1])*2/canvas.height;
+    prev=[e.clientX,e.clientY];
+    draw();
+  }
+};
+
+updateProgram();
+</script>
+</body>
+</html>

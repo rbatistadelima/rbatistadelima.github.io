@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Scroller de Legendas - Drag & Drop (corrigido)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root { --bg:#000; --fg:#fff; --accent:rgba(255,255,255,0.12); }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:Arial,Helvetica,sans-serif;overflow:hidden}
+    .scroll-container{position:relative;width:100%;height:100%;overflow:hidden}
+    .scroll-text{position:absolute;width:100%;text-align:center;font-size:3.75vw;line-height:1.3;font-weight:700;word-wrap:break-word;white-space:normal;top:0}
+    .subtitle{margin:1em 0;padding:0 1em}
+    .controls{position:absolute;top:10px;right:10px;display:flex;flex-wrap:wrap;gap:6px;opacity:0;transition:opacity .35s;z-index:40}
+    .controls.show{opacity:1}
+    .controls button{background:var(--accent);color:var(--fg);border:1px solid rgba(255,255,255,0.12);padding:6px 10px;border-radius:6px;cursor:pointer}
+    .dropzone{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:3px dashed rgba(255,255,255,0.08);color:rgba(255,255,255,0.65);font-size:2vw;pointer-events:none;opacity:0;transition:opacity .2s, background .2s;z-index:30}
+    .dropzone.active{opacity:1;pointer-events:auto;background:rgba(255,255,255,0.02)}
+    .message{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:rgba(0,0,0,0.6);color:#fff;padding:8px 14px;border-radius:8px;opacity:0;transition:opacity .25s;z-index:60}
+    .hint{position:fixed;left:12px;bottom:12px;color:rgba(255,255,255,0.35);font-size:0.9rem}
+  </style>
+</head>
+<body>
+  <div class="scroll-container">
+    <div id="scroll-text" class="scroll-text"></div>
+
+    <div id="controls" class="controls">
+      <button id="btn-load">Abrir legenda</button>
+      <button id="mode-duration">Versão duração</button>
+      <button id="mode-constant">Versão constante</button>
+      <button id="font-inc">A+</button>
+      <button id="font-dec">A-</button>
+      <button id="sync-back">⏪ Atrasar</button>
+      <button id="sync-forward">⏩ Adiantar</button>
+    </div>
+
+    <div id="dropzone" class="dropzone">Arraste e solte um arquivo <strong>.srt</strong> aqui</div>
+  </div>
+
+  <div id="message" class="message" role="status" aria-live="polite"></div>
+  <div class="hint">Mova o mouse para ver os controles (ou pressione ⌘/Ctrl+O para abrir arquivo)</div>
+
+  <input id="file-input" type="file" accept=".srt" style="display:none" />
+
+  <script>
+    /* ELEMENTS */
+    const scrollText = document.getElementById('scroll-text');
+    const controls = document.getElementById('controls');
+    const dropzone = document.getElementById('dropzone');
+    const msgEl = document.getElementById('message');
+    const fileInput = document.getElementById('file-input');
+
+    /* STATE */
+    let subs = [];
+    let mode = 'duration';
+    let startTime = null;
+    let animId = null;
+    let fontSizeVW = 3.75;
+    let syncOffset = 0;
+    let dragCounter = 0;
+    let msgTimer = null;
+
+    /* UTIL */
+    function showMessage(text, ms = 2500) {
+      clearTimeout(msgTimer);
+      msgEl.textContent = text;
+      msgEl.style.opacity = '1';
+      msgTimer = setTimeout(()=> msgEl.style.opacity = '0', ms);
+      console.log('[MSG]', text);
+    }
+
+    function toSeconds(t) {
+      if (!t) return 0;
+      t = t.trim().replace(',', '.'); // accept 00:00:04,260 and 00:00:04.260
+      const parts = t.split(':').map(p => p.trim());
+      if (parts.length === 3) {
+        const h = parseInt(parts[0],10) || 0;
+        const m = parseInt(parts[1],10) || 0;
+        const s = parseFloat(parts[2]) || 0;
+        return h*3600 + m*60 + s;
+      }
+      return parseFloat(t) || 0;
+    }
+
+    function parseSRT(data) {
+      try {
+        // normalize newlines and trim BOM
+        data = data.replace(/\r/g,'').replace(/^\uFEFF/,'').trim();
+        const rawBlocks = data.split(/\n{2,}/g).map(b => b.trim()).filter(Boolean);
+        const out = [];
+        for (const block of rawBlocks) {
+          const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+          // find the line containing --> (time)
+          const timeLineIndex = lines.findIndex(l => l.includes('-->'));
+          if (timeLineIndex >= 0) {
+            const timeLine = lines[timeLineIndex];
+            const [startRaw, endRaw] = timeLine.split('-->').map(s => s && s.trim());
+            const textLines = lines.slice(timeLineIndex + 1);
+            const text = textLines.join(' ').replace(/\s+/g,' ').trim();
+            out.push({ startTime: toSeconds(startRaw), endTime: toSeconds(endRaw), text });
+          }
+        }
+        return out;
+      } catch (err) {
+        console.error('parseSRT error', err);
+        return [];
+      }
+    }
+
+    /* RENDER / LAYOUT */
+    function renderSubs() {
+      scrollText.innerHTML = '';
+      scrollText.style.fontSize = fontSizeVW + 'vw';
+      for (const s of subs) {
+        const d = document.createElement('div');
+        d.className = 'subtitle';
+        d.textContent = s.text;
+        scrollText.appendChild(d);
+      }
+      // ensure layout has happened before centering first
+      requestAnimationFrame(() => {
+        if (scrollText.children.length > 0) {
+          centerSubtitle(0, /*instant*/ true);
+        }
+      });
+    }
+
+    function centerSubtitle(index, instant = false) {
+      const containerHeight = window.innerHeight;
+      const el = scrollText.children[index];
+      if (!el) return;
+      const targetTop = -(el.offsetTop - containerHeight/2 + el.offsetHeight/2);
+      if (instant) {
+        scrollText.style.top = targetTop + 'px';
+      } else {
+        // small linear interpolation for smoothness
+        const currentTop = parseFloat(scrollText.style.top || '0');
+        scrollText.style.top = (currentTop + (targetTop - currentTop) * 0.12) + 'px';
+      }
+    }
+
+    /* ANIMATION */
+    function restartAnimation() {
+      startTime = null;
+      if (animId) cancelAnimationFrame(animId);
+      animId = requestAnimationFrame(animate);
+    }
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = (ts - startTime)/1000 + syncOffset;
+
+      if (subs.length === 0) {
+        animId = requestAnimationFrame(animate);
+        return;
+      }
+
+      const containerHeight = window.innerHeight;
+
+      if (mode === 'duration') {
+        // move between each subtitle's start and the next start
+        for (let i=0;i<subs.length-1;i++) {
+          const curr = subs[i];
+          const next = subs[i+1];
+          if (elapsed >= curr.startTime && elapsed <= next.startTime) {
+            const currY = -(scrollText.children[i].offsetTop - containerHeight/2 + scrollText.children[i].offsetHeight/2);
+            const nextY = -(scrollText.children[i+1].offsetTop - containerHeight/2 + scrollText.children[i+1].offsetHeight/2);
+            const segDur = next.startTime - curr.startTime;
+            const progress = segDur > 0 ? (elapsed - curr.startTime) / segDur : 0;
+            const interp = currY + (nextY - currY) * progress;
+            scrollText.style.top = interp + 'px';
+            break;
+          }
+        }
+      } else { // constant
+        const totalHeight = scrollText.scrollHeight;
+        const totalDuration = Math.max(subs[subs.length-1].endTime || 1, 0.001);
+        const progress = Math.min(Math.max(elapsed / totalDuration, 0), 1);
+        const interpY = -(totalHeight - containerHeight) * progress;
+        scrollText.style.top = interpY + 'px';
+      }
+
+      animId = requestAnimationFrame(animate);
+    }
+
+    /* FILE HANDLING */
+    function handleFile(file) {
+      if (!file) return showMessage('Nenhum arquivo detectado');
+      const name = file.name || '';
+      const ext = name.split('.').pop()?.toLowerCase() || '';
+      if (ext !== 'srt') {
+        showMessage('Formato inválido — envie um arquivo .srt');
+        console.warn('Arquivo rejeitado:', name);
+        return;
+      }
+
+      showMessage('Carregando ' + name + ' ...', 1200);
+      const reader = new FileReader();
+      reader.onerror = (e) => {
+        console.error('FileReader error', e);
+        showMessage('Erro ao ler o arquivo');
+      };
+      reader.onload = () => {
+        const text = String(reader.result || '');
+        const parsed = parseSRT(text);
+        if (!parsed.length) {
+          showMessage('Arquivo SRT vazio ou formato inválido');
+          console.warn('parseSRT result empty');
+          return;
+        }
+        subs = parsed;
+        console.log('Legendas carregadas:', subs.length);
+        renderSubs();
+        restartAnimation();
+        showMessage('Legendas carregadas (' + subs.length + ')', 1500);
+      };
+      reader.readAsText(file, 'utf-8');
+    }
+
+    /* DRAG & DROP (robusto) */
+    window.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      dropzone.classList.add('active');
+    });
+
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault(); // ESSENCIAL: permite o drop
+    });
+
+    window.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter = Math.max(0, dragCounter - 1);
+      if (dragCounter === 0) dropzone.classList.remove('active');
+    });
+
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      dropzone.classList.remove('active');
+
+      // prefer items API (mais consistente em navegadores)
+      let file = null;
+      try {
+        const items = e.dataTransfer?.items;
+        if (items && items.length) {
+          for (let i=0;i<items.length;i++) {
+            const it = items[i];
+            if (it.kind === 'file') {
+              file = it.getAsFile();
+              break;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('items API erro', err);
+      }
+      if (!file && e.dataTransfer?.files?.length) {
+        file = e.dataTransfer.files[0];
+      }
+
+      if (!file) {
+        showMessage('Nenhum arquivo detectado no drop');
+        return;
+      }
+      handleFile(file);
+    });
+
+    /* CONTROLS */
+    // show/hide controls on mousemove
+    let mouseTimeout;
+    document.addEventListener('mousemove', () => {
+      controls.classList.add('show');
+      clearTimeout(mouseTimeout);
+      mouseTimeout = setTimeout(()=> controls.classList.remove('show'), 2000);
+    });
+
+    document.getElementById('btn-load').addEventListener('click', ()=> fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      if (fileInput.files && fileInput.files[0]) handleFile(fileInput.files[0]);
+    });
+
+    document.getElementById('mode-duration').addEventListener('click', ()=> { mode = 'duration'; restartAnimation(); showMessage('Modo: duração'); });
+    document.getElementById('mode-constant').addEventListener('click', ()=> { mode = 'constant'; restartAnimation(); showMessage('Modo: constante'); });
+
+    document.getElementById('font-inc').addEventListener('click', ()=> { fontSizeVW = Math.min(fontSizeVW + 0.5, 30); scrollText.style.fontSize = fontSizeVW + 'vw'; });
+    document.getElementById('font-dec').addEventListener('click', ()=> { fontSizeVW = Math.max(1, fontSizeVW - 0.5); scrollText.style.fontSize = fontSizeVW + 'vw'; });
+
+    document.getElementById('sync-back').addEventListener('click', ()=> { syncOffset -= 0.5; restartAnimation(); showMessage('Sincronia: ' + syncOffset.toFixed(2) + 's'); });
+    document.getElementById('sync-forward').addEventListener('click', ()=> { syncOffset += 0.5; restartAnimation(); showMessage('Sincronia: ' + syncOffset.toFixed(2) + 's'); });
+
+    // keyboard shortcuts (small convenience)
+    window.addEventListener('keydown', (e) => {
+      if (e.key === ' '){ e.preventDefault(); if (animId) { cancelAnimationFrame(animId); animId = null; showMessage('Pausado'); } else { restartAnimation(); showMessage('Play'); } }
+      if (e.key === '+') { fontSizeVW = Math.min(fontSizeVW + 0.5, 30); scrollText.style.fontSize = fontSizeVW + 'vw'; }
+      if (e.key === '-') { fontSizeVW = Math.max(1, fontSizeVW - 0.5); scrollText.style.fontSize = fontSizeVW + 'vw'; }
+      if (e.key === 'ArrowLeft') { syncOffset -= 0.5; restartAnimation(); showMessage('Sincronia: ' + syncOffset.toFixed(2) + 's'); }
+      if (e.key === 'ArrowRight') { syncOffset += 0.5; restartAnimation(); showMessage('Sincronia: ' + syncOffset.toFixed(2) + 's'); }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); fileInput.click(); }
+    });
+
+    // window resize: re-center to current active subtitle (if any)
+    window.addEventListener('resize', () => {
+      if (!subs.length) return;
+      // find active index by time (use 0 if no animation started)
+      const now = (performance.now() - (startTime || performance.now()))/1000 + syncOffset;
+      let idx = 0;
+      for (let i=0;i<subs.length;i++){
+        if (now >= subs[i].startTime) idx = i;
+      }
+      requestAnimationFrame(()=> centerSubtitle(idx,true));
+    });
+
+    // small helper: expose functions for debugging
+    window._scrollerDebug = { handleFile, parseSRT, subs };
+    showMessage('Pronto — arraste um .srt ou pressione ⌘/Ctrl+O', 2500);
+  </script>
+</body>
+</html>

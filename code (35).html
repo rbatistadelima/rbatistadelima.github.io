@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Face Aligner WebApp</title>
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+<script defer>
+async function loadModels() {
+  const url = "https://cdn.jsdelivr.net/npm/face-api.js/models";
+  await faceapi.nets.tinyFaceDetector.loadFromUri(url);
+  await faceapi.nets.faceLandmark68TinyNet.loadFromUri(url);
+  document.getElementById("status").textContent = "✅ Models loaded. Drop your images below.";
+}
+
+window.addEventListener("DOMContentLoaded", loadModels);
+
+async function handleFiles(files) {
+  const gallery = document.getElementById("gallery");
+  gallery.innerHTML = "";
+  document.getElementById("status").textContent = "Aligning faces...";
+
+  for (const file of files) {
+    const img = await loadImage(file);
+    const detection = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks(true);
+    if (!detection) continue;
+
+    const aligned = await alignFace(img, detection);
+    gallery.appendChild(aligned);
+  }
+
+  document.getElementById("status").textContent = "✅ Done! Right-click images to save or use download all.";
+}
+
+function loadImage(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function alignFace(img, detection) {
+  const landmarks = detection.landmarks;
+  const leftEye = landmarks.getLeftEye();
+  const rightEye = landmarks.getRightEye();
+
+  const eyeCenterX = (leftEye[0].x + rightEye[3].x) / 2;
+  const eyeCenterY = (leftEye[0].y + rightEye[3].y) / 2;
+  const dx = rightEye[3].x - leftEye[0].x;
+  const dy = rightEye[3].y - leftEye[0].y;
+  const angle = Math.atan2(dy, dx);
+  const scale = 150 / dx; // target eye distance
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const size = 256;
+  canvas.width = canvas.height = size;
+  ctx.translate(size / 2, size / 2);
+  ctx.rotate(-angle);
+  ctx.scale(scale, scale);
+  ctx.drawImage(img, -eyeCenterX, -eyeCenterY);
+  return canvas;
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  handleFiles(e.dataTransfer.files);
+}
+</script>
+<style>
+body {
+  font-family: sans-serif;
+  text-align: center;
+  margin: 20px;
+  background: #fafafa;
+}
+#dropzone {
+  border: 3px dashed #aaa;
+  padding: 40px;
+  border-radius: 20px;
+  background: #fff;
+  margin-bottom: 20px;
+}
+#gallery canvas {
+  margin: 5px;
+  border-radius: 10px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.2);
+}
+</style>
+</head>
+<body ondrop="handleDrop(event)" ondragover="event.preventDefault()">
+<h1>🧠 Face Aligner WebApp</h1>
+<div id="status">Loading models...</div>
+<div id="dropzone">Drop up to 200 portrait images here</div>
+<div id="gallery"></div>
+</body>
+</html>

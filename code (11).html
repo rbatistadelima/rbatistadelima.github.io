@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>3D Text on Image — Robust</title>
+<style>
+  html,body { height:100%; margin:0; background:#111; color:#fff; font-family:Arial,Helvetica,sans-serif; overflow:hidden; }
+  #ui {
+    position: fixed; left: 12px; top: 12px; width: 260px; z-index: 20;
+    background: rgba(0,0,0,0.6); padding: 12px; border-radius:10px;
+  }
+  #ui input, #ui button, #ui label { display:block; width:100%; margin:6px 0; }
+  #bgInput { display:none; }
+  #dropHint {
+    position: fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    pointer-events: none; background: rgba(0,0,0,0.5); color:#fff; font-size:22px;
+    opacity:0; transition:opacity .12s ease; z-index:15;
+  }
+  #dropHint.visible { opacity:1; pointer-events:auto; }
+  #previewImg { display:none; width:160px; border-radius:6px; margin-top:6px; }
+  canvas { display:block; }
+  small { color:#bbb; }
+</style>
+</head>
+<body>
+  <div id="ui">
+    <button id="loadBg">Upload Image</button>
+    <input id="bgInput" type="file" accept="image/*" />
+    <label>Text: <input id="textInput" value="Hello 3D!"></label>
+    <label>Depth: <input id="depth" type="range" min="0.1" max="2" step="0.1" value="0.5"></label>
+    <label>Size: <input id="size" type="range" min="1" max="20" step="0.5" value="5"></label>
+    <label>Color: <input id="color" type="color" value="#ff5500"></label>
+    <button id="export">Export PNG</button>
+    <img id="previewImg" alt="preview" />
+    <small>Tips: Paste image (Ctrl/Cmd+V), drag & drop file, or click Upload.</small>
+  </div>
+
+  <div id="dropHint">📷 Drop or Paste Image Here</div>
+
+  <!-- three.js + extras -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/js/loaders/FontLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/js/geometries/TextGeometry.js"></script>
+
+  <script>
+  (function(){
+    // Basic scene
+    let scene, camera, renderer, controls;
+    let textMesh = null, font = null;
+    let currentBgTexture = null;
+
+    init();
+    animate();
+
+    function init() {
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(window.devicePixelRatio || 1);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // Scene + camera
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 2000);
+      camera.position.set(0, 10, 30);
+
+      // Controls
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+
+      // Lights
+      const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+      dir.position.set(10, 20, 10);
+      scene.add(dir);
+      scene.add(new THREE.AmbientLight(0x404040));
+
+      // Load font
+      const loaderFont = new THREE.FontLoader();
+      loaderFont.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json',
+        f => { font = f; createText(); console.log('Font loaded.'); },
+        undefined,
+        err => console.error('Font load error:', err)
+      );
+
+      // UI binding
+      document.getElementById('textInput').addEventListener('input', createText);
+      document.getElementById('depth').addEventListener('input', createText);
+      document.getElementById('size').addEventListener('input', createText);
+      document.getElementById('color').addEventListener('input', updateColor);
+      document.getElementById('loadBg').addEventListener('click', () => document.getElementById('bgInput').click());
+      document.getElementById('bgInput').addEventListener('change', e => {
+        if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+      });
+      document.getElementById('export').addEventListener('click', exportPNG);
+
+      // Resize
+      window.addEventListener('resize', onWindowResize);
+
+      // Robust paste / drag handlers
+      window.addEventListener('paste', handlePaste);
+      window.addEventListener('dragenter', onDragEnter);
+      window.addEventListener('dragover', onDragOver);
+      window.addEventListener('dragleave', onDragLeave);
+      window.addEventListener('drop', onDrop);
+
+      console.log('Init finished. Try: Upload, drag-drop, paste (Ctrl/Cmd+V). Open console for logs.');
+    }
+
+    // ======== Image handling ========
+    const previewImg = document.getElementById('previewImg');
+    const textureLoader = new THREE.TextureLoader();
+
+    function handleFile(file) {
+      if (!file.type || !file.type.startsWith('image/')) {
+        console.warn('Dropped file is not an image:', file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataURL = reader.result;
+        previewImg.src = dataURL;
+        previewImg.style.display = 'block';
+        loadTextureFromDataURL(dataURL);
+      };
+      reader.onerror = (e) => console.error('FileReader error', e);
+      reader.readAsDataURL(file);
+    }
+
+    function loadTextureFromDataURL(dataURL) {
+      console.log('Loading texture from data URL...');
+      // Dispose previous texture
+      if (currentBgTexture) {
+        currentBgTexture.dispose();
+        currentBgTexture = null;
+      }
+      // Use loader with onLoad/onError
+      textureLoader.load(
+        dataURL,
+        tex => {
+          tex.encoding = THREE.sRGBEncoding;
+          currentBgTexture = tex;
+          scene.background = tex;
+          console.log('Background texture applied.');
+        },
+        undefined,
+        err => console.error('Texture load failed:', err)
+      );
+    }
+
+    function handlePaste(evt) {
+      try {
+        const clipboard = evt.clipboardData;
+        if (!clipboard) { console.log('No clipboardData available'); return; }
+        // Prefer files list (Chrome returns files for image paste)
+        if (clipboard.files && clipboard.files.length > 0) {
+          handleFile(clipboard.files[0]);
+          return;
+        }
+        // fallback: scan items
+        const items = clipboard.items;
+        if (!items) { console.log('No clipboard items'); return; }
+        for (let i=0;i<items.length;i++){
+          const it = items[i];
+          if (it.type && it.type.indexOf('image') !== -1) {
+            const blob = it.getAsFile();
+            if (blob) { handleFile(blob); return; }
+          }
+        }
+        console.log('No image found in paste data.');
+      } catch (e) {
+        console.error('Paste handler error', e);
+      }
+    }
+
+    // Drag UI
+    const dropHint = document.getElementById('dropHint');
+    let dragCounter = 0;
+    function onDragEnter(e){ e.preventDefault(); e.stopPropagation(); dragCounter++; dropHint.classList.add('visible'); }
+    function onDragOver(e){ e.preventDefault(); e.stopPropagation(); /* show hint */ dropHint.classList.add('visible'); }
+    function onDragLeave(e){ e.preventDefault(); e.stopPropagation(); dragCounter = Math.max(0, dragCounter-1); if (dragCounter===0) dropHint.classList.remove('visible'); }
+    function onDrop(e){
+      e.preventDefault(); e.stopPropagation();
+      dragCounter = 0; dropHint.classList.remove('visible');
+      const dt = e.dataTransfer;
+      if (dt.files && dt.files.length > 0) {
+        handleFile(dt.files[0]);
+      } else {
+        console.log('Drop event has no files.');
+      }
+    }
+
+    // ======== Text ========
+    function createText() {
+      if (!font) { console.log('Font not loaded yet'); return; }
+      const text = document.getElementById('textInput').value || ' ';
+      const depth = parseFloat(document.getElementById('depth').value) || 0.5;
+      const size = parseFloat(document.getElementById('size').value) || 5;
+      const color = document.getElementById('color').value || '#ff5500';
+
+      if (textMesh) {
+        textMesh.geometry.dispose();
+        textMesh.material.dispose();
+        scene.remove(textMesh);
+        textMesh = null;
+      }
+
+      const geom = new THREE.TextGeometry(text, {
+        font: font,
+        size: size,
+        height: depth,
+        curveSegments: 8,
+        bevelEnabled: true,
+        bevelThickness: 0.1,
+        bevelSize: 0.05
+      });
+      geom.computeBoundingBox();
+      geom.center();
+
+      const mat = new THREE.MeshStandardMaterial({ color: color });
+      textMesh = new THREE.Mesh(geom, mat);
+      textMesh.position.set(0, 0, 0);
+      scene.add(textMesh);
+      console.log('Text created:', text);
+    }
+
+    function updateColor() {
+      if (textMesh && textMesh.material) textMesh.material.color.set(document.getElementById('color').value);
+    }
+
+    function exportPNG() {
+      try {
+        const dataURL = renderer.domElement.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataURL;
+        a.download = '3d-text.png';
+        a.click();
+        console.log('Exported PNG.');
+      } catch (e) {
+        console.error('Export failed:', e);
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // Expose small helper if you want to debug from console
+    window.__three_debug = {
+      scene, camera, renderer,
+      getBgTexture: () => currentBgTexture
+    };
+
+  })();
+  </script>
+</body>
+</html>

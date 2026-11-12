@@ -1,0 +1,31 @@
+<tw-storydata name="progress bar" startnode="1" creator="Twine" creator-version="2.2.1" ifid="DAA59F7B-CD37-44BF-B66A-DCEC3DCE1E80" zoom="1" format="SugarCube" format-version="2.21.0" options="" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css">#progressbar-container {
+	width: 12em;
+        background-color: transparent;
+	border: 1px solid white;
+	border-radius: 4px;	
+}
+
+#progressbar {
+	  width: 0%;
+          height: 2em;
+          background-color: green;
+          border-radius: 4px;
+}
+</style><script role="script" id="twine-user-script" type="text/twine-javascript">setup.move = function () {
+	var elem  = document.getElementById("progressbar");
+	var width = 1;
+	var id    = setInterval(frame, 100);
+
+	function frame() {
+		if (width >= 100) {
+			clearInterval(id);
+		}
+		else {
+			width++;
+			elem.style.width = width + '%';
+		}
+	}
+};
+</script><tw-passagedata pid="1" name="Untitled Passage" tags="" position="376,173" size="100,100">&lt;div id=&quot;progressbar-container&quot;&gt;&lt;div id=&quot;progressbar&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;&lt;button &quot;Test&quot;&gt;&gt;&lt;&lt;script&gt;&gt;setup.move();&lt;&lt;/script&gt;&gt;&lt;&lt;/button&gt;&gt;
+</tw-passagedata></tw-storydata>

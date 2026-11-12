@@ -1,0 +1,905 @@
+<tw-storydata name="vtm-rpg" startnode="12" creator="Twine" creator-version="2.2.1" ifid="96E76A07-F3B3-4733-8679-9C79BC557926" zoom="1" format="SugarCube" format-version="2.21.0" options="" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css">@import url('https://fonts.googleapis.com/css2?family=Averia+Serif+Libre:wght@300&family=Caveat&family=Cinzel&family=Cormorant+Garamond:wght@300&family=Crimson+Text&family=Eagle+Lake&family=Fleur+De+Leah&family=Grenze+Gotisch:wght@100&family=Homemade+Apple&family=IM+Fell+English+SC&family=Italianno&family=Libre+Baskerville&family=Mansalva&family=Mate+SC&family=Meddon&family=PT+Serif&family=Permanent+Marker&family=Pirata+One&family=Rock+Salt&family=Scheherazade&family=UnifrakturCook:wght@700&family=UnifrakturMaguntia&display=swap');
+
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta2/css/all.min.css');
+
+/* https://fonts.google.com/share?selection.family=Averia%20Serif%20Libre:wght@300%7CCaveat%7CCinzel%7CCormorant%20Garamond:wght@300%7CCrimson%20Text%7CEagle%20Lake%7CFleur%20De%20Leah%7CGrenze%20Gotisch:wght@100%7CHomemade%20Apple%7CIM%20Fell%20English%20SC%7CItalianno%7CLibre%20Baskerville%7CMate%20SC%7CMeddon%7CPT%20Serif%7CPermanent%20Marker%7CPirata%20One%7CRock%20Salt%7CScheherazade%7CUnifrakturCook:wght@700%7CUnifrakturMaguntia */
+
+body[data-tags~="no-side-bar"] #ui-bar {
+     display: none;
+}
+ body[data-tags~="no-side-bar"] #story {
+     margin-left: 2.5em;
+}
+ body[data-tags~="no-side-bar"] .passage {
+     text-align: center;
+}
+
+ #ui-bar {
+     background-color: black;
+     color: white;
+}
+ html {
+     /* overflow: scroll; */
+     font-family: "Cormorant Garamond", serif;
+     font-size: 150%;
+   
+}
+ ::-webkit-scrollbar {
+     width: 0px;
+    /* remove scrollbar space */
+     background: transparent;
+    /* optional: just make scrollbar invisible */
+    ;
+}
+/* optional: show position indicator in red */
+ ::-webkit-scrollbar-thumb {
+     background: #FF0000;
+}
+ #story-title,#menu-core,#ui-bar-toggle {
+     display: none;
+}
+ #story-banner {
+     font-weight:bold;
+}
+ body {
+     background-color:black;
+     color:white;
+}
+/* Enable outgoing opacity-based passage transitions. */
+ config.passages.transitionOut = "opacity";
+ .passage-in,.passage-out {
+     position: absolute;
+     opacity: 0;
+}
+
+ input,input[type=text],input[type=password],input[type=number],select, select option,select:after,select:hover,select:focus,option,option:after,option:hover,option:focus {
+     background-color: white;
+     color: white;
+     border: 1px solid black;
+     border-top-style: none;
+     border-right-style: none;
+     border-bottom-style: solid;
+     border-left-style: none;
+}
+ .highlight, .marked {
+     color: white;
+     font-weight:normal;
+     font-style:normal;
+}
+
+.title {
+  font-size:300%;
+  font-family: 'Mansalva';
+  filter: blur(0.5px);
+  text-shadow: 0 0 5px black, 0 0 5px black;
+}
+
+.detail {
+	font-size:80%;
+}
+
+.darkpack {
+	    position:absolute;
+    z-index:0;
+      height:100px;
+  width:100px;
+  right: 50px;
+  top: 420px;
+}
+
+
+ select {
+     border: none;
+     outline: none;
+     appearance: none;
+}
+ .row {
+     display: flex;
+    /* equal height of the children */
+}
+ .col {
+     flex: 1;
+    /* additionally, equal width */
+     height:300px;
+     padding: 0;
+     border: none;
+}
+ img{
+     width:100%;
+}
+ .desc{
+    padding-top:60px;
+}
+
+input[type="text"] {
+	min-width: 2em; /* default: 18em */
+}
+
+.gallery {padding:1em;}
+
+tr,td{border:1px solid black;
+width:20%;
+height:40px;}
+
+input[type="link"] {
+  text-decoration: none;
+}
+
+a.internalLink{
+  text-decoration: none;
+}
+
+.meterbar {
+  background-color: Gainsboro;
+  padding:0px;
+  border:1px solid Gainsboro;
+    height: 10px;
+  width:75%;
+  margin: auto;
+}
+
+.meterbar > div {
+   height: 10px;
+  }
+
+#healthbar {
+background-color: LightCoral;
+  width: 80%;
+}
+
+#energybar {
+background-color: PowderBlue;
+  width: 65%;
+}
+
+.bardesc {
+line-height:0%;
+font-weight:bold;
+}
+
+
+html [data-tags~="titlescreen"] {
+/*   background-image: url("http://unblast.com/wp-content/uploads/2019/04/Black-Wall-Seamless-Textures-5.jpg"); 
+*/
+  background-image: url("https://wallpaperaccess.com/full/2752975.jpg"); 
+  background-attachment: fixed; 
+  background-repeat: no-repeat;
+  background-size: cover; /* maybe contain, based on the image and goals */
+}
+
+html, body .map {
+     margin: 0; height: 100%;
+  /* overflow: hidden */
+}
+
+svg {height: 200%; margin-left:auto; margin-right:auto; display:block;}
+
+ a {
+  font-weight: bold;
+  text-decoration: none;
+  color: gray;
+  display: inline-block;
+  position: relative;
+  font-family: "Cormorant Garamond", serif;
+}
+ a:hover {
+  text-decoration: underline;
+  display: inline-block;
+  position: relative;
+  color: white;
+}
+ a:after {
+  content: "";
+  position: absolute;
+  width: 100%;
+  transform: scaleX(0);
+  height: 2px;
+  bottom:0;
+  left: 0;
+  background-color: red;
+  transform-origin: bottom right;
+  transition: transform 0.25s ease-out;
+}
+
+a:hover:after {
+  transform: scaleX(1);
+  transform-origin: bottom left;
+}
+
+#container {
+    height: 100px;
+    width: 300px;
+    border: 1px solid black;
+    position: relative;
+}
+
+#label {
+    position: absolute;
+    top: -10px;
+    left: 20px;
+    height: 20px;
+    width: 100px;
+    background-color: pink;
+    border: 2px solid red;
+    text-align: center;
+}
+
+
+
+
+</style><script role="script" id="twine-user-script" type="text/twine-javascript">Config.history.controls = false;
+Config.passages.displayTitles = true;
+Config.saves.autosave = true;  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</script><tw-passagedata pid="1" name="title" tags="no-side-bar titlescreen" position="0,0" size="100,100">
+
+
+
+
+@@
+&lt;span class=&quot;title&quot;&gt;The House that Blood Built&lt;/span&gt;@@
+@@[[Start game-&gt;intro1]]@@
+&lt;img class =&quot;darkpack&quot; src=&quot;https://s3-eu-north-1.amazonaws.com/pdx-campaign-wp-data/uploads/sites/10/2021/10/05102920/darkpack_logo1-300x300.png&quot;&gt;
+&lt;span class=&quot;detail&quot;&gt;
+This game was created as a part of Vampire: The Masquerade game jam. Events portrayed in this game are not canon within World of Darkness universe.&lt;/span&gt;</tw-passagedata><tw-passagedata pid="2" name="intro1" tags="no-side-bar" position="0,130" size="100,100">
+
+
+
+&lt;&lt;timed 1s t8n&gt;&gt;Once upon a time.&lt;&lt;/timed&gt;&gt;
+
+&lt;&lt;timed 3s t8n&gt;&gt;Once upon a time.&lt;&lt;/timed&gt;&gt;
+
+&lt;&lt;timed 5s t8n&gt;&gt;Once upon a time.&lt;&lt;/timed&gt;&gt;
+&lt;&lt;timed 9s t8n&gt;&gt;&lt;&lt;goto &quot;act1&quot;&gt;&gt;&lt;&lt;/timed&gt;&gt;
+
+
+
+
+</tw-passagedata><tw-passagedata pid="3" name="StoryAuthor" tags="" position="602,260" size="100,100"></tw-passagedata><tw-passagedata pid="4" name="StorySubtitle" tags="" position="602,130" size="100,100">&lt;div style=&quot;line-height: 0.5;      text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;&quot;&gt;
+
+⧫⧫⧫⧫⧫◊◊◊◊
+Health
+
+
+⧫⧫⧫⧫⧫◊◊◊◊
+Willpower
+
+
+⧫⧫⧫⧫⧫◊◊◊◊
+Humanity
+
+
+⧫⧫⧫⧫⧫◊◊◊◊
+Hunger&lt;/div&gt;</tw-passagedata><tw-passagedata pid="5" name="StoryBanner" tags="" position="601,0" size="100,100">@@line-height:125%;
+$pcName
+&lt;span style=&quot;font-weight:normal&quot;&gt;$pcLevel $pcClass &lt;/span&gt;
+@@</tw-passagedata><tw-passagedata pid="6" name="StoryCaption" tags="" position="731,0" size="100,100">@@line-height:0px;padding-top:6px;&lt;div style=&quot;text-align:right;&quot;&gt;$pcMoney $&lt;/div&gt;&lt;hr&gt;@@</tw-passagedata><tw-passagedata pid="7" name="StoryMenu" tags="" position="731,130" size="100,100">&lt;&lt;link &quot;Map&quot;&gt;&gt;&lt;&lt;goto&quot;inventory&quot;&gt;&gt;&lt;&lt;/link&gt;&gt;
+&lt;&lt;link &quot;Status&quot;&gt;&gt;&lt;&lt;goto&quot;inventory&quot;&gt;&gt;&lt;&lt;/link&gt;&gt;
+&lt;&lt;link &quot;Equipment&quot;&gt;&gt;&lt;&lt;goto&quot;inventory&quot;&gt;&gt;&lt;&lt;/link&gt;&gt;
+&lt;&lt;link &quot;Inventory&quot;&gt;&gt;&lt;&lt;goto&quot;inventory&quot;&gt;&gt;&lt;&lt;/link&gt;&gt;</tw-passagedata><tw-passagedata pid="8" name="links" tags="" position="861,0" size="100,100">http://www.motoslave.net/sugarcube/2/docs/#html
+https://www.motoslave.net/sugarcube/2/docs/#css-built-ins
+
+     overflow: hidden;
+     overflow-y: scroll;
+	 
+	 https://getcssscan.com/css-box-shadow-examples
+	 
+	 https://generated.photos/faces</tw-passagedata><tw-passagedata pid="9" name="map" tags="map" position="596,398" size="100,100">&lt;&lt;set $pcName to &quot;Kwame&quot;&gt;&gt;
+&lt;&lt;set $pcClass to &quot;Gangrel&quot;&gt;&gt;
+&lt;&lt;set $pcLevel to &quot;9th Generation&quot;&gt;&gt;
+&lt;&lt;set $pcMoney to &quot;60&quot;&gt;&gt;
+&lt;&lt;set $pcHealth to &quot;10&quot;&gt;&gt;
+&lt;&lt;set $pcWillpower to &quot;10&quot;&gt;&gt;
+&lt;&lt;set $pcHumanity to &quot;10&quot;&gt;&gt;
+&lt;&lt;set $pcHunger to &quot;10&quot;&gt;&gt;
+@@width:100%;
+Townsville
+@@
+&lt;svg
+   style=&quot;max-width: 200%; max-height: 200%;transform: scale(1.5) translate(0px,0px);margin-left:auto; margin-right:auto; display:block;&quot;
+   xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot;
+   xmlns:cc=&quot;http://creativecommons.org/ns#&quot;
+   xmlns:rdf=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot;
+   xmlns:svg=&quot;http://www.w3.org/2000/svg&quot;
+   xmlns=&quot;http://www.w3.org/2000/svg&quot;
+   xmlns:sodipodi=&quot;http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd&quot;
+   xmlns:inkscape=&quot;http://www.inkscape.org/namespaces/inkscape&quot;
+   viewBox=&quot;0 0 210 297&quot;
+   version=&quot;1.1&quot;
+   id=&quot;svg810&quot;
+   inkscape:version=&quot;0.92.2 (5c3e80d, 2017-08-06)&quot;
+   sodipodi:docname=&quot;map.svg&quot;&gt;
+  &lt;defs
+     id=&quot;defs804&quot;&gt;
+    &lt;clipPath
+       clipPathUnits=&quot;userSpaceOnUse&quot;
+       id=&quot;clipPath280-6&quot;&gt;
+      &lt;rect
+         style=&quot;opacity:1;vector-effect:none;fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.12981936px;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1&quot;
+         id=&quot;rect282-1&quot;
+         width=&quot;67.515396&quot;
+         height=&quot;67.515396&quot;
+         x=&quot;15.965992&quot;
+         y=&quot;19.907404&quot; /&gt;
+    &lt;/clipPath&gt;
+  &lt;/defs&gt;
+  &lt;sodipodi:namedview
+     id=&quot;base&quot;
+     pagecolor=&quot;none&quot;
+     bordercolor=&quot;none&quot;
+     borderopacity=&quot;1.0&quot;
+     inkscape:pageopacity=&quot;0.0&quot;
+     inkscape:pageshadow=&quot;2&quot;
+     inkscape:zoom=&quot;0.42109375&quot;
+     inkscape:cx=&quot;418.71385&quot;
+     inkscape:cy=&quot;452.57871&quot;
+     inkscape:document-units=&quot;mm&quot;
+     inkscape:current-layer=&quot;layer1&quot;
+     showgrid=&quot;false&quot;
+     inkscape:window-width=&quot;1307&quot;
+     inkscape:window-height=&quot;749&quot;
+     inkscape:window-x=&quot;1276&quot;
+     inkscape:window-y=&quot;132&quot;
+     inkscape:window-maximized=&quot;1&quot; /&gt;
+  &lt;metadata
+     id=&quot;metadata807&quot;&gt;
+    &lt;rdf:RDF&gt;
+      &lt;cc:Work
+         rdf:about=&quot;&quot;&gt;
+        &lt;dc:format&gt;image/svg+xml&lt;/dc:format&gt;
+        &lt;dc:type
+           rdf:resource=&quot;http://purl.org/dc/dcmitype/StillImage&quot; /&gt;
+        &lt;dc:title /&gt;
+      &lt;/cc:Work&gt;
+    &lt;/rdf:RDF&gt;
+  &lt;/metadata&gt;
+  &lt;g
+     inkscape:label=&quot;Layer 1&quot;
+     inkscape:groupmode=&quot;layer&quot;
+     id=&quot;layer1&quot;&gt;
+    &lt;g
+       transform=&quot;matrix(1.3153589,0,0,1.3153589,41.961757,-13.734304)&quot;
+       id=&quot;g272&quot;
+       clip-path=&quot;url(#clipPath280-6)&quot;&gt;
+      &lt;rect
+         style=&quot;fill:none&quot;
+         x=&quot;0&quot;
+         y=&quot;0&quot;
+         width=&quot;94.317848&quot;
+         height=&quot;95.321648&quot;
+         id=&quot;background&quot; /&gt;
+      &lt;g
+         id=&quot;map&quot;
+         transform=&quot;translate(47.158924,47.660823)&quot;&gt;
+        &lt;g
+           id=&quot;waterbody&quot;&gt;
+          &lt;polygon
+             style=&quot;fill:#888888;stroke:#cccccc;stroke-width:0.1&quot;
+             points=&quot;-15.720411,68.883189 -21.909736,90.994936 -9.3514965,103.75258 -1.1396025,131.24743 -35.018498,167.44801 -54.921744,179.27787 -75.232051,133.58276 -97.212773,109.78617 -103.67714,102.1283 -132.26183,76.67549 -191.943,62.051258 -181.06212,44.174809 -146.74501,4.2698738 -151.27532,-38.422414 -115.28145,-45.027985 -97.900871,-49.402964 -73.857593,-38.210939 -70.823818,-12.208302 -62.6698,-5.4509039 -47.120976,-4.4024533 -41.686444,1.7737231 -38.814132,20.792384 -24.336531,29.279988 -18.271622,37.817353 -18.264091,45.44559 &quot;
+             id=&quot;polygon11&quot; /&gt;
+          &lt;polygon
+             style=&quot;fill:none;stroke:#ffffff;stroke-width:0.05&quot;
+             points=&quot;-37.550723,164.29988 -53.095199,173.53902 -71.576845,131.95812 -101.01711,99.140956 -131.30984,72.790428 -185.6867,59.465959 -177.81567,46.534458 -143.71222,6.8779816 -142.76734,3.8477812 -146.9064,-35.157396 -98.301537,-45.177333 -77.571665,-35.527682 -74.796868,-11.744759 -62.938907,-1.4599665 -49.034917,-0.52242641 -45.466033,3.5335002 -42.76928,21.389714 -27.100218,32.296475 -22.270363,39.095298 -19.780293,68.547855 -25.761681,89.916734 -12.899647,105.85004 -5.6296422,130.19128 &quot;
+             id=&quot;polygon13&quot; /&gt;
+          &lt;polygon
+             style=&quot;fill:none;stroke:#ffffff;stroke-width:0.05&quot;
+             points=&quot;-129.40585,65.020303 -173.17411,54.29536 -137.64666,12.094197 -134.812,3.0035961 -138.18548,-28.786997 -99.278322,-36.807744 -84.999809,-30.161168 -82.742968,-10.817673 -68.180648,4.5835548 -52.998718,7.2284625 -47.339644,27.95567 -30.05782,41.94683 -27.873544,67.782466 -33.465571,87.760329 -20.114175,109.6491 -14.609722,128.07896 -42.615174,158.0036 -49.442107,162.06131 -65.621911,126.61595 -95.062171,93.798788 &quot;
+             id=&quot;polygon15&quot; /&gt;
+          &lt;polygon
+             style=&quot;fill:none;stroke:#ffffff;stroke-width:0.05&quot;
+             points=&quot;-119.53738,7.7665653 -120.74365,-16.046198 -101.23189,-20.068566 -94.368878,0.17497134 -79.806557,15.576199 -65.756977,21.246783 -57.407299,40.391197 -45.426367,50.090817 -44.060045,66.251687 -48.87335,83.447519 -47.125038,96.092133 -32.56988,123.85434 -43.811336,135.86616 -53.712043,115.93161 -84.785804,81.535172 -119.12948,52.756687 -144.33924,44.887685 -125.40659,22.398609 &quot;
+             id=&quot;polygon17&quot; /&gt;
+          &lt;polygon
+             style=&quot;fill:none;stroke:#ffffff;stroke-width:0.05&quot;
+             points=&quot;-75.736082,66.724792 -76.433047,63.190128 &quot;
+             id=&quot;polygon19&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:none&quot;
+           id=&quot;g26&quot;&gt;
+          &lt;path
+             style=&quot;stroke:#888888;stroke-width:2.0999999;stroke-linecap:butt;stroke-linejoin:round&quot;
+             inkscape:connector-curvature=&quot;0&quot;
+             d=&quot;m 7.8115248,36.208402 c 2.5007482,10.41327 2.5007482,10.41327 4.2397922,15.460498 1.063535,3.086702 2.259609,6.343764 4.25838,9.20376 2.944053,4.212576 7.355624,8.377557 11.712786,13.649008 3.574985,4.325147 9.669544,8.190717 11.924343,14.948043 3.118387,9.345378 4.722299,19.833819 2.983963,29.730119 -1.203906,6.85381 -1.203906,6.85381 -11.294555,17.58188&quot;
+             id=&quot;path22&quot; /&gt;
+          &lt;path
+             style=&quot;stroke:#ffffff;stroke-width:1.89999998;stroke-linecap:round;stroke-linejoin:round&quot;
+             inkscape:connector-curvature=&quot;0&quot;
+             d=&quot;m 7.8115248,36.208402 c 2.5007482,10.41327 2.5007482,10.41327 4.2397922,15.460498 1.063535,3.086702 2.259609,6.343764 4.25838,9.20376 2.944053,4.212576 7.355624,8.377557 11.712786,13.649008 3.574985,4.325147 9.669544,8.190717 11.924343,14.948043 3.118387,9.345378 4.722299,19.833819 2.983963,29.730119 -1.203906,6.85381 -1.203906,6.85381 -11.294555,17.58188&quot;
+             id=&quot;path24&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:none&quot;
+           id=&quot;g32&quot;&gt;
+          &lt;path
+             style=&quot;stroke:#888888;stroke-width:2.0999999;stroke-linecap:butt;stroke-linejoin:round&quot;
+             inkscape:connector-curvature=&quot;0&quot;
+             d=&quot;m -14.247537,-20.049902 c -7.579098,-5.33189 -7.579098,-5.33189 -11.712768,-7.367857 -3.988647,-1.964539 -9.212777,-2.04188 -13.267796,-4.935885 -4.772442,-3.406018 -9.667998,-7.639956 -12.128453,-13.189026 -2.065251,-4.657766 -0.378887,-10.563339 -0.964705,-16.340001 -0.587827,-5.796484 -1.29648,-12.613437 -2.749227,-20.282538 -1.150361,-6.072797 -5.104457,-15.174949 -6.429316,-28.171301 -2.554388,-25.05758 -2.554388,-25.05758 -4.141511,-75.52447&quot;
+             id=&quot;path28&quot; /&gt;
+          &lt;path
+             style=&quot;stroke:#ffffff;stroke-width:1.89999998;stroke-linecap:round;stroke-linejoin:round&quot;
+             inkscape:connector-curvature=&quot;0&quot;
+             d=&quot;m -14.247537,-20.049902 c -7.579098,-5.33189 -7.579098,-5.33189 -11.712768,-7.367857 -3.988647,-1.964539 -9.212777,-2.04188 -13.267796,-4.935885 -4.772442,-3.406018 -9.667998,-7.639956 -12.128453,-13.189026 -2.065251,-4.657766 -0.378887,-10.563339 -0.964705,-16.340001 -0.587827,-5.796484 -1.29648,-12.613437 -2.749227,-20.282538 -1.150361,-6.072797 -5.104457,-15.174949 -6.429316,-28.171301 -2.554388,-25.05758 -2.554388,-25.05758 -4.141511,-75.52447&quot;
+             id=&quot;path30&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:none&quot;
+           id=&quot;g60&quot;&gt;
+          &lt;polyline
+             style=&quot;stroke:#cccccc;stroke-width:4.61722994;stroke-linecap:butt;stroke-linejoin:round&quot;
+             points=&quot;-34.739606246135104,1.0296837159246115 -27.792768265954717,0.28564437233882894 -12.770368780007255,4.475999511620855 5.595362192156325,8.05441804221654 19.965001781329967,7.241316773522703 29.03315424697025,7.882055526501818 37.3991029235155,2.2294995521814127 48.34871033758551,-3.320611319784263 58.11328309597208,-15.305083816905588 72.7330160242922,-21.735387423996457 83.97939368868391,-39.49599197441735 99.41789007884896,-51.99433827917927&quot;
+             id=&quot;polyline34&quot; /&gt;
+          &lt;polyline
+             style=&quot;stroke:#888888;stroke-width:4.41722965;stroke-linecap:round;stroke-linejoin:round&quot;
+             points=&quot;-34.739606246135104,1.0296837159246115 -27.792768265954717,0.28564437233882894 -12.770368780007255,4.475999511620855 5.595362192156325,8.05441804221654 19.965001781329967,7.241316773522703 29.03315424697025,7.882055526501818 37.3991029235155,2.2294995521814127 48.34871033758551,-3.320611319784263 58.11328309597208,-15.305083816905588 72.7330160242922,-21.735387423996457 83.97939368868391,-39.49599197441735 99.41789007884896,-51.99433827917927&quot;
+             id=&quot;polyline36&quot; /&gt;
+          &lt;polyline
+             style=&quot;stroke:#ffffff;stroke-width:2.77033782;stroke-linecap:butt;stroke-linejoin:round&quot;
+             points=&quot;-34.739606246135104,1.0296837159246115 -27.792768265954717,0.28564437233882894 -12.770368780007255,4.475999511620855 5.595362192156325,8.05441804221654 19.965001781329967,7.241316773522703 29.03315424697025,7.882055526501818 37.3991029235155,2.2294995521814127 48.34871033758551,-3.320611319784263 58.11328309597208,-15.305083816905588 72.7330160242922,-21.735387423996457 83.97939368868391,-39.49599197441735 99.41789007884896,-51.99433827917927&quot;
+             id=&quot;polyline38&quot; /&gt;
+          &lt;polyline
+             style=&quot;stroke:#888888;stroke-width:2.67033792;stroke-linecap:round;stroke-linejoin:round&quot;
+             points=&quot;-34.739606246135104,1.0296837159246115 -27.792768265954717,0.28564437233882894 -12.770368780007255,4.475999511620855 5.595362192156325,8.05441804221654 19.965001781329967,7.241316773522703 29.03315424697025,7.882055526501818 37.3991029235155,2.2294995521814127 48.34871033758551,-3.320611319784263 58.11328309597208,-15.305083816905588 72.7330160242922,-21.735387423996457 83.97939368868391,-39.49599197441735 99.41789007884896,-51.99433827917927&quot;
+             id=&quot;polyline40&quot; /&gt;
+          &lt;g
+             id=&quot;g46&quot;&gt;
+            &lt;path
+               style=&quot;fill:#888888;stroke:#888888;stroke-width:0.1;stroke-linecap:round;stroke-linejoin:round&quot;
+               inkscape:connector-curvature=&quot;0&quot;
+               d=&quot;m -34.499074,3.2754542 c -6.946838,0.7440394 -6.469292,3.2529341 -5.751214,8.0075998 L -44.40371,-1.3143651 c 1.358633,1.54404406 2.476733,0.84231763 9.423571,0.098278 z&quot;
+               id=&quot;path42&quot; /&gt;
+            &lt;path
+               style=&quot;fill:none;stroke:#cccccc;stroke-width:0.1;stroke-linecap:round;stroke-linejoin:round&quot;
+               inkscape:connector-curvature=&quot;0&quot;
+               d=&quot;m -34.499074,3.2754542 c -6.946838,0.7440394 -6.469292,3.2529341 -5.751214,8.0075998 m 5.270149,-12.4991408 c -6.946838,0.74403933 -8.064938,1.44576576 -9.423571,-0.098278&quot;
+               id=&quot;path44&quot; /&gt;
+          &lt;/g&gt;
+          &lt;g
+             style=&quot;fill:none&quot;
+             id=&quot;g52&quot;&gt;
+            &lt;line
+               style=&quot;stroke:#000000;stroke-width:2.0999999;stroke-linecap:butt;stroke-linejoin:round&quot;
+               x1=&quot;5.4955792&quot;
+               y1=&quot;10.861259&quot;
+               x2=&quot;5.7860703&quot;
+               y2=&quot;5.2522855&quot;
+               id=&quot;line48&quot; /&gt;
+            &lt;line
+               style=&quot;stroke:#ffffff;stroke-width:1.89999998;stroke-linecap:round;stroke-linejoin:round&quot;
+               x1=&quot;5.4955792&quot;
+               y1=&quot;10.861259&quot;
+               x2=&quot;5.7860703&quot;
+               y2=&quot;5.2522855&quot;
+               id=&quot;line50&quot; /&gt;
+          &lt;/g&gt;
+          &lt;g
+             style=&quot;fill:none&quot;
+             id=&quot;g58&quot;&gt;
+            &lt;line
+               style=&quot;stroke:#000000;stroke-width:1.10000002;stroke-linecap:butt;stroke-linejoin:round&quot;
+               x1=&quot;-27.560862&quot;
+               y1=&quot;-2.5133798&quot;
+               x2=&quot;-28.024675&quot;
+               y2=&quot;3.0846686&quot;
+               id=&quot;line54&quot; /&gt;
+            &lt;line
+               style=&quot;stroke:#ffffff;stroke-width:0.89999998;stroke-linecap:round;stroke-linejoin:round&quot;
+               x1=&quot;-27.560862&quot;
+               y1=&quot;-2.5133798&quot;
+               x2=&quot;-28.024675&quot;
+               y2=&quot;3.0846686&quot;
+               id=&quot;line56&quot; /&gt;
+          &lt;/g&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g64&quot;&gt;
+          &lt;polygon
+             points=&quot;-2.794384,-0.60338378 -2.479387,-2.2200618 -1.098838,-1.9510726 -1.4138351,-0.33439465 &quot;
+             id=&quot;polygon62&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g90&quot;&gt;
+          &lt;polygon
+             points=&quot;16.529941,4.1217811 13.648654,4.2848178 13.512656,1.8813866 13.371655,-0.61048356 13.225272,-3.1974536 15.629049,-3.300787 17.595964,-3.3853408 18.042538,-0.83590365 18.472695,1.6198134 16.240559,1.7375275 &quot;
+             id=&quot;polygon66&quot; /&gt;
+          &lt;polygon
+             points=&quot;9.8908549,-1.0454997 9.7774739,-3.0492397 10.896936,-3.0973631 13.225272,-3.1974536 13.337148,-1.2203009 13.421902,0.2775239 11.095352,0.40917099 9.9767485,0.47246677 &quot;
+             id=&quot;polygon68&quot; /&gt;
+          &lt;polygon
+             points=&quot;8.139099,-2.9788093 9.7774739,-3.0492397 9.8658694,-1.4870585 9.9767485,0.47246677 8.2997477,0.5673593 6.3567022,0.67730588 6.2922166,-1.3116008 6.2408071,-2.8972056 &quot;
+             id=&quot;polygon70&quot; /&gt;
+          &lt;polygon
+             points=&quot;9.7600002,2.6694414 13.545129,2.4552611 13.648654,4.2848178 9.863525,4.498998 &quot;
+             id=&quot;polygon72&quot; /&gt;
+          &lt;polygon
+             points=&quot;6.4280127,2.8767084 6.3567022,0.67730588 7.8760972,0.59133143 9.6367736,0.49170414 9.7610565,2.6881092 9.863525,4.498998 8.0509704,4.6015608 7.9719455,2.7893455 &quot;
+             id=&quot;polygon74&quot; /&gt;
+          &lt;polygon
+             points=&quot;13.338212,-6.2610308 17.064186,-6.4212028 17.491554,-3.9814065 13.443689,-3.807397 &quot;
+             id=&quot;polygon76&quot; /&gt;
+          &lt;polygon
+             points=&quot;13.205711,-9.34332 16.629306,-8.9038832 17.064186,-6.4212028 13.338212,-6.2610308 &quot;
+             id=&quot;polygon78&quot; /&gt;
+          &lt;polygon
+             points=&quot;13.443689,-3.807397 10.740402,-3.6911882 10.482402,-9.6928714 13.205711,-9.34332 &quot;
+             id=&quot;polygon80&quot; /&gt;
+          &lt;polygon
+             points=&quot;10.533051,-8.5146523 10.603707,-6.8710429 8.201191,-6.7677636 6.1182167,-6.6782207 6.0634279,-8.3680521 6.0241526,-9.5794055 8.094477,-9.6320968 10.482402,-9.6928714 &quot;
+             id=&quot;polygon82&quot; /&gt;
+          &lt;polygon
+             points=&quot;10.603707,-6.8710429 10.740402,-3.6911882 8.5028823,-3.5950017 8.3661868,-6.7748564 &quot;
+             id=&quot;polygon84&quot; /&gt;
+          &lt;polygon
+             points=&quot;8.5028823,-3.5950017 6.2213627,-3.4969238 6.1182167,-6.6782207 8.3661868,-6.7748564 &quot;
+             id=&quot;polygon86&quot; /&gt;
+          &lt;polygon
+             points=&quot;11.996302,-13.360714 13.730164,-14.458521 16.016662,-12.401392 14.695184,-10.932569 &quot;
+             id=&quot;polygon88&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g110&quot;&gt;
+          &lt;polygon
+             points=&quot;-4.4295494,14.398119 -3.7915947,9.5962763 -1.0755947,10.125468 -1.6915704,14.761877 &quot;
+             id=&quot;polygon92&quot; /&gt;
+          &lt;polygon
+             points=&quot;-7.5032168,13.989764 -6.8405885,9.0022038 -3.7915947,9.5962763 -4.4295494,14.398119 &quot;
+             id=&quot;polygon94&quot; /&gt;
+          &lt;polygon
+             points=&quot;-2.2303608,18.817317 -5.3297449,18.405545 -4.7909545,14.350105 -1.6915704,14.761877 &quot;
+             id=&quot;polygon96&quot; /&gt;
+          &lt;polygon
+             points=&quot;-4.7909545,14.350105 -5.3297449,18.405545 -8.0420071,18.045204 -7.5032168,13.989764 &quot;
+             id=&quot;polygon98&quot; /&gt;
+          &lt;polygon
+             points=&quot;2.1291021,15.172522 4.3312813,15.465095 4.181825,19.669216 1.5776541,19.323235 &quot;
+             id=&quot;polygon100&quot; /&gt;
+          &lt;polygon
+             points=&quot;-1.972354,16.875316 -1.6789128,14.666603 0.061845436,14.897874 2.1291021,15.172522 1.8356609,17.381235 1.5776541,19.323235 -0.48960259,19.048587 -0.23159577,17.106587 &quot;
+             id=&quot;polygon102&quot; /&gt;
+          &lt;polygon
+             points=&quot;1.0047836,10.530813 4.4826052,11.208439 4.3993898,13.549241 4.3312813,15.465095 0.57064246,14.965471 -1.6789128,14.666603 -1.4073688,12.622709 -1.0755947,10.125468 &quot;
+             id=&quot;polygon104&quot; /&gt;
+          &lt;polygon
+             points=&quot;-15.604286,15.44766 -14.878838,13.076539 -13.467114,13.264096 -10.727514,13.628069 -11.049651,16.052772 -11.2576,17.617992 -14.435172,17.195832 -16.072585,16.978292 &quot;
+             id=&quot;polygon106&quot; /&gt;
+          &lt;polygon
+             points=&quot;-9.4437363,17.858975 -11.2576,17.617992 -11.049684,16.053024 -10.727514,13.628069 -8.9136502,13.869052 -7.511921,14.05528 -7.8340913,16.480235 -9.2358205,16.294007 &quot;
+             id=&quot;polygon108&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g122&quot;&gt;
+          &lt;polygon
+             points=&quot;-20.416605,-9.8863076 -17.94604,-13.595383 -8.2074635,-7.1086496 -10.18563,-3.0715941 &quot;
+             id=&quot;polygon112&quot; /&gt;
+          &lt;polygon
+             points=&quot;-12.269331,1.1808373 -17.399791,-0.25025579 -16.066105,-2.2525281 -11.935226,0.49899426 &quot;
+             id=&quot;polygon114&quot; /&gt;
+          &lt;polygon
+             points=&quot;-11.138193,-1.1275958 -11.935226,0.49899426 -13.734826,-0.69969459 -16.066105,-2.2525281 -15.070678,-3.7469701 -13.881005,-5.5330334 -11.795504,-4.1439095 -10.18563,-3.0715941 &quot;
+             id=&quot;polygon116&quot; /&gt;
+          &lt;polygon
+             points=&quot;-8.1726166,-12.806592 -6.2998327,-11.001756 -7.545564,-8.4594587 -8.2074635,-7.1086496 -10.645517,-8.7326038 -11.965046,-9.6115246 -11.000861,-11.059063 -9.1862097,-13.783411 &quot;
+             id=&quot;polygon118&quot; /&gt;
+          &lt;polygon
+             points=&quot;-11.113302,-15.640586 -9.1862097,-13.783411 -10.196633,-12.266455 -11.965046,-9.6115246 -14.156772,-11.071403 -17.94604,-13.595383 -15.718056,-16.94027 -14.445046,-18.851449 &quot;
+             id=&quot;polygon120&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g144&quot;&gt;
+          &lt;polygon
+             points=&quot;-6.093191,-25.854654 -4.8305055,-24.256323 -7.4581011,-22.180516 -8.7207866,-23.778847 &quot;
+             id=&quot;polygon124&quot; /&gt;
+          &lt;polygon
+             points=&quot;-7.2068745,-14.65348 -10.833334,-18.148367 -9.0811529,-19.532595 -5.9875966,-15.616713 &quot;
+             id=&quot;polygon126&quot; /&gt;
+          &lt;polygon
+             points=&quot;-6.7937891,-21.339618 -10.833334,-18.148367 -13.092281,-20.325356 -8.7207866,-23.778847 &quot;
+             id=&quot;polygon128&quot; /&gt;
+          &lt;polygon
+             points=&quot;6.1656236,-18.873392 10.389386,-13.526875 7.6580402,-11.797504 3.6426616,-16.880245 &quot;
+             id=&quot;polygon130&quot; /&gt;
+          &lt;polygon
+             points=&quot;5.4447181,-11.183251 3.8648678,-10.744802 2.2544934,-12.783244 0.79505499,-14.630629 1.9810786,-15.567591 3.6426616,-16.880245 5.5516372,-14.463828 7.6580402,-11.797504 &quot;
+             id=&quot;polygon132&quot; /&gt;
+          &lt;polygon
+             points=&quot;-5.0059815,-16.392191 -3.2657647,-14.189392 -5.1668838,-12.687503 -7.2068745,-14.65348 &quot;
+             id=&quot;polygon134&quot; /&gt;
+          &lt;polygon
+             points=&quot;-4.610964,-12.151753 -4.2044056,-13.447864 -2.4498709,-13.156619 -2.6701523,-11.829587 &quot;
+             id=&quot;polygon136&quot; /&gt;
+          &lt;polygon
+             points=&quot;-2.6701523,-11.829587 0.82595242,-14.591518 3.8648678,-10.744802 &quot;
+             id=&quot;polygon138&quot; /&gt;
+          &lt;polygon
+             points=&quot;6.3776635,-18.604988 5.095796,-20.2276 7.1449778,-21.705566 9.9235345,-23.709591 11.132014,-22.034049 12.354613,-20.33893 9.6610251,-18.396188 7.6745075,-16.963418 &quot;
+             id=&quot;polygon140&quot; /&gt;
+          &lt;polygon
+             points=&quot;9.1963184,-15.037081 7.6745075,-16.963418 10.357949,-18.898842 12.354613,-20.33893 13.899924,-18.196376 15.111414,-16.51666 13.096865,-15.241134 10.389386,-13.526875 &quot;
+             id=&quot;polygon142&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g164&quot;&gt;
+          &lt;polygon
+             points=&quot;22.984924,13.756525 20.733553,13.78618 20.885603,16.47331 19.236764,16.566609 19.080666,13.807952 18.900021,10.615486 20.557592,10.676489 22.815343,10.75958 &quot;
+             id=&quot;polygon146&quot; /&gt;
+          &lt;polygon
+             points=&quot;28.744192,13.966416 25.974941,13.971462 26.076586,16.17958 23.131461,16.346229 22.997393,13.976887 22.815343,10.75958 25.836918,10.973079 28.647116,11.171643 &quot;
+             id=&quot;polygon148&quot; /&gt;
+          &lt;polygon
+             points=&quot;17.142774,14.637953 13.222788,14.859764 13.084083,12.408481 13.001513,10.949251 16.921499,10.72744 18.900021,10.615486 18.982591,12.074716 19.121296,14.525999 &quot;
+             id=&quot;polygon150&quot; /&gt;
+          &lt;polygon
+             points=&quot;6.5006096,21.128107 6.2382699,18.116992 9.6257296,17.925314 13.384217,17.712641 13.554893,20.728943 13.689797,23.113048 10.017628,23.320837 9.8446173,20.938887 &quot;
+             id=&quot;polygon152&quot; /&gt;
+          &lt;polygon
+             points=&quot;6.3338593,15.428115 6.4799641,11.318271 9.6059151,11.14139 13.001513,10.949251 13.232858,15.037737 13.384217,17.712641 9.6635116,17.923176 6.2382699,18.116992 &quot;
+             id=&quot;polygon154&quot; /&gt;
+          &lt;polygon
+             points=&quot;15.373265,31.44266 13.195925,32.650284 12.705613,29.709311 12.254073,27.0009 14.568419,26.615058 17.464026,26.132309 17.767704,27.953819 18.097457,29.931735 &quot;
+             id=&quot;polygon156&quot; /&gt;
+          &lt;polygon
+             points=&quot;11.439385,30.884356 8.0324105,31.452358 7.6875513,29.383835 7.4245105,27.806073 10.831485,27.23807 12.254073,27.0009 12.517114,28.578662 11.094526,28.815833 &quot;
+             id=&quot;polygon158&quot; /&gt;
+          &lt;polygon
+             points=&quot;12.861973,30.647185 13.195925,32.650284 8.3663623,33.455457 8.0324105,31.452358 &quot;
+             id=&quot;polygon160&quot; /&gt;
+          &lt;polygon
+             points=&quot;11.91345,24.961299 12.253503,27.000995 9.3774758,27.480479 7.4245105,27.806073 7.0369484,25.481411 6.7079648,23.508113 8.6964535,23.395595 11.624795,23.229896 &quot;
+             id=&quot;polygon162&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g180&quot;&gt;
+          &lt;polygon
+             points=&quot;23.430887,-7.4544091 21.188766,-6.2556736 18.83474,-10.658656 21.053523,-11.901044 &quot;
+             id=&quot;polygon166&quot; /&gt;
+          &lt;polygon
+             points=&quot;18.372183,-4.7498052 17.470922,-9.8949975 18.83474,-10.658656 21.188766,-6.2556736 &quot;
+             id=&quot;polygon168&quot; /&gt;
+          &lt;polygon
+             points=&quot;22.216007,-2.986443 21.617442,-4.6812557 18.661059,-3.1006446 18.372183,-4.7498052 21.081628,-6.1983925 23.430887,-7.4544091 24.180813,-6.0517454 25.018563,-4.484812 &quot;
+             id=&quot;polygon170&quot; /&gt;
+          &lt;polygon
+             points=&quot;17.361227,-10.521232 16.877112,-13.284987 20.032741,-15.051954 21.326447,-12.741523 &quot;
+             id=&quot;polygon172&quot; /&gt;
+          &lt;polygon
+             points=&quot;16.600557,-14.863811 18.077724,-15.660441 17.673486,-16.770983 18.756278,-17.331592 19.317611,-16.329106 20.032741,-15.051954 18.592717,-14.245625 16.877112,-13.284987 &quot;
+             id=&quot;polygon174&quot; /&gt;
+          &lt;polygon
+             points=&quot;19.688153,2.7629183 19.092738,-0.63623737 24.380781,-3.4634556 25.926484,-0.57236517 &quot;
+             id=&quot;polygon176&quot; /&gt;
+          &lt;polygon
+             points=&quot;23.043379,0.96906856 23.924863,2.617801 21.303941,4.0190599 19.688153,2.7629183 &quot;
+             id=&quot;polygon178&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g198&quot;&gt;
+          &lt;polygon
+             points=&quot;6.3257642,33.377518 6.7253754,35.774452 1.8531403,36.074998 -2.2494692,36.328069 -2.3982794,33.915664 -2.7632151,27.999588 0.94359233,27.770932 5.3457753,27.499381 &quot;
+             id=&quot;polygon182&quot; /&gt;
+          &lt;polygon
+             points=&quot;-0.43139437,20.065108 4.2091361,20.681631 4.6914368,23.57455 5.3457753,27.499381 0.31845556,27.809494 -2.7632151,27.999588 -3.0583965,23.21432 -3.2759691,19.687188 &quot;
+             id=&quot;polygon184&quot; /&gt;
+          &lt;polygon
+             points=&quot;-5.9675963,29.927818 -2.6568691,29.723594 -2.4781655,32.620609 -2.2494692,36.328069 -5.5601965,36.532293 -9.4898618,36.774696 -9.718558,33.067236 -9.8972616,30.170221 &quot;
+             id=&quot;polygon186&quot; /&gt;
+          &lt;polygon
+             points=&quot;-6.0227806,19.322257 -3.2759691,19.687188 -3.0313845,23.65222 -5.745358,23.819632 &quot;
+             id=&quot;polygon188&quot; /&gt;
+          &lt;polygon
+             points=&quot;-8.0254429,19.056191 -6.0227806,19.322257 -5.9284056,20.852196 -5.745358,23.819632 -7.7240788,23.94169 -10.271777,24.098846 -10.490961,20.545591 -10.603967,18.713618 &quot;
+             id=&quot;polygon190&quot; /&gt;
+          &lt;polygon
+             points=&quot;-20.012911,25.753528 -18.61998,25.667605 -18.474155,28.031605 -18.373307,29.666486 -19.849828,29.757566 -21.472845,29.857683 -21.501954,28.218376 -21.544045,25.847977 &quot;
+             id=&quot;polygon192&quot; /&gt;
+          &lt;polygon
+             points=&quot;-9.7442732,32.650359 -12.619921,32.827745 -12.365509,36.952081 -15.089221,37.120095 -15.343632,32.995758 -15.559706,29.492928 -12.835995,29.324915 -9.9603468,29.147529 &quot;
+             id=&quot;polygon194&quot; /&gt;
+          &lt;polygon
+             points=&quot;-16.262255,37.192454 -21.472845,29.857683 -15.559706,29.492928 -15.089221,37.120095 &quot;
+             id=&quot;polygon196&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;fill-rule:nonzero;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g202&quot;&gt;
+          &lt;path
+             inkscape:connector-curvature=&quot;0&quot;
+             d=&quot;m -28.26868,-9.4223301 1.982372,0.4503532 -0.271416,1.1947209 -0.207646,0.9140215 -0.296441,1.3048807 -1.982372,-0.4503531 -1.301343,-0.2956375 0.296442,-1.3048807 0.207646,-0.9140215 1.301342,0.2956375 z&quot;
+             id=&quot;path200&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;stroke:#ffffff;stroke-width:0.60000002;stroke-linecap:square&quot;
+           id=&quot;g206&quot;&gt;
+          &lt;polyline
+             points=&quot;-21.304076523426517,33.54867038348129 -27.825921586117033,38.18176189760653&quot;
+             id=&quot;polyline204&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;fill-rule:nonzero;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g210&quot;&gt;
+          &lt;path
+             inkscape:connector-curvature=&quot;0&quot;
+             d=&quot;m -10.467667,-60.572514 1.6837511,0.432094 -0.2705291,1.054178 -0.285768,1.11356 -1.683751,-0.432094 -0.3275,1.276177 -1.538991,-0.394944 0.3275,-1.276178 0.285768,-1.11356 1.538991,0.394945 z&quot;
+             id=&quot;path208&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;fill-rule:nonzero;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g214&quot;&gt;
+          &lt;path
+             inkscape:connector-curvature=&quot;0&quot;
+             d=&quot;m 121.52469,26.326641 -1.18756,1.06573 -1.39548,-1.555 -1.34975,1.211291 -0.8593,-0.957522 1.34976,-1.211291 1.18755,-1.06573 0.8593,0.957522 z&quot;
+             id=&quot;path212&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;fill-rule:nonzero;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g218&quot;&gt;
+          &lt;path
+             inkscape:connector-curvature=&quot;0&quot;
+             d=&quot;m -71.396909,-47.882877 -0.897329,0.584386 -1.208323,0.786922 -0.833325,0.542704 -0.8613,-1.322532 -1.019666,-1.565704 0.833325,-0.542704 1.208322,-0.786921 0.897329,-0.584386 1.019666,1.565703 z&quot;
+             id=&quot;path216&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           style=&quot;fill:#cccccc;fill-rule:nonzero;stroke:#000000;stroke-width:0.1&quot;
+           id=&quot;g222&quot;&gt;
+          &lt;path
+             inkscape:connector-curvature=&quot;0&quot;
+             d=&quot;m 36.23822,116.5368 -0.98471,0.87897 -0.765024,-0.85705 -0.913958,0.81582 -0.866205,-0.9704 0.913958,-0.81582 -0.699577,-0.78373 0.98471,-0.87898 0.699577,0.78373 0.80821,-0.72143 0.866205,0.97041 -0.80821,0.72142 z&quot;
+             id=&quot;path220&quot; /&gt;
+        &lt;/g&gt;
+        &lt;g
+           id=&quot;labels&quot;
+           style=&quot;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:4px;line-height:normal;font-family:&#39;garamond&#39;;&quot;&gt;
+
+                         
+          &lt;text
+             style=&quot;text-anchor:middle;stroke:#ffffff;stroke-width:0.54807758&quot;
+             x=&quot;-1.955727&quot;
+             y=&quot;-1.2391077&quot;
+             id=&quot;text228&quot;&gt;Market&lt;/text&gt;
+          &lt;text
+             style=&quot;text-anchor:middle&quot;
+             x=&quot;-1.955727&quot;
+             y=&quot;-1.2391077&quot;
+             id=&quot;text230&quot;&gt;Market&lt;/text&gt;
+                         
+          &lt;text
+             style=&quot;text-anchor:middle;stroke:#ffffff;stroke-width:0.54807758&quot;
+             x=&quot;-15.477314&quot;
+             y=&quot;-6.5104933&quot;
+             id=&quot;text228&quot;&gt;Merchant&lt;/text&gt;
+          &lt;text
+             style=&quot;text-anchor:middle&quot;
+             x=&quot;-15.477314&quot;
+             y=&quot;-6.5104933&quot;
+             id=&quot;text230&quot;&gt;Merchant&lt;/text&gt;
+          &lt;text
+             style=&quot;text-anchor:middle;stroke:#ffffff;stroke-width:0.54807758&quot;
+             x=&quot;1.1964717&quot;
+             y=&quot;-20.027351&quot;
+             id=&quot;text232&quot;&gt;Gate&lt;/text&gt;
+          &lt;text
+             style=&quot;text-anchor:middle&quot;
+             x=&quot;1.1964717&quot;
+             y=&quot;-20.027351&quot;
+             id=&quot;text234&quot;&gt;Gate&lt;/text&gt;
+          &lt;text
+             style=&quot;text-anchor:middle;stroke:#ffffff;stroke-width:0.54807758&quot;
+             x=&quot;5.8611889&quot;
+             y=&quot;15.941353&quot;
+             id=&quot;text236&quot;&gt;Library&lt;/text&gt;
+          &lt;text
+             style=&quot;text-anchor:middle&quot;
+             x=&quot;5.8611889&quot;
+             y=&quot;15.941353&quot;
+             id=&quot;text238&quot;&gt;Library&lt;/text&gt;
+          &lt;text
+             style=&quot;text-anchor:middle;stroke:#ffffff;stroke-width:0.54807758&quot;
+             x=&quot;18.52803&quot;
+             y=&quot;-3.4014435&quot;
+             id=&quot;text240&quot;&gt;Craftsmen&lt;/text&gt;
+          &lt;text
+             style=&quot;text-anchor:middle&quot;
+             x=&quot;18.52803&quot;
+             y=&quot;-3.4014435&quot;
+             id=&quot;text242&quot;&gt;Craftsmen&lt;/text&gt;
+          &lt;text
+             style=&quot;text-anchor:middle;stroke:#ffffff;stroke-width:0.54807758&quot;
+             x=&quot;-7.8806939&quot;
+             y=&quot;28.187849&quot;
+             id=&quot;text244&quot;&gt;Docks&lt;/text&gt;
+          &lt;text
+             style=&quot;text-anchor:middle&quot;
+             x=&quot;-7.8806939&quot;
+             y=&quot;28.187849&quot;
+             id=&quot;text246&quot;&gt;Docks&lt;/text&gt;
+        &lt;/g&gt;
+      &lt;/g&gt;
+    &lt;/g&gt;
+  &lt;/g&gt;
+&lt;/svg&gt;</tw-passagedata><tw-passagedata pid="10" name="inventory" tags="" position="895,349" size="100,100">&lt;&lt;set $playerhp = 100&gt;&gt;&lt;&lt;set $objects = [
+	{ name: &#39;Red Potion&#39;, id: &#39;redpot&#39;, value: 50, use: &#39;&lt;&lt;set $playerhp += 50&gt;&gt;&lt;&lt;print &quot;$playerhp&quot;&gt;&gt;&#39;, count: 0 },
+	{ name: &#39;Blue Potion&#39;, id: &#39;bluepot&#39;, value: 50, use: &#39;$playersp -= 50&#39;, message: &#39;$playername recovered 50 special points!&#39; },
+] &gt;&gt;Use:
+&lt;&lt;for _i to 0; _i lt $objects.length; _i++&gt;&gt;
+&lt;&lt;/for&gt;&gt;&lt;&lt;for _i to 0; _i lt $objects.length; _i++&gt;&gt;&lt;&lt;set _name to $objects[_i].name&gt;&gt;&lt;&lt;capture _i&gt;&gt;
+&lt;&lt;linkappend $objects[_i].name&gt;&gt;&lt;&lt;print $objects[_i].use&gt;&gt;&lt;&lt;/linkappend&gt;&gt;&lt;&lt;/capture&gt;&gt;
+&lt;&lt;/for&gt;&gt;</tw-passagedata><tw-passagedata pid="11" name="act1" tags="no-side-bar" position="48,296" size="100,100">
+
+
+&lt;h1&gt;ACT 1&lt;/h1&gt;&lt;hr&gt;
+At some point, the Vampire planet would be conquered by Shao Kahn, and incorporated into Outworld. Many of the vampires would travel through the planets, especially using the power of their magic crystals and some even journeyed to Earth where they found the natural sunlight to harm them unlike that of other planets.
+&lt;&lt;timed 5s t8n&gt;&gt;&lt;&lt;goto &quot;passage1&quot;&gt;&gt;&lt;&lt;/timed&gt;&gt;
+</tw-passagedata><tw-passagedata pid="12" name="passage1" tags="no-side-bar" position="64,447" size="100,100">&lt;&lt;set $num to 1&gt;&gt;
+&lt;&lt;if $num is 1&gt;&gt;
+&lt;&lt;set $name to &quot;&lt;br&gt;&quot;&gt;&gt;&lt;&lt;set $text to &quot;1&quot;&gt;&gt;
+&lt;&lt;/if&gt;&gt;
+
+
+
+
+&lt;div style=&quot;text-align: left; overflow: scroll;&quot;&gt;&lt;fieldset style=&quot;border: 1px white solid&quot;&gt;&lt;legend style=&quot;border: 0px white solid;margin-left: 0em; padding: 0em 0em &quot;&gt;&lt;span id=&quot;name&quot;&gt;$name&lt;/span&gt;&lt;/legend&gt;&lt;span id=&quot;text&quot;&gt;$text&lt;/span&gt;
+
+&lt;div style=&quot;padding-right:10px;text-align: right;&quot;&gt;&lt;&lt;link &quot;continue&quot;&gt;&gt;&lt;&lt;set $num to $num +1&gt;&gt;
+&lt;&lt;silently&gt;&gt;
+
+&lt;&lt;if $num is 2&gt;&gt;
+&lt;&lt;set $name to &quot;B&quot;&gt;&gt;&lt;&lt;set $text to &quot;2&quot;&gt;&gt;
+&lt;&lt;/if&gt;&gt;
+&lt;&lt;if $num is 3&gt;&gt;
+&lt;&lt;set $name to &quot;C&quot;&gt;&gt;&lt;&lt;set $text to &quot;3&quot;&gt;&gt;
+&lt;&lt;/if&gt;&gt;
+
+&lt;&lt;/silently&gt;&gt;
+&lt;&lt;replace &quot;#name&quot;&gt;&gt;$name&lt;&lt;/replace&gt;&gt;&lt;&lt;replace &quot;#text&quot;&gt;&gt;$text&lt;&lt;/replace&gt;&gt;&lt;&lt;/link&gt;&gt;
+&lt;/div&gt;&lt;/fieldset&gt;&lt;/div&gt;</tw-passagedata></tw-storydata>

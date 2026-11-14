@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Project Index</title>
+</head>
+<body>
+    <h1>Project Index</h1>
+
+    <div>
+        <button id="copyBtn" type="button">Copy Selected Names</button>
+        <span id="copyStatus"></span>
+    </div>
+
+    <div id="container">Loading files...</div>
+
+    <script>
+        const USERNAME = 'rbatistadelima';
+        const REPO = 'rbatistadelima.github.io';
+
+        async function getHtmlFilesRecursive() {
+            try {
+                // Fetch repository info to get default branch (main/master)
+                const repoRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}`);
+                if (!repoRes.ok) throw new Error('Failed to fetch repo info');
+                const repoData = await repoRes.json();
+                const branch = repoData.default_branch;
+
+                // Fetch entire file tree recursively in a single API request
+                const treeRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/git/trees/${branch}?recursive=1`);
+                if (!treeRes.ok) throw new Error('Failed to fetch file tree');
+                const treeData = await treeRes.json();
+
+                return treeData.tree.filter(item =>
+                    item.type === 'blob' &&
+                    item.path.toLowerCase().endsWith('.html') &&
+                    item.path.toLowerCase() !== 'index.html'
+                );
+            } catch (error) {
+                console.error('Error:', error);
+                return null;
+            }
+        }
+
+        function formatFileName(fileName) {
+            return fileName
+                .replace(/\.html$/i, '')
+                .replace(/[-_]/g, ' ')
+                .replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function groupByFolder(files) {
+            const groups = {};
+            files.forEach(file => {
+                const lastSlash = file.path.lastIndexOf('/');
+                const folder = lastSlash === -1 ? '/' : file.path.substring(0, lastSlash);
+                const fileName = lastSlash === -1 ? file.path : file.path.substring(lastSlash + 1);
+
+                if (!groups[folder]) groups[folder] = [];
+                groups[folder].push({
+                    path: file.path,
+                    fileName: fileName,
+                    displayName: formatFileName(fileName)
+                });
+            });
+            return groups;
+        }
+
+        async function render() {
+            const container = document.getElementById('container');
+            const files = await getHtmlFilesRecursive();
+
+            if (!files) {
+                container.textContent = 'Error loading files.';
+                return;
+            }
+            if (files.length === 0) {
+                container.textContent = 'No HTML files found.';
+                return;
+            }
+
+            container.innerHTML = '';
+            const groups = groupByFolder(files);
+            const sortedFolders = Object.keys(groups).sort((a, b) => {
+                if (a === '/') return -1;
+                if (b === '/') return 1;
+                return a.localeCompare(b);
+            });
+
+            sortedFolders.forEach(folder => {
+                const section = document.createElement('div');
+
+                // Folder Header + Show/Hide Button
+                const header = document.createElement('h2');
+                const toggleBtn = document.createElement('button');
+                toggleBtn.type = 'button';
+                toggleBtn.textContent = 'Hide';
+
+                const folderLabel = document.createTextNode(` ${folder} `);
+                header.appendChild(toggleBtn);
+                header.appendChild(folderLabel);
+
+                // File List
+                const ul = document.createElement('ul');
+                groups[folder].forEach(file => {
+                    const li = document.createElement('li');
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'file-checkbox';
+                    checkbox.value = file.path; // stores full relative path
+
+                    const link = document.createElement('a');
+                    link.href = file.path;
+                    link.textContent = file.displayName;
+
+                    li.appendChild(checkbox);
+                    li.appendChild(document.createTextNode(' '));
+                    li.appendChild(link);
+                    ul.appendChild(li);
+                });
+
+                toggleBtn.addEventListener('click', () => {
+                    const isHidden = ul.style.display === 'none';
+                    ul.style.display = isHidden ? '' : 'none';
+                    toggleBtn.textContent = isHidden ? 'Hide' : 'Show';
+                });
+
+                section.appendChild(header);
+                section.appendChild(ul);
+                container.appendChild(section);
+            });
+        }
+
+        document.getElementById('copyBtn').addEventListener('click', async () => {
+            const checked = Array.from(document.querySelectorAll('.file-checkbox:checked'));
+            const status = document.getElementById('copyStatus');
+
+            if (checked.length === 0) {
+                status.textContent = 'No files selected.';
+                setTimeout(() => status.textContent = '', 2000);
+                return;
+            }
+
+            const textToCopy = checked.map(cb => cb.value).join('\n');
+
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                status.textContent = `Copied ${checked.length} file(s).`;
+            } catch (err) {
+                status.textContent = 'Failed to copy.';
+            }
+            setTimeout(() => status.textContent = '', 2000);
+        });
+
+        document.addEventListener('DOMContentLoaded', render);
+    </script>
+</body>
+</html>

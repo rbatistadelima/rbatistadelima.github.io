@@ -2,12 +2,88 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Index</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #24292e;
+            background-color: #ffffff;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 { color: #0366d6; }
+        .controls {
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #0366d6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        button:hover { background-color: #0056b3; }
+        #copyStatus { font-size: 14px; color: #586069; }
+        .folder-section {
+            margin-bottom: 25px;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 15px;
+            background-color: #f6f8fa;
+        }
+        .folder-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #0366d6;
+        }
+        .file-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 10px 12px;
+            background: white;
+            border: 1px solid #e1e4e8;
+            border-radius: 4px;
+            transition: transform 0.1s ease;
+        }
+        .file-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .file-item input { margin-right: 12px; transform: scale(1.1); }
+        .file-link {
+            text-decoration: none;
+            color: #24292e;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        .file-link:hover { color: #0366d6; }
+        .file-icon { margin-right: 8px; }
+    </style>
 </head>
 <body>
     <h1>Project Index</h1>
 
-    <div>
+    <div class="controls">
         <button id="copyBtn" type="button">Copy Selected Names</button>
         <span id="copyStatus"></span>
     </div>
@@ -20,13 +96,11 @@
 
         async function getHtmlFilesRecursive() {
             try {
-                // Fetch repository info to get default branch (main/master)
                 const repoRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}`);
                 if (!repoRes.ok) throw new Error('Failed to fetch repo info');
                 const repoData = await repoRes.json();
                 const branch = repoData.default_branch;
 
-                // Fetch entire file tree recursively in a single API request
                 const treeRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/git/trees/${branch}?recursive=1`);
                 if (!treeRes.ok) throw new Error('Failed to fetch file tree');
                 const treeData = await treeRes.json();
@@ -53,7 +127,7 @@
             const groups = {};
             files.forEach(file => {
                 const lastSlash = file.path.lastIndexOf('/');
-                const folder = lastSlash === -1 ? '/' : file.path.substring(0, lastSlash);
+                const folder = lastSlash === -1 ? 'Root ( / )' : file.path.substring(0, lastSlash);
                 const fileName = lastSlash === -1 ? file.path : file.path.substring(lastSlash + 1);
 
                 if (!groups[folder]) groups[folder] = [];
@@ -82,40 +156,46 @@
             container.innerHTML = '';
             const groups = groupByFolder(files);
             const sortedFolders = Object.keys(groups).sort((a, b) => {
-                if (a === '/') return -1;
-                if (b === '/') return 1;
+                if (a.includes('Root')) return -1;
+                if (b.includes('Root')) return 1;
                 return a.localeCompare(b);
             });
 
             sortedFolders.forEach(folder => {
                 const section = document.createElement('div');
+                section.className = 'folder-section';
 
-                // Folder Header + Show/Hide Button
-                const header = document.createElement('h2');
+                const header = document.createElement('div');
+                header.className = 'folder-header';
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.textContent = `📁 ${folder}`;
+                
                 const toggleBtn = document.createElement('button');
                 toggleBtn.type = 'button';
                 toggleBtn.textContent = 'Hide';
 
-                const folderLabel = document.createTextNode(` ${folder} `);
+                header.appendChild(titleSpan);
                 header.appendChild(toggleBtn);
-                header.appendChild(folderLabel);
 
-                // File List
                 const ul = document.createElement('ul');
+                ul.className = 'file-list';
+
                 groups[folder].forEach(file => {
                     const li = document.createElement('li');
+                    li.className = 'file-item';
 
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.className = 'file-checkbox';
-                    checkbox.value = file.path; // stores full relative path
+                    checkbox.value = file.path;
 
                     const link = document.createElement('a');
+                    link.className = 'file-link';
                     link.href = file.path;
-                    link.textContent = file.displayName;
+                    link.innerHTML = `<span class="file-icon">📄</span> ${file.displayName}`;
 
                     li.appendChild(checkbox);
-                    li.appendChild(document.createTextNode(' '));
                     li.appendChild(link);
                     ul.appendChild(li);
                 });
@@ -146,7 +226,7 @@
 
             try {
                 await navigator.clipboard.writeText(textToCopy);
-                status.textContent = `Copied ${checked.length} file(s).`;
+                status.textContent = `Copied ${checked.length} file path(s).`;
             } catch (err) {
                 status.textContent = 'Failed to copy.';
             }

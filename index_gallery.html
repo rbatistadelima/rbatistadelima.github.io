@@ -10,7 +10,7 @@
             line-height: 1.6;
             color: #24292e;
             background-color: #ffffff;
-            max-width: 800px;
+            max-width: 1100px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -33,51 +33,83 @@
         button:hover { background-color: #0056b3; }
         #copyStatus { font-size: 14px; color: #586069; }
         .folder-section {
-            margin-bottom: 25px;
+            margin-bottom: 30px;
             border: 1px solid #e1e4e8;
-            border-radius: 6px;
-            padding: 15px;
+            border-radius: 8px;
+            padding: 15px 20px;
             background-color: #f6f8fa;
         }
         .folder-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-top: 0;
             margin-bottom: 15px;
             font-size: 18px;
+            font-weight: 600;
             color: #0366d6;
         }
-        .file-list {
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
             list-style: none;
             padding: 0;
             margin: 0;
         }
-        .file-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 8px;
-            padding: 10px 12px;
+        .file-card {
             background: white;
             border: 1px solid #e1e4e8;
-            border-radius: 4px;
-            transition: transform 0.1s ease;
+            border-radius: 6px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .file-item:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        .file-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
-        .file-item input { margin-right: 12px; transform: scale(1.1); }
+        .preview-wrapper {
+            position: relative;
+            width: 100%;
+            height: 160px;
+            overflow: hidden;
+            border-bottom: 1px solid #e1e4e8;
+            background: #fff;
+        }
+        .preview-wrapper iframe {
+            width: 1200px;
+            height: 800px;
+            border: none;
+            transform: scale(0.25);
+            transform-origin: 0 0;
+            pointer-events: none;
+        }
+        .preview-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+        .card-footer {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            gap: 10px;
+        }
+        .card-footer input[type="checkbox"] {
+            transform: scale(1.15);
+            cursor: pointer;
+        }
         .file-link {
             text-decoration: none;
             color: #24292e;
             font-weight: 500;
-            display: flex;
-            align-items: center;
-            width: 100%;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .file-link:hover { color: #0366d6; }
-        .file-icon { margin-right: 8px; }
     </style>
 </head>
 <body>
@@ -167,10 +199,10 @@
 
                 const header = document.createElement('div');
                 header.className = 'folder-header';
-                
+
                 const titleSpan = document.createElement('span');
                 titleSpan.textContent = `📁 ${folder}`;
-                
+
                 const toggleBtn = document.createElement('button');
                 toggleBtn.type = 'button';
                 toggleBtn.textContent = 'Hide';
@@ -178,12 +210,33 @@
                 header.appendChild(titleSpan);
                 header.appendChild(toggleBtn);
 
-                const ul = document.createElement('ul');
-                ul.className = 'file-list';
+                const grid = document.createElement('ul');
+                grid.className = 'file-grid';
 
                 groups[folder].forEach(file => {
-                    const li = document.createElement('li');
-                    li.className = 'file-item';
+                    const card = document.createElement('li');
+                    card.className = 'file-card';
+
+                    // Live iframe thumbnail preview
+                    const previewWrapper = document.createElement('div');
+                    previewWrapper.className = 'preview-wrapper';
+
+                    const iframe = document.createElement('iframe');
+                    iframe.src = file.path;
+                    iframe.loading = 'lazy';
+                    iframe.title = file.displayName;
+
+                    // Clickable overlay over the iframe so clicking the thumbnail opens the page
+                    const overlayLink = document.createElement('a');
+                    overlayLink.className = 'preview-overlay';
+                    overlayLink.href = file.path;
+
+                    previewWrapper.appendChild(iframe);
+                    previewWrapper.appendChild(overlayLink);
+
+                    // Card footer with checkbox & link
+                    const footer = document.createElement('div');
+                    footer.className = 'card-footer';
 
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
@@ -193,21 +246,25 @@
                     const link = document.createElement('a');
                     link.className = 'file-link';
                     link.href = file.path;
-                    link.innerHTML = `<span class="file-icon">📄</span> ${file.displayName}`;
+                    link.textContent = file.displayName;
+                    link.title = file.path;
 
-                    li.appendChild(checkbox);
-                    li.appendChild(link);
-                    ul.appendChild(li);
+                    footer.appendChild(checkbox);
+                    footer.appendChild(link);
+
+                    card.appendChild(previewWrapper);
+                    card.appendChild(footer);
+                    grid.appendChild(card);
                 });
 
                 toggleBtn.addEventListener('click', () => {
-                    const isHidden = ul.style.display === 'none';
-                    ul.style.display = isHidden ? '' : 'none';
+                    const isHidden = grid.style.display === 'none';
+                    grid.style.display = isHidden ? 'grid' : 'none';
                     toggleBtn.textContent = isHidden ? 'Hide' : 'Show';
                 });
 
                 section.appendChild(header);
-                section.appendChild(ul);
+                section.appendChild(grid);
                 container.appendChild(section);
             });
         }
